@@ -1,0 +1,185 @@
+// presentation/client/qr_scanner_screen.dart
+
+import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/design_tokens.dart';
+
+class QRScannerScreen extends StatefulWidget {
+  const QRScannerScreen({super.key});
+
+  @override
+  State<QRScannerScreen> createState() => _QRScannerScreenState();
+}
+
+class _QRScannerScreenState extends State<QRScannerScreen> {
+  final _controller = MobileScannerController(detectionSpeed: DetectionSpeed.noDuplicates, facing: CameraFacing.back);
+  bool _isFlashOn = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scanWindowSize = MediaQuery.sizeOf(context).width * 0.75;
+
+    return Scaffold(
+      backgroundColor: DS.bg,
+      body: Stack(
+        children: [
+          MobileScanner(
+            controller: _controller,
+            onDetect: (capture) {
+              for (final barcode in capture.barcodes) {
+                if (barcode.rawValue != null) {
+                  Navigator.pop(context, barcode.rawValue);
+                  break;
+                }
+              }
+            },
+          ),
+          // Overlay with cutout
+          Container(
+            decoration: ShapeDecoration(
+              shape: _ScannerOverlayShape(borderColor: DS.accent, borderWidth: 2.0, overlayColor: Colors.black.withValues(alpha: 0.88), cutOutSize: scanWindowSize),
+            ),
+          ),
+          // Controls
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(DS.s16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Actions(
+                        actions: {
+                          ActivateIntent: CallbackAction<ActivateIntent>(
+                            onInvoke: (_) {
+                              Navigator.pop(context);
+                              return null;
+                            },
+                          ),
+                        },
+                        child: Focus(
+                          onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
+                          child: IconButton(
+                            icon: const Icon(PhosphorIconsRegular.x, color: Colors.white, size: 24),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ),
+                      ),
+                      Actions(
+                        actions: {
+                          ActivateIntent: CallbackAction<ActivateIntent>(
+                            onInvoke: (_) {
+                              _controller.toggleTorch();
+                              setState(() => _isFlashOn = !_isFlashOn);
+                              return null;
+                            },
+                          ),
+                        },
+                        child: Focus(
+                          onKeyEvent: (_, ev) => handleTVSelectKey(ev, () {
+                            _controller.toggleTorch();
+                            setState(() => _isFlashOn = !_isFlashOn);
+                          }),
+                          child: IconButton(
+                            icon: Icon(_isFlashOn ? PhosphorIconsFill.lightning : PhosphorIconsRegular.lightningSlash, color: _isFlashOn ? DS.accent : Colors.white, size: 24),
+                            onPressed: () {
+                              _controller.toggleTorch();
+                              setState(() => _isFlashOn = !_isFlashOn);
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.all(DS.s24),
+                  margin: const EdgeInsets.only(bottom: 40, left: DS.s16, right: DS.s16),
+                  decoration: BoxDecoration(
+                    color: DS.bg,
+                    border: Border.all(color: DS.borderDefault),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('SCAN QR SIGNAL', style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 14)),
+                      const SizedBox(height: DS.s8),
+                      Text('ALIGN QR CODE WITHIN THE FRAME', textAlign: TextAlign.center, style: AppTheme.theme.textTheme.labelSmall),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScannerOverlayShape extends ShapeBorder {
+  final Color borderColor;
+  final double borderWidth;
+  final Color overlayColor;
+  final double cutOutSize;
+
+  const _ScannerOverlayShape({this.borderColor = Colors.white, this.borderWidth = 1.0, this.overlayColor = const Color(0x88000000), this.cutOutSize = 250.0});
+
+  @override
+  EdgeInsetsGeometry get dimensions => const EdgeInsets.all(10);
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) => Path()
+    ..fillType = PathFillType.evenOdd
+    ..addPath(getOuterPath(rect), Offset.zero);
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) {
+    Path base(Rect r) => Path()
+      ..moveTo(r.left, r.bottom)
+      ..lineTo(r.left, r.top)
+      ..lineTo(r.right, r.top);
+
+    return base(rect)
+      ..lineTo(rect.right, rect.bottom)
+      ..lineTo(rect.left, rect.bottom)
+      ..moveTo(rect.left + rect.width / 2, rect.top + rect.height / 2)
+      ..addRect(Rect.fromCenter(center: Offset(rect.width / 2, rect.height / 2), width: cutOutSize, height: cutOutSize));
+  }
+
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) {
+    final center = Offset(rect.width / 2, rect.height / 2);
+    final half = cutOutSize / 2;
+    const cLen = 20.0;
+    final paint = Paint()
+      ..color = DS.accent
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3;
+
+    // Corner markers
+    void corner(Offset a, Offset b, Offset c) {
+      canvas.drawLine(a, b, paint);
+      canvas.drawLine(b, c, paint);
+    }
+
+    corner(Offset(center.dx - half, center.dy - half + cLen), Offset(center.dx - half, center.dy - half), Offset(center.dx - half + cLen, center.dy - half));
+    corner(Offset(center.dx + half - cLen, center.dy - half), Offset(center.dx + half, center.dy - half), Offset(center.dx + half, center.dy - half + cLen));
+    corner(Offset(center.dx - half, center.dy + half - cLen), Offset(center.dx - half, center.dy + half), Offset(center.dx - half + cLen, center.dy + half));
+    corner(Offset(center.dx + half - cLen, center.dy + half), Offset(center.dx + half, center.dy + half), Offset(center.dx + half, center.dy + half - cLen));
+  }
+
+  @override
+  ShapeBorder scale(double t) => _ScannerOverlayShape(borderColor: borderColor, borderWidth: borderWidth * t, overlayColor: overlayColor, cutOutSize: cutOutSize * t);
+}
