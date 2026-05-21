@@ -94,8 +94,6 @@ class _ServerDashboardState extends State<ServerDashboard> {
                                   ),
                                 ),
                                 const SizedBox(width: DS.s12),
-                                Container(width: 24, height: 1, color: DS.textMuted),
-                                const SizedBox(width: DS.s12),
                                 Text('NODE // BROADCAST', style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: isMobile ? 10 : 12, letterSpacing: 4)),
                               ],
                             ),
@@ -763,6 +761,23 @@ class _SharingTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Web Interface Theme
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: DS.borderDefault),
+                  color: DS.surface1,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _TerminalHeader(title: 'WEB UI THEME', icon: PhosphorIconsFill.layout),
+                    _ToggleRow(label: 'SPATIAL VISIONOS UI', icon: PhosphorIconsRegular.monitor, value: state.useModernWebUI, isMobile: isMobile, onChanged: state.setUseModernWebUI, isLast: true),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: DS.s24),
+
               // Filters
               Container(
                 decoration: BoxDecoration(

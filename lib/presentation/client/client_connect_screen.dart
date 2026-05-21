@@ -11,9 +11,8 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/design_tokens.dart';
-import '../mobile/mobile_selection_screen.dart';
-import '../tv/tv_selection_screen.dart';
 import 'client_viewmodel.dart';
+import 'interface_selection_screen.dart'; // <--- Added the new Gateway Screen
 import 'qr_scanner_screen.dart';
 
 class ClientConnectScreen extends StatefulWidget {
@@ -54,14 +53,11 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
     if (!mounted) return;
 
     if (ok) {
-      final isTV = MediaQuery.sizeOf(context).width >= DS.bpTV;
+      // [FIX]: Route to the manual Interface Selection Screen instead of auto-guessing
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => ChangeNotifierProvider.value(
-              value: context.read<ClientViewModel>(),
-              child: isTV ? const TVSelectionScreen() : const MobileSelectionScreen()
-          ),
+          builder: (_) => ChangeNotifierProvider.value(value: context.read<ClientViewModel>(), child: const InterfaceSelectionScreen()),
         ),
       );
     }
@@ -78,10 +74,12 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
         backgroundColor: DS.bg,
         leading: Actions(
           actions: {
-            ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-              Navigator.pop(context);
-              return null;
-            }),
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (_) {
+                Navigator.pop(context);
+                return null;
+              },
+            ),
           },
           child: Focus(
             onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
@@ -155,13 +153,13 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
                           children: vm.ipHistory
                               .map(
                                 (ip) => _RecentIpChip(
-                              ip: ip,
-                              onTap: () {
-                                _ctrl.text = ip;
-                                _connect();
-                              },
-                            ),
-                          )
+                                  ip: ip,
+                                  onTap: () {
+                                    _ctrl.text = ip;
+                                    _connect();
+                                  },
+                                ),
+                              )
                               .toList(),
                         ),
                         SizedBox(height: isMobile ? DS.s16 : DS.s24),
@@ -294,10 +292,12 @@ class _RecentIpChipState extends State<_RecentIpChip> {
   Widget build(BuildContext context) {
     return Actions(
       actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-          widget.onTap();
-          return null;
-        }),
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onTap();
+            return null;
+          },
+        ),
       },
       child: Focus(
         onFocusChange: (val) {
@@ -316,8 +316,8 @@ class _RecentIpChipState extends State<_RecentIpChip> {
               boxShadow: _isFocused ? [const BoxShadow(color: DS.accent, offset: Offset(2, 2))] : [],
             ),
             child: Text(
-                widget.ip,
-                style: GoogleFonts.dmMono(color: _isFocused ? DS.accent : DS.textSecondary, fontSize: 11, letterSpacing: 1, fontWeight: _isFocused ? FontWeight.bold : FontWeight.normal)
+              widget.ip,
+              style: GoogleFonts.dmMono(color: _isFocused ? DS.accent : DS.textSecondary, fontSize: 11, letterSpacing: 1, fontWeight: _isFocused ? FontWeight.bold : FontWeight.normal),
             ),
           ),
         ),

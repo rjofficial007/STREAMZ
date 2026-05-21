@@ -138,10 +138,12 @@ class _AppCardState extends State<AppCard> {
   @override
   Widget build(BuildContext context) => Actions(
     actions: {
-      ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-        widget.onTap?.call();
-        return null;
-      }),
+      ActivateIntent: CallbackAction<ActivateIntent>(
+        onInvoke: (_) {
+          widget.onTap?.call();
+          return null;
+        },
+      ),
     },
     child: Focus(
       onFocusChange: (val) {
@@ -265,10 +267,12 @@ class _CompactBtnState extends State<CompactBtn> {
 
     return Actions(
       actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-          if (!widget.isLoading) widget.onTap();
-          return null;
-        }),
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            if (!widget.isLoading) widget.onTap();
+            return null;
+          },
+        ),
       },
       child: Focus(
         onFocusChange: (val) => setState(() => _isFocused = val),
@@ -289,15 +293,15 @@ class _CompactBtnState extends State<CompactBtn> {
                 child: widget.isLoading
                     ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: fg))
                     : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (widget.icon != null) ...[Icon(widget.icon, size: 16, color: fg), const SizedBox(width: DS.s8)],
-                    Text(
-                      widget.label.toUpperCase(),
-                      style: GoogleFonts.dmMono(fontWeight: FontWeight.w700, fontSize: 11, letterSpacing: 2, color: fg),
-                    ),
-                  ],
-                ),
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (widget.icon != null) ...[Icon(widget.icon, size: 16, color: fg), const SizedBox(width: DS.s8)],
+                          Text(
+                            widget.label.toUpperCase(),
+                            style: GoogleFonts.dmMono(fontWeight: FontWeight.w700, fontSize: 11, letterSpacing: 2, color: fg),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ),
@@ -332,10 +336,12 @@ class _AppButtonState extends State<AppButton> {
 
     return Actions(
       actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-          if (!widget.isLoading) widget.onTap();
-          return null;
-        }),
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            if (!widget.isLoading) widget.onTap();
+            return null;
+          },
+        ),
       },
       child: Focus(
         onFocusChange: (val) {
@@ -360,15 +366,15 @@ class _AppButtonState extends State<AppButton> {
                 child: widget.isLoading
                     ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: fg))
                     : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (widget.icon != null) ...[Icon(widget.icon, size: 16, color: fg), const SizedBox(width: DS.s12)],
-                    Text(
-                      widget.label.toUpperCase(),
-                      style: GoogleFonts.dmMono(fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 3, color: fg),
-                    ),
-                  ],
-                ),
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (widget.icon != null) ...[Icon(widget.icon, size: 16, color: fg), const SizedBox(width: DS.s12)],
+                          Text(
+                            widget.label.toUpperCase(),
+                            style: GoogleFonts.dmMono(fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 3, color: fg),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ),
@@ -490,10 +496,12 @@ class _BrutalistPlayerBtnState extends State<BrutalistPlayerBtn> {
 
     return Actions(
       actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-          widget.onTap();
-          return null;
-        }),
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onTap();
+            return null;
+          },
+        ),
       },
       child: Focus(
         focusNode: widget.focusNode,

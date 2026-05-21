@@ -23,7 +23,9 @@ import '../../data/local/media_scanner.dart';
 import '../../data/local/thumbnail_cache.dart';
 import '../../domain/models/media_item.dart';
 import '../../domain/models/stream_session.dart';
-import '../network/web_html.dart';
+// IMPORTANT: Ensure both HTML files are correctly imported so the router can access them
+import 'modern_web_html.dart';
+import 'web_html.dart';
 
 typedef SessionUpdateCallback = void Function(String sessionId, StreamSession? session);
 typedef ConnectionLogCallback = void Function(String ip);
@@ -35,6 +37,9 @@ class HttpServerService {
   HttpServer? _server;
   final List _sockets = [];
   int _totalBytesSent = 0;
+
+  // ── Web UI Theme Toggle ────────────────────────────────────────────────────
+  bool useModernWebUI = true;
 
   // Callbacks to notify ViewModel
   SessionUpdateCallback? onSessionUpdate;
@@ -90,8 +95,11 @@ class HttpServerService {
       }
     });
 
-    // Web interface
-    router.get('/', (_) => shelf.Response.ok(kWebInterfaceHtml, headers: {'content-type': 'text/html; charset=utf-8'}));
+    // ── Web interface (Dynamic Theme Evaluation) ─────────────────────────────
+    router.get('/', (_) {
+      final htmlContent = useModernWebUI ? kModernWebInterfaceHtml : kWebInterfaceHtml;
+      return shelf.Response.ok(htmlContent, headers: {'content-type': 'text/html; charset=utf-8'});
+    });
 
     // Media list
     router.get('/api/media', (_) {

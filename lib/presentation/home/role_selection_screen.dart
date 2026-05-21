@@ -104,13 +104,7 @@ class RoleSelectionScreen extends StatelessWidget {
                                   // Transparent fill to preserve layout
                                   Text(
                                     'ANYTHING',
-                                    style: GoogleFonts.barlowCondensed(
-                                      fontSize: titleSz,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -2,
-                                      height: 1.0,
-                                      color: Colors.transparent,
-                                    ),
+                                    style: GoogleFonts.barlowCondensed(fontSize: titleSz, fontWeight: FontWeight.w900, letterSpacing: -2, height: 1.0, color: Colors.transparent),
                                   ),
                                 ],
                               ),
@@ -123,8 +117,8 @@ class RoleSelectionScreen extends StatelessWidget {
                         // Subtitle
                         Text(
                           'A premium cross-platform broadcasting system. '
-                              'Any device becomes a server. Any device becomes a client. '
-                              'Zero configuration. Pure signal.',
+                          'Any device becomes a server. Any device becomes a client. '
+                          'Zero configuration. Pure signal.',
                           style: AppTheme.theme.textTheme.bodyLarge?.copyWith(fontSize: isMobile ? 14 : 16),
                         ),
 
@@ -135,62 +129,62 @@ class RoleSelectionScreen extends StatelessWidget {
                           policy: WidgetOrderTraversalPolicy(),
                           child: isDesktop
                               ? IntrinsicHeight(
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Expanded(
-                                  child: _RoleCard(
-                                    roleText: 'SERVER',
-                                    subtitle:
-                                    'Host your local media library. UDP broadcasts '
-                                        'announce your presence. HTTP serves files.',
-                                    icon: PhosphorIconsFill.hardDrives,
-                                    isMobile: false,
-                                    autoFocus: true, // Grabs physical TV remote focus on boot
-                                    onTap: () => _handleServerTap(context),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        child: _RoleCard(
+                                          roleText: 'SERVER',
+                                          subtitle:
+                                              'Host your local media library. UDP broadcasts '
+                                              'announce your presence. HTTP serves files.',
+                                          icon: PhosphorIconsFill.hardDrives,
+                                          isMobile: false,
+                                          autoFocus: true, // Grabs physical TV remote focus on boot
+                                          onTap: () => _handleServerTap(context),
+                                        ),
+                                      ),
+                                      const SizedBox(width: DS.s24),
+                                      Expanded(
+                                        child: _RoleCard(
+                                          roleText: 'CLIENT',
+                                          subtitle:
+                                              'Connect to any Streamz server via UDP '
+                                              'auto-discovery or QR scan. Browse, stream, '
+                                              'or download.',
+                                          icon: PhosphorIconsFill.wifiHigh,
+                                          isMobile: false,
+                                          onTap: () => _handleClientTap(context),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                const SizedBox(width: DS.s24),
-                                Expanded(
-                                  child: _RoleCard(
-                                    roleText: 'CLIENT',
-                                    subtitle:
-                                    'Connect to any Streamz server via UDP '
-                                        'auto-discovery or QR scan. Browse, stream, '
-                                        'or download.',
-                                    icon: PhosphorIconsFill.wifiHigh,
-                                    isMobile: false,
-                                    onTap: () => _handleClientTap(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
+                                )
                               : Column(
-                            children: [
-                              _RoleCard(
-                                roleText: 'SERVER',
-                                subtitle:
-                                'Host your local media library. UDP broadcasts '
-                                    'announce your presence. HTTP serves files.',
-                                icon: PhosphorIconsFill.hardDrives,
-                                isMobile: true,
-                                autoFocus: true, // Grabs physical TV remote focus on boot
-                                onTap: () => _handleServerTap(context),
-                              ),
-                              const SizedBox(height: DS.s16),
-                              _RoleCard(
-                                roleText: 'CLIENT',
-                                subtitle:
-                                'Connect to any Streamz server via UDP '
-                                    'auto-discovery or QR scan. Browse, stream, '
-                                    'or download.',
-                                icon: PhosphorIconsFill.wifiHigh,
-                                isMobile: true,
-                                onTap: () => _handleClientTap(context),
-                              ),
-                            ],
-                          ),
+                                  children: [
+                                    _RoleCard(
+                                      roleText: 'SERVER',
+                                      subtitle:
+                                          'Host your local media library. UDP broadcasts '
+                                          'announce your presence. HTTP serves files.',
+                                      icon: PhosphorIconsFill.hardDrives,
+                                      isMobile: true,
+                                      autoFocus: true, // Grabs physical TV remote focus on boot
+                                      onTap: () => _handleServerTap(context),
+                                    ),
+                                    const SizedBox(height: DS.s16),
+                                    _RoleCard(
+                                      roleText: 'CLIENT',
+                                      subtitle:
+                                          'Connect to any Streamz server via UDP '
+                                          'auto-discovery or QR scan. Browse, stream, '
+                                          'or download.',
+                                      icon: PhosphorIconsFill.wifiHigh,
+                                      isMobile: true,
+                                      onTap: () => _handleClientTap(context),
+                                    ),
+                                  ],
+                                ),
                         ),
                       ],
                     ),
@@ -300,9 +294,9 @@ class _RoleCardState extends State<_RoleCard> {
                         foreground: isActive
                             ? null
                             : (Paint()
-                          ..style = PaintingStyle.stroke
-                          ..strokeWidth = 1
-                          ..color = DS.accent),
+                                ..style = PaintingStyle.stroke
+                                ..strokeWidth = 1
+                                ..color = DS.accent),
                       ),
                     ),
                   ),

@@ -26,6 +26,8 @@ class ServerViewModel extends ChangeNotifier {
   // ── State ─────────────────────────────────────────────────────────────────
   bool _isInitializing = false;
   String _serverIp = 'Initializing...';
+
+  bool _useModernWebUI = true;
   bool _shareVideos = true;
   bool _shareImages = true;
   bool _shareMusic = true;
@@ -41,6 +43,7 @@ class ServerViewModel extends ChangeNotifier {
   bool get isRunning => _httpServer.isRunning;
   bool get isInitializing => _isInitializing;
   String get serverIp => _serverIp;
+  bool get useModernWebUI => _useModernWebUI;
   bool get shareVideos => _shareVideos;
   bool get shareImages => _shareImages;
   bool get shareMusic => _shareMusic;
@@ -55,6 +58,8 @@ class ServerViewModel extends ChangeNotifier {
   ServerViewModel() {
     _initDefaultFolders();
     _wireCallbacks();
+    // Sync initial state with HTTP server
+    _httpServer.useModernWebUI = _useModernWebUI;
   }
 
   void _initDefaultFolders() {
@@ -133,6 +138,12 @@ class ServerViewModel extends ChangeNotifier {
   List<MediaItem> _getMediaItems() => _mediaRepo.getLocalMediaItems(shareVideos: _shareVideos, shareMusic: _shareMusic, shareImages: _shareImages);
 
   // ── Settings ──────────────────────────────────────────────────────────────
+
+  void setUseModernWebUI(bool v) {
+    _useModernWebUI = v;
+    _httpServer.useModernWebUI = v; // Synchronize with HTTP server instantly
+    notifyListeners();
+  }
 
   void setShareVideos(bool v) {
     _shareVideos = v;

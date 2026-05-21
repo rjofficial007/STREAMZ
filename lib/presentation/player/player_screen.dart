@@ -197,7 +197,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           child: Image.network(
             _vm.mediaUrl,
             fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => const Icon(PhosphorIconsRegular.image, color: Colors.white24, size: 64),
+            errorBuilder: (_, __, ___) => const Icon(PhosphorIconsRegular.image, color: Colors.white24, size: 64),
           ),
         ),
       );
@@ -213,15 +213,38 @@ class _PlayerScreenState extends State<PlayerScreen> {
             child: Center(
               child: Padding(
                 padding: EdgeInsets.only(bottom: c.maxHeight * 0.15),
-                child: Container(
+                // Apply the Brutalist Effect here
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
                   width: sz,
                   height: sz,
                   decoration: BoxDecoration(
                     color: DS.surface1,
-                    border: Border.all(color: DS.borderDefault, width: _isTV ? 2 : 1),
-                    boxShadow: [BoxShadow(color: DS.accent.withValues(alpha: 0.15), blurRadius: 40)],
+                    border: Border.all(
+                      color: DS.borderDefault,
+                      width: _isTV ? 3 : 2, // Slightly thicker for brutalist look
+                    ),
+                    boxShadow: [
+                      // Signature Brutalist Offset Shadow
+                      BoxShadow(
+                        color: DS.accent,
+                        offset: const Offset(8, 8),
+                        blurRadius: 0, // Brutalist shadows are usually sharp
+                      ),
+                    ],
                   ),
-                  child: NetworkImageFade(url: _vm.thumbUrl, fit: BoxFit.cover, fallbackIcon: PhosphorIconsFill.musicNote),
+                  child: Stack(
+                    children: [
+                      // Artwork
+                      Positioned.fill(
+                        child: NetworkImageFade(url: _vm.thumbUrl, fit: BoxFit.cover, fallbackIcon: PhosphorIconsFill.musicNote),
+                      ),
+                      // Optional: Subtle overlay to pop the "Brutalist" border
+                      Container(
+                        decoration: BoxDecoration(border: Border.all(color: Colors.white10, width: 1)),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -292,11 +315,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           padding: EdgeInsets.fromLTRB(hPad, vPad, hPad, (c.maxHeight * 0.05).clamp(20.0, 60.0)),
           decoration: BoxDecoration(
             // Replaced solid block with a sleek, cinematic transparent fade
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [DS.bg.withValues(alpha: 0.85), Colors.transparent],
-            ),
+            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [DS.bg.withValues(alpha: 0.85), Colors.transparent]),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -308,7 +327,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('NOW PLAYING // ${_typeLabel(item)}', style: AppTheme.theme.textTheme.labelSmall?.copyWith(color: DS.accent, fontSize: (c.maxWidth * 0.01).clamp(9.0, 14.0))),
+                    Text(
+                      'NOW PLAYING // ${_typeLabel(item)}',
+                      style: AppTheme.theme.textTheme.labelSmall?.copyWith(color: DS.accent, fontSize: (c.maxWidth * 0.01).clamp(9.0, 14.0)),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       (item?.title ?? '').toUpperCase(),
@@ -319,7 +341,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   ],
                 ),
               ),
-              Text('${_vm.currentIndex + 1}/${_vm.playlist.length}', style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: (c.maxWidth * 0.01).clamp(9.0, 16.0), color: Colors.white70)),
+              Text(
+                '${_vm.currentIndex + 1}/${_vm.playlist.length}',
+                style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: (c.maxWidth * 0.01).clamp(9.0, 16.0), color: Colors.white70),
+              ),
             ],
           ),
         );
@@ -344,11 +369,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           padding: EdgeInsets.fromLTRB(hPad, (c.maxHeight * 0.05).clamp(20.0, 80.0), hPad, vPad),
           decoration: BoxDecoration(
             // Replaced solid block with a sleek, cinematic transparent fade
-            gradient: LinearGradient(
-              begin: Alignment.bottomCenter,
-              end: Alignment.topCenter,
-              colors: [DS.bg.withValues(alpha: 0.95), Colors.transparent],
-            ),
+            gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [DS.bg.withValues(alpha: 0.95), Colors.transparent]),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -387,21 +408,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
       return BrutalistPlayerBtn(icon: PhosphorIconsFill.rewind, size: sz, onTap: () => _vm.seekRelative(const Duration(seconds: -10)));
     }
     if (item?.isImage == true) {
-      return Text('FILE ${_vm.currentIndex + 1} OF ${_vm.playlist.length}', style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: _isTV ? 14 : 10, color: Colors.white70));
+      return Text(
+        'FILE ${_vm.currentIndex + 1} OF ${_vm.playlist.length}',
+        style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: _isTV ? 14 : 10, color: Colors.white70),
+      );
     }
     return const SizedBox.shrink();
   }
 
   Widget _buildCenterBtn(MediaItem? item, double sz) {
     if (item?.isImage == true) {
-      return BrutalistPlayerBtn(
-        focusNode: _primaryFocusNode,
-        autoFocus: true,
-        isPrimary: true,
-        icon: PhosphorIconsFill.stop,
-        size: sz,
-        onTap: () => Navigator.pop(context),
-      );
+      return BrutalistPlayerBtn(focusNode: _primaryFocusNode, autoFocus: true, isPrimary: true, icon: PhosphorIconsFill.stop, size: sz, onTap: () => Navigator.pop(context));
     }
     return StreamBuilder<bool>(
       stream: _vm.player.stream.playing,

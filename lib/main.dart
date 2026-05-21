@@ -3,8 +3,8 @@
 // STREAMZ — Application Entry Point
 // ============================================================================
 
-import 'package:device_preview/device_preview.dart';
-import 'package:flutter/foundation.dart';
+// import 'package:device_preview/device_preview.dart';
+// import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,6 +35,7 @@ Future<void> main() async {
       child: const StreamzApp(),
     ),
   );
+
   // runApp(
   //   DevicePreview(
   //     enabled: !kReleaseMode,
@@ -60,7 +61,16 @@ class StreamzApp extends StatelessWidget {
       theme: AppTheme.theme,
       home: const RoleSelectionScreen(),
       scrollBehavior: const MaterialScrollBehavior().copyWith(dragDevices: {PointerDeviceKind.mouse, PointerDeviceKind.touch, PointerDeviceKind.stylus, PointerDeviceKind.trackpad}),
-      shortcuts: <ShortcutActivator, Intent>{const SingleActivator(LogicalKeyboardKey.select): const ActivateIntent(), const SingleActivator(LogicalKeyboardKey.enter): const ActivateIntent()},
+      // [CRITICAL TV FIX]: We MUST spread WidgetsApp.defaultShortcuts here.
+      // If we don't, we delete the native Up/Down/Left/Right D-Pad bindings!
+      shortcuts: {
+        ...WidgetsApp.defaultShortcuts,
+        const SingleActivator(LogicalKeyboardKey.select): const ActivateIntent(),
+        const SingleActivator(LogicalKeyboardKey.enter): const ActivateIntent(),
+        const SingleActivator(LogicalKeyboardKey.numpadEnter): const ActivateIntent(),
+        // Hardware support for Amazon Fire TV & certain Android TV "OK" buttons
+        const SingleActivator(LogicalKeyboardKey.gameButtonA): const ActivateIntent(),
+      },
     );
   }
 }

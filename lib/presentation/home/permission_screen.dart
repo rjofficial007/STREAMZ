@@ -96,10 +96,12 @@ class _PermissionScreenState extends State<PermissionScreen> {
         backgroundColor: DS.bg,
         leading: Actions(
           actions: {
-            ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-              Navigator.pop(context);
-              return null;
-            }),
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (_) {
+                Navigator.pop(context);
+                return null;
+              },
+            ),
           },
           child: Focus(
             onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
@@ -141,7 +143,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
                                   'SETUP',
                                   style: AppTheme.theme.textTheme.displayLarge?.copyWith(
                                     fontSize: isDesktop ? 100 : 72,
-                                    fontStyle: FontStyle.italic,
+                                    fontStyle: FontStyle.normal,
                                     foreground: Paint()
                                       ..style = PaintingStyle.stroke
                                       ..strokeWidth = isMobile ? 1.5 : 2.5
@@ -240,15 +242,7 @@ class _PermissionTile extends StatefulWidget {
   final VoidCallback onTap;
   final bool autoFocus;
 
-  const _PermissionTile({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.isGranted,
-    required this.isMobile,
-    required this.onTap,
-    this.autoFocus = false,
-  });
+  const _PermissionTile({required this.title, required this.subtitle, required this.icon, required this.isGranted, required this.isMobile, required this.onTap, this.autoFocus = false});
 
   @override
   State<_PermissionTile> createState() => _PermissionTileState();
@@ -261,10 +255,12 @@ class _PermissionTileState extends State<_PermissionTile> {
   Widget build(BuildContext context) {
     return Actions(
       actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-          widget.onTap();
-          return null;
-        }),
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onTap();
+            return null;
+          },
+        ),
       },
       child: Focus(
         autofocus: widget.autoFocus,

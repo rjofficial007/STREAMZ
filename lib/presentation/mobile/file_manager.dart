@@ -284,38 +284,75 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
       backgroundColor: DS.bg,
       leading: showNav
           ? Actions(
-        actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) { _searchActive ? setState(() { _searchActive = false; _searchQuery = ''; _searchCtrl.clear(); }) : _goBack(); return null; })},
-        child: Focus(
-          onKeyEvent: (_, ev) => handleTVSelectKey(ev, _searchActive ? () { setState(() { _searchActive = false; _searchQuery = ''; _searchCtrl.clear(); }); } : _goBack),
-          child: IconButton(
-            icon: Icon(PhosphorIconsRegular.caretLeft, size: iconSz),
-            onPressed: _searchActive ? () => setState(() { _searchActive = false; _searchQuery = ''; _searchCtrl.clear(); }) : _goBack,
-          ),
-        ),
-      )
+              actions: {
+                ActivateIntent: CallbackAction<ActivateIntent>(
+                  onInvoke: (_) {
+                    _searchActive
+                        ? setState(() {
+                            _searchActive = false;
+                            _searchQuery = '';
+                            _searchCtrl.clear();
+                          })
+                        : _goBack();
+                    return null;
+                  },
+                ),
+              },
+              child: Focus(
+                onKeyEvent: (_, ev) => handleTVSelectKey(
+                  ev,
+                  _searchActive
+                      ? () {
+                          setState(() {
+                            _searchActive = false;
+                            _searchQuery = '';
+                            _searchCtrl.clear();
+                          });
+                        }
+                      : _goBack,
+                ),
+                child: IconButton(
+                  icon: Icon(PhosphorIconsRegular.caretLeft, size: iconSz),
+                  onPressed: _searchActive
+                      ? () => setState(() {
+                          _searchActive = false;
+                          _searchQuery = '';
+                          _searchCtrl.clear();
+                        })
+                      : _goBack,
+                ),
+              ),
+            )
           : null,
       automaticallyImplyLeading: false,
       title: _searchActive
           ? TextField(
-        controller: _searchCtrl,
-        focusNode: _searchFocus,
-        autofocus: true,
-        style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: isMobile ? 13 : 14),
-        decoration: const InputDecoration(
-          hintText: 'SEARCH...',
-          hintStyle: TextStyle(color: DS.textMuted),
-          border: InputBorder.none,
-        ),
-        onChanged: (v) => setState(() => _searchQuery = v),
-      )
+              controller: _searchCtrl,
+              focusNode: _searchFocus,
+              autofocus: true,
+              style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: isMobile ? 13 : 14),
+              decoration: const InputDecoration(
+                hintText: 'SEARCH...',
+                hintStyle: TextStyle(color: DS.textMuted),
+                border: InputBorder.none,
+              ),
+              onChanged: (v) => setState(() => _searchQuery = v),
+            )
           : Text(
-        _title.toUpperCase(),
-        style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: isMobile ? 12 : 14, fontWeight: FontWeight.bold, letterSpacing: 2),
-      ),
+              _title.toUpperCase(),
+              style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: isMobile ? 12 : 14, fontWeight: FontWeight.bold, letterSpacing: 2),
+            ),
       actions: [
         if (!_searchActive)
           Actions(
-            actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) { setState(() => _searchActive = true); return null; })},
+            actions: {
+              ActivateIntent: CallbackAction<ActivateIntent>(
+                onInvoke: (_) {
+                  setState(() => _searchActive = true);
+                  return null;
+                },
+              ),
+            },
             child: Focus(
               onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => setState(() => _searchActive = true)),
               child: IconButton(
@@ -326,9 +363,20 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
           ),
         if (_searchActive && _searchQuery.isNotEmpty)
           Actions(
-            actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) { _searchCtrl.clear(); setState(() => _searchQuery = ''); return null; })},
+            actions: {
+              ActivateIntent: CallbackAction<ActivateIntent>(
+                onInvoke: (_) {
+                  _searchCtrl.clear();
+                  setState(() => _searchQuery = '');
+                  return null;
+                },
+              ),
+            },
             child: Focus(
-              onKeyEvent: (_, ev) => handleTVSelectKey(ev, () { _searchCtrl.clear(); setState(() => _searchQuery = ''); }),
+              onKeyEvent: (_, ev) => handleTVSelectKey(ev, () {
+                _searchCtrl.clear();
+                setState(() => _searchQuery = '');
+              }),
               child: IconButton(
                 icon: Icon(PhosphorIconsRegular.x, size: iconSz),
                 onPressed: () {
@@ -351,7 +399,14 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
           ),
         if (!_searchActive)
           Actions(
-            actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) { setState(() => _isListView = !_isListView); return null; })},
+            actions: {
+              ActivateIntent: CallbackAction<ActivateIntent>(
+                onInvoke: (_) {
+                  setState(() => _isListView = !_isListView);
+                  return null;
+                },
+              ),
+            },
             child: Focus(
               onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => setState(() => _isListView = !_isListView)),
               child: IconButton(
@@ -361,7 +416,14 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
             ),
           ),
         Actions(
-          actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) { showDownloadsSheet(context); return null; })},
+          actions: {
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (_) {
+                showDownloadsSheet(context);
+                return null;
+              },
+            ),
+          },
           child: Focus(
             onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => showDownloadsSheet(context)),
             child: IconButton(
@@ -611,7 +673,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     final dirs = items.where((i) => i.isDirectory).toList();
     final files = items.where((i) => !i.isDirectory).toList();
     final extent = Responsive.value<double>(context, mobile: 110, tablet: 150, desktop: 140);
-    final spacing = Responsive.value<double>(context, mobile: 8, tablet: 12, desktop: 12);
+    final spacing = Responsive.value<double>(context, mobile: 0, tablet: 0, desktop: 0);
     final gridDelegate = SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: extent, childAspectRatio: 0.85, crossAxisSpacing: spacing, mainAxisSpacing: spacing);
 
     return CustomScrollView(
@@ -627,7 +689,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
             sliver: SliverGrid(
               gridDelegate: gridDelegate,
               delegate: SliverChildBuilderDelegate(
-                    (_, i) => _FileGridCard(item: dirs[i], vm: _vm, onTap: () => _openItem(dirs[i]), onDownload: () => _triggerDownload(dirs[i])),
+                (_, i) => _FileGridCard(item: dirs[i], vm: _vm, onTap: () => _openItem(dirs[i]), onDownload: () => _triggerDownload(dirs[i])),
                 childCount: dirs.length,
               ),
             ),
@@ -643,7 +705,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
             sliver: SliverGrid(
               gridDelegate: gridDelegate,
               delegate: SliverChildBuilderDelegate(
-                    (_, i) => _FileGridCard(item: files[i], vm: _vm, onTap: () => _openItem(files[i]), onDownload: () => _triggerDownload(files[i])),
+                (_, i) => _FileGridCard(item: files[i], vm: _vm, onTap: () => _openItem(files[i]), onDownload: () => _triggerDownload(files[i])),
                 childCount: files.length,
               ),
             ),
@@ -772,7 +834,14 @@ class _FileListTile extends StatelessWidget {
                 Icon(PhosphorIconsRegular.caretRight, color: DS.textMuted, size: isMobile ? 15 : 17)
               else
                 Actions(
-                  actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) { onDownload(); return null; })},
+                  actions: {
+                    ActivateIntent: CallbackAction<ActivateIntent>(
+                      onInvoke: (_) {
+                        onDownload();
+                        return null;
+                      },
+                    ),
+                  },
                   child: Focus(
                     onKeyEvent: (_, ev) => handleTVSelectKey(ev, onDownload),
                     child: IconButton(
@@ -828,11 +897,11 @@ class _FileGridCard extends StatelessWidget {
                 child: thumbUrl != null
                     ? NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: item.icon)
                     : Container(
-                  color: isDir ? DS.surface3 : DS.surface1,
-                  child: Center(
-                    child: Icon(item.icon, color: isDir ? DS.accent : DS.textMuted, size: isMobile ? (isDir ? 42 : 28) : (isDir ? 56 : 36)),
-                  ),
-                ),
+                        color: isDir ? DS.surface3 : DS.surface1,
+                        child: Center(
+                          child: Icon(item.icon, color: isDir ? DS.accent : DS.textMuted, size: isMobile ? (isDir ? 42 : 28) : (isDir ? 56 : 36)),
+                        ),
+                      ),
               ),
               Container(height: 1, color: DS.borderDefault),
               Container(
@@ -858,33 +927,28 @@ class _FileGridCard extends StatelessWidget {
           // Download button (files only)
           if (!isDir)
             Positioned(
-              top: DS.s4,
-              right: DS.s4,
+              bottom: 0,
+              right: 0,
               child: Actions(
-                actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) { onDownload(); return null; })},
+                actions: {
+                  ActivateIntent: CallbackAction<ActivateIntent>(
+                    onInvoke: (_) {
+                      onDownload();
+                      return null;
+                    },
+                  ),
+                },
                 child: Focus(
                   onKeyEvent: (_, ev) => handleTVSelectKey(ev, onDownload),
                   child: GestureDetector(
                     onTap: onDownload,
                     child: Container(
-                      padding: const EdgeInsets.all(6),
+                      padding: const EdgeInsets.all(5),
                       color: DS.surface1.withValues(alpha: 0.8),
                       child: Icon(PhosphorIconsRegular.downloadSimple, color: DS.accent, size: isMobile ? 16 : 18),
                     ),
                   ),
                 ),
-              ),
-            ),
-
-          // Video play badge
-          if (item.type == SFileType.video)
-            Positioned(
-              bottom: isMobile ? 28 : 34,
-              right: isMobile ? 4 : 6,
-              child: Container(
-                padding: EdgeInsets.all(isMobile ? 4 : 5),
-                color: DS.accent,
-                child: Icon(PhosphorIconsFill.play, color: Colors.black, size: isMobile ? 11 : 13),
               ),
             ),
         ],
