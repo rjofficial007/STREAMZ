@@ -8,7 +8,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -161,7 +161,7 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
                 children: [
                   Row(
                     children: [
-                      const Icon(PhosphorIconsFill.downloadSimple, color: DS.accent, size: 20),
+                      const Icon(LucideIcons.download, color: DS.accent, size: 20),
                       const SizedBox(width: DS.s12),
                       Text('DOWNLOAD CENTER', style: AppTheme.theme.textTheme.titleMedium?.copyWith(fontSize: 18, letterSpacing: 1.0)),
                     ],
@@ -197,7 +197,7 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
                         child: Focus(
                           onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
                           child: IconButton(
-                            icon: const Icon(PhosphorIconsRegular.x, color: Colors.white, size: 24),
+                            icon: const Icon(LucideIcons.x, color: Colors.white, size: 24),
                             onPressed: () => Navigator.pop(context),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
@@ -280,7 +280,7 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
                       child: Center(
                         child: Column(
                           children: [
-                            const Icon(PhosphorIconsRegular.cloudArrowDown, size: 48, color: DS.borderDefault),
+                            const Icon(LucideIcons.download, size: 48, color: DS.borderDefault),
                             const SizedBox(height: DS.s16),
                             Text('NO DOWNLOADS FOUND', style: AppTheme.theme.textTheme.labelSmall),
                           ],
@@ -363,10 +363,10 @@ class _ActiveCard extends StatelessWidget {
   const _ActiveCard({required this.task, required this.onDelete});
 
   IconData get _icon {
-    if (task.type == 'video') return PhosphorIconsFill.filmStrip;
-    if (task.type == 'audio') return PhosphorIconsFill.musicNote;
-    if (task.type == 'image') return PhosphorIconsFill.image;
-    return PhosphorIconsFill.file;
+    if (task.type == 'video') return LucideIcons.video;
+    if (task.type == 'audio') return LucideIcons.music;
+    if (task.type == 'image') return LucideIcons.image;
+    return LucideIcons.file;
   }
 
   @override
@@ -408,7 +408,7 @@ class _ActiveCard extends StatelessWidget {
                 child: Focus(
                   onKeyEvent: (_, ev) => handleTVSelectKey(ev, onDelete),
                   child: IconButton(
-                    icon: const Icon(PhosphorIconsRegular.x, color: Colors.white54, size: 16),
+                    icon: const Icon(LucideIcons.x, color: Colors.white54, size: 16),
                     onPressed: onDelete,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -449,7 +449,7 @@ class _CompletedCard extends StatelessWidget {
       child: ListTile(
         dense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: DS.s16, vertical: 0),
-        leading: const Icon(PhosphorIconsFill.check, color: DS.accent, size: 18),
+        leading: const Icon(LucideIcons.check, color: DS.accent, size: 18),
         title: Text(task.title.toUpperCase(), style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(
           '${task.type.toUpperCase()} // '
@@ -468,7 +468,7 @@ class _CompletedCard extends StatelessWidget {
           child: Focus(
             onKeyEvent: (_, ev) => handleTVSelectKey(ev, onDelete),
             child: IconButton(
-              icon: const Icon(PhosphorIconsFill.trash, color: Colors.white54, size: 16),
+              icon: const Icon(LucideIcons.trash, color: Colors.white54, size: 16),
               onPressed: onDelete,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),

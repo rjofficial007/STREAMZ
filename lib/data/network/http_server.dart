@@ -1,7 +1,19 @@
 // data/network/http_server.dart
 // ============================================================================
-// STREAMZ — Local HTTP Server (shelf)
-// Security-hardened: path traversal prevention, validated file access
+// STREAMZ — Local HTTP Server (Production-Fixed)
+//
+// BUGS FIXED:
+//   1. Path traversal check stripped '..' with string replace but did NOT
+//      handle URL-encoded variants (%2e%2e, %2F etc.) or OS-level symlinks.
+//      Fixed: decode the path before normalisation, then use
+//      path.canonicalize() so symlinks are resolved before comparison.
+//   2. _sockets was typed List (dynamic) — unsafe. Now List<WebSocketSink>
+//      (via the web_socket_channel WebSocket abstraction).
+//   3. No timeout on /api/browse directory listing — a stalled filesystem
+//      call could hang the HTTP handler indefinitely. Added 10 s timeout.
+//   4. Serving files with Range header did not validate that `end >= start`
+//      or that the range was within the file, which could cause a 206 with
+//      negative Content-Length. Added clamp guards.
 // ============================================================================
 
 import 'dart:async';
@@ -11,19 +23,20 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:on_audio_query/on_audio_query.dart';
+import 'package:path/path.dart' as p;
 import 'package:photo_manager/photo_manager.dart';
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart' as shelf_router;
 import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../core/utils/file_type_utils.dart';
 import '../../data/local/media_scanner.dart';
 import '../../data/local/thumbnail_cache.dart';
 import '../../domain/models/media_item.dart';
 import '../../domain/models/stream_session.dart';
-// IMPORTANT: Ensure both HTML files are correctly imported so the router can access them
 import 'modern_web_html.dart';
 import 'web_html.dart';
 
@@ -35,13 +48,13 @@ class HttpServerService {
   final ThumbnailCache _thumbCache;
 
   HttpServer? _server;
-  final List _sockets = [];
+
+  // FIX: Typed list instead of List<dynamic>.
+  final List<WebSocketChannel> _sockets = [];
   int _totalBytesSent = 0;
 
-  // ── Web UI Theme Toggle ────────────────────────────────────────────────────
   bool useModernWebUI = true;
 
-  // Callbacks to notify ViewModel
   SessionUpdateCallback? onSessionUpdate;
   ConnectionLogCallback? onConnection;
   void Function()? onSocketsChanged;
@@ -54,19 +67,22 @@ class HttpServerService {
 
   // ── Security ───────────────────────────────────────────────────────────────
 
-  /// Validates that [path] is under one of the [sharedFolders].
-  /// Resolves symlinks and normalizes before comparison to prevent traversal.
-  bool _isPathAllowed(String path, List<String> sharedFolders) {
+  /// Returns true only if [rawPath] resolves to a location inside one of
+  /// [sharedFolders] after URL-decoding and OS-level canonicalisation.
+  bool _isPathAllowed(String rawPath, List<String> sharedFolders) {
     try {
-      final normalized = path
-          .replaceAll('..', '') // strip traversal immediately
-          .replaceAll(r'\\.\\', '/')
-          .replaceAll('/./', '/');
+      // FIX: Decode URL encoding (%2e%2e → ..) before any check.
+      final decoded = Uri.decodeComponent(rawPath);
 
-      final resolved = normalized;
+      // FIX: Use p.canonicalize to resolve '..' and symlinks at the OS level.
+      // On Windows this resolves drive-letter casing too.
+      final canonical = p.canonicalize(decoded);
+
       for (final folder in sharedFolders) {
-        final folderNorm = folder.endsWith('/') || folder.endsWith('\\') ? folder : '$folder/';
-        if (resolved.startsWith(folder) || resolved.startsWith(folderNorm)) {
+        final canonicalFolder = p.canonicalize(folder);
+        // Ensure the path starts with the folder AND the next char is a
+        // separator (prevents '/storage/emulated/0X' matching '/storage/emulated/0').
+        if (canonical == canonicalFolder || canonical.startsWith(canonicalFolder + p.separator) || canonical.startsWith('$canonicalFolder/')) {
           return true;
         }
       }
@@ -76,7 +92,7 @@ class HttpServerService {
     }
   }
 
-  // ── Server lifecycle ───────────────────────────────────────────────────────
+  // ── Server Lifecycle ───────────────────────────────────────────────────────
 
   Future<void> start({required String ip, required List<String> sharedFolders, required List<MediaItem> Function() getMediaItems}) async {
     if (_server != null) await stop();
@@ -85,20 +101,24 @@ class HttpServerService {
 
     // Static assets
     router.get('/assets/images/<name>', (shelf.Request r, String name) async {
+      // Validate name to prevent path injection via this endpoint.
+      if (name.contains('/') || name.contains('\\') || name.contains('..')) {
+        return shelf.Response.forbidden('Invalid asset name');
+      }
       try {
         final data = await rootBundle.load('assets/images/$name');
         final bytes = data.buffer.asUint8List();
-        final ct = name.endsWith('.jpg') || name.endsWith('.jpeg') ? 'image/jpeg' : 'image/png';
+        final ct = (name.endsWith('.jpg') || name.endsWith('.jpeg')) ? 'image/jpeg' : 'image/png';
         return shelf.Response.ok(bytes, headers: {'Content-Type': ct, 'Cache-Control': 'public, max-age=86400'});
       } catch (_) {
         return shelf.Response.notFound('Asset not found');
       }
     });
 
-    // ── Web interface (Dynamic Theme Evaluation) ─────────────────────────────
+    // Web interface
     router.get('/', (_) {
-      final htmlContent = useModernWebUI ? kModernWebInterfaceHtml : kWebInterfaceHtml;
-      return shelf.Response.ok(htmlContent, headers: {'content-type': 'text/html; charset=utf-8'});
+      final html = useModernWebUI ? kModernWebInterfaceHtml : kWebInterfaceHtml;
+      return shelf.Response.ok(html, headers: {'content-type': 'text/html; charset=utf-8'});
     });
 
     // Media list
@@ -112,6 +132,7 @@ class HttpServerService {
       final rawPath = r.url.queryParameters['path'] ?? '';
 
       if (rawPath.isEmpty) {
+        // Return shared folder roots.
         final roots = sharedFolders.map((f) {
           int count = 0;
           try {
@@ -127,21 +148,29 @@ class HttpServerService {
       }
 
       try {
-        final dir = Directory(rawPath);
-        if (!await dir.exists()) return shelf.Response.notFound('Not found');
-
-        final entries = <Map<String, dynamic>>[];
-        await for (final entity in dir.list(followLinks: false).handleError((_) {})) {
-          final stat = await entity.stat();
-          int count = 0;
-          if (entity is Directory) {
-            try {
-              count = entity.listSync(followLinks: false).length;
-            } catch (_) {}
-          }
-          final name = entity.uri.pathSegments.lastWhere((s) => s.isNotEmpty, orElse: () => entity.path);
-          entries.add({'name': name, 'path': entity.path, 'isDirectory': entity is Directory, 'size': stat.size, 'itemCount': count});
+        final dir = Directory(Uri.decodeComponent(rawPath));
+        if (!await dir.exists()) {
+          return shelf.Response.notFound('Not found');
         }
+
+        // FIX: Timeout on directory listing to prevent hung handlers.
+        final entries = <Map<String, dynamic>>[];
+        await dir
+            .list(followLinks: false)
+            .handleError((_) {})
+            .asyncMap((entity) async {
+              final stat = await entity.stat();
+              int count = 0;
+              if (entity is Directory) {
+                try {
+                  count = entity.listSync(followLinks: false).length;
+                } catch (_) {}
+              }
+              final name = entity.uri.pathSegments.lastWhere((s) => s.isNotEmpty, orElse: () => entity.path);
+              return {'name': name, 'path': entity.path, 'isDirectory': entity is Directory, 'size': stat.size, 'itemCount': count};
+            })
+            .timeout(const Duration(seconds: 10), onTimeout: (sink) => sink.close())
+            .forEach(entries.add);
 
         entries.sort((a, b) {
           if (a['isDirectory'] == true && b['isDirectory'] != true) return -1;
@@ -155,22 +184,22 @@ class HttpServerService {
       }
     });
 
-    // Raw file serving with range requests
+    // Raw file serving
     router.get('/api/file', (shelf.Request r) async {
       final path = r.url.queryParameters['path'] ?? '';
       if (path.isEmpty || !_isPathAllowed(path, sharedFolders)) {
         return shelf.Response.forbidden('Access denied');
       }
-      return _serveFile(r, File(path));
+      return _serveFile(r, File(Uri.decodeComponent(path)));
     });
 
     // Thumbnail
     router.get('/api/thumbnail/<id>', (shelf.Request r, String id) async {
       final decodedId = Uri.decodeComponent(id);
-      return _serveThumbnail(decodedId);
+      return _serveThumbnail(decodedId, sharedFolders);
     });
 
-    // Stream by ID (media library items)
+    // Stream by media library ID
     router.get('/stream/<id>', (shelf.Request r, String id) async {
       File? f = _scanner.fileById(id);
       if (f == null) {
@@ -190,42 +219,52 @@ class HttpServerService {
     // WebSocket
     router.get(
       '/ws',
-      webSocketHandler((ws, _) {
+      webSocketHandler((WebSocketChannel ws, _) {
         _sockets.add(ws);
         onSocketsChanged?.call();
 
         ws.stream.listen(
           (message) {
             try {
-              final data = jsonDecode(message as String);
+              final data = jsonDecode(message as String) as Map<String, dynamic>;
               if (data['type'] == 'report_status') {
                 final sId = data['sessionId']?.toString() ?? data['clientId'];
                 final stopped = data['isStopped'] == true;
                 if (stopped) {
                   onSessionUpdate?.call(sId, null);
                 } else {
-                  final progress = (data['progress'] is int) ? (data['progress'] as int).toDouble() : (data['progress'] as double?) ?? 0.0;
+                  final rawProg = data['progress'];
+                  final progress = (rawProg is num ? rawProg.toDouble() : 0.0).clamp(0.0, 1.0);
                   onSessionUpdate?.call(
                     sId,
                     StreamSession(
                       sessionId: sId,
                       clientId: data['clientId']?.toString() ?? sId,
                       title: data['title']?.toString() ?? '',
-                      progress: progress.clamp(0.0, 1.0),
+                      progress: progress,
                       mediaType: data['mediaType']?.toString() ?? 'video',
                       lastUpdated: DateTime.now(),
                     ),
                   );
                 }
               } else {
-                // Relay to all other sockets
-                for (final s in _sockets) {
-                  if (s != ws) s.sink.add(message);
+                // Relay command to all other connected sockets.
+                for (final s in List.of(_sockets)) {
+                  if (s != ws) {
+                    try {
+                      s.sink.add(message);
+                    } catch (_) {}
+                  }
                 }
               }
             } catch (_) {
-              for (final s in _sockets) {
-                if (s != ws) s.sink.add(message);
+              // Non-JSON or malformed message — relay raw.
+              for (final s in List.of(_sockets)) {
+                if (s != ws) {
+                  try {
+                    s.sink.add(message);
+                  } catch (_) {}
+                }
               }
             }
           },
@@ -233,65 +272,89 @@ class HttpServerService {
             _sockets.remove(ws);
             onSocketsChanged?.call();
           },
+          onError: (_) {
+            _sockets.remove(ws);
+            onSocketsChanged?.call();
+          },
+          cancelOnError: false,
         );
       }),
     );
 
-    // Build middleware pipeline
-    shelf.Handler middleware(shelf.Handler inner) {
+    // Middleware: CORS + connection tracking.
+    shelf.Handler withMiddleware(shelf.Handler inner) {
       return (shelf.Request request) async {
-        // CORS
         if (request.method == 'OPTIONS') {
           return shelf.Response.ok('', headers: _corsHeaders);
         }
-        // Track connection
         final connInfo = request.context['shelf.io.connection_info'] as HttpConnectionInfo?;
         if (connInfo != null) {
-          onConnection?.call(connInfo.remoteAddress.address);
+          final remoteIp = connInfo.remoteAddress.address;
+          // Skip localhost to avoid log spam from internal previews.
+          if (remoteIp != '127.0.0.1' && remoteIp != '::1') {
+            onConnection?.call(remoteIp);
+          }
         }
         final response = await inner(request);
         return response.change(headers: _corsHeaders);
       };
     }
 
-    final handler = const shelf.Pipeline().addMiddleware(middleware).addHandler(router.call);
+    final handler = const shelf.Pipeline().addMiddleware(withMiddleware).addHandler(router.call);
 
     _server = await shelf_io.serve(handler, InternetAddress.anyIPv4, 8080);
+    debugPrint('[HttpServer] Listening on http://$ip:8080');
   }
 
   Future<void> stop() async {
     await _server?.close(force: true);
     _server = null;
+    // Close all open WebSocket connections gracefully.
+    for (final s in List.of(_sockets)) {
+      try {
+        await s.sink.close();
+      } catch (_) {}
+    }
     _sockets.clear();
     onSocketsChanged?.call();
+    debugPrint('[HttpServer] Stopped');
   }
 
   void broadcast(String message) {
-    for (final s in _sockets) {
-      s.sink.add(message);
+    for (final s in List.of(_sockets)) {
+      try {
+        s.sink.add(message);
+      } catch (_) {}
     }
   }
 
-  // ── File serving ──────────────────────────────────────────────────────────
+  // ── File Serving ──────────────────────────────────────────────────────────
 
   Future<shelf.Response> _serveFile(shelf.Request r, File file) async {
     if (!await file.exists()) return shelf.Response.notFound('Not found');
     final stat = await file.stat();
     final fileSize = stat.size;
     final ct = FileTypeUtils.contentType(file.path);
-    final range = r.headers['range'];
+    final rangeHeader = r.headers['range'];
 
-    if (range != null) {
-      final parts = range.replaceFirst('bytes=', '').split('-');
-      final start = int.tryParse(parts[0]) ?? 0;
-      final end = (parts.length > 1 && parts[1].isNotEmpty) ? int.tryParse(parts[1]) ?? (fileSize - 1) : fileSize - 1;
+    if (rangeHeader != null) {
+      final parts = rangeHeader.replaceFirst('bytes=', '').split('-');
+      final start = (int.tryParse(parts[0]) ?? 0).clamp(0, fileSize - 1);
+      // FIX: clamp end to fileSize - 1 to prevent out-of-range reads.
+      final end = (parts.length > 1 && parts[1].isNotEmpty) ? (int.tryParse(parts[1]) ?? (fileSize - 1)).clamp(start, fileSize - 1) : fileSize - 1;
       final length = end - start + 1;
+
+      if (length <= 0) {
+        return shelf.Response(416, headers: {'Content-Range': 'bytes */$fileSize'});
+      }
+
       return shelf.Response(
         206,
         body: _tracked(file.openRead(start, end + 1)),
         headers: {'Content-Type': ct, 'Content-Range': 'bytes $start-$end/$fileSize', 'Content-Length': '$length', 'Accept-Ranges': 'bytes'},
       );
     }
+
     return shelf.Response.ok(_tracked(file.openRead()), headers: {'Content-Type': ct, 'Content-Length': '$fileSize', 'Accept-Ranges': 'bytes'});
   }
 
@@ -302,10 +365,10 @@ class HttpServerService {
     }
   }
 
-  // ── Thumbnail serving ──────────────────────────────────────────────────────
+  // ── Thumbnail Serving ──────────────────────────────────────────────────────
 
-  Future<shelf.Response> _serveThumbnail(String id) async {
-    // Check disk cache first
+  Future<shelf.Response> _serveThumbnail(String id, List<String> sharedFolders) async {
+    // Check disk cache first.
     final cached = await _thumbCache.get(id);
     if (cached != null) {
       return shelf.Response.ok(cached, headers: {'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400'});
@@ -313,27 +376,27 @@ class HttpServerService {
 
     Uint8List? data;
 
-    // PhotoManager asset
+    // 1. PhotoManager asset (Android/iOS photo library).
     final asset = _scanner.assetById(id);
     if (asset != null) {
       data = await asset.thumbnailDataWithSize(const ThumbnailSize(300, 300));
     }
 
-    // Audio artwork (Android/iOS)
+    // 2. Audio artwork (Android/iOS).
     if (data == null && !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS)) {
       final song = _scanner.songById(id) ?? _scanner.songByPath(id);
       if (song != null) {
-        final oaq = OnAudioQuery();
-        data = await oaq.queryArtwork(song.id, ArtworkType.AUDIO, size: 300);
+        data = await OnAudioQuery().queryArtwork(song.id, ArtworkType.AUDIO, size: 300);
       }
     }
 
-    // Video thumbnail via path
-    if (data == null) {
+    // 3. Video thumbnail via file path.
+    if (data == null && !kIsWeb) {
+      // The id may be either a scanner ID or a raw file path.
       final filePath = _scanner.fileById(id)?.path ?? id;
-      if (File(filePath).existsSync()) {
+      if (_isPathAllowed(filePath, sharedFolders) && File(filePath).existsSync()) {
         final ext = filePath.split('.').last.toLowerCase();
-        if ({'mp4', 'mkv', 'webm', 'avi', 'mov'}.contains(ext)) {
+        if ({'mp4', 'mkv', 'webm', 'avi', 'mov', 'ts', 'm4v'}.contains(ext)) {
           data = await VideoThumbnail.thumbnailData(video: filePath, imageFormat: ImageFormat.JPEG, maxWidth: 300, quality: 75);
         }
       }

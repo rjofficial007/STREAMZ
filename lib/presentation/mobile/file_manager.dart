@@ -7,7 +7,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -31,10 +31,10 @@ class _Category {
 }
 
 const _kCategories = [
-  _Category(id: 'recent', label: 'RECENT', icon: PhosphorIconsFill.clockCounterClockwise),
-  _Category(id: 'images', label: 'IMAGES', icon: PhosphorIconsFill.image, filterType: SFileType.image),
-  _Category(id: 'videos', label: 'VIDEOS', icon: PhosphorIconsFill.filmStrip, filterType: SFileType.video),
-  _Category(id: 'audio', label: 'AUDIO', icon: PhosphorIconsFill.waveform, filterType: SFileType.audio),
+  _Category(id: 'recent', label: 'RECENT', icon: LucideIcons.history),
+  _Category(id: 'images', label: 'IMAGES', icon: LucideIcons.image, filterType: SFileType.image),
+  _Category(id: 'videos', label: 'VIDEOS', icon: LucideIcons.film, filterType: SFileType.video),
+  _Category(id: 'audio', label: 'AUDIO', icon: LucideIcons.activity, filterType: SFileType.audio),
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -312,7 +312,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
                       : _goBack,
                 ),
                 child: IconButton(
-                  icon: Icon(PhosphorIconsRegular.caretLeft, size: iconSz),
+                  icon: Icon(LucideIcons.chevronLeft, size: iconSz),
                   onPressed: _searchActive
                       ? () => setState(() {
                           _searchActive = false;
@@ -356,7 +356,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
             child: Focus(
               onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => setState(() => _searchActive = true)),
               child: IconButton(
-                icon: Icon(PhosphorIconsRegular.magnifyingGlass, size: iconSz),
+                icon: Icon(LucideIcons.search, size: iconSz),
                 onPressed: () => setState(() => _searchActive = true),
               ),
             ),
@@ -378,7 +378,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
                 setState(() => _searchQuery = '');
               }),
               child: IconButton(
-                icon: Icon(PhosphorIconsRegular.x, size: iconSz),
+                icon: Icon(LucideIcons.x, size: iconSz),
                 onPressed: () {
                   _searchCtrl.clear();
                   setState(() => _searchQuery = '');
@@ -410,7 +410,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
             child: Focus(
               onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => setState(() => _isListView = !_isListView)),
               child: IconButton(
-                icon: Icon(_isListView ? PhosphorIconsRegular.squaresFour : PhosphorIconsRegular.list, size: iconSz),
+                icon: Icon(_isListView ? LucideIcons.layoutGrid : LucideIcons.list, size: iconSz),
                 onPressed: () => setState(() => _isListView = !_isListView),
               ),
             ),
@@ -427,7 +427,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
           child: Focus(
             onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => showDownloadsSheet(context)),
             child: IconButton(
-              icon: Icon(PhosphorIconsRegular.downloadSimple, size: iconSz),
+              icon: Icon(LucideIcons.download, size: iconSz),
               onPressed: () => showDownloadsSheet(context),
             ),
           ),
@@ -533,7 +533,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('STORAGE ANALYSIS', style: AppTheme.theme.textTheme.labelMedium),
-              const Icon(PhosphorIconsRegular.chartDonut, color: DS.textMuted, size: 20),
+              const Icon(LucideIcons.pieChart, color: DS.textMuted, size: 20),
             ],
           ),
           SizedBox(height: isMobile ? 16 : 24),
@@ -606,7 +606,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
         padding: EdgeInsets.all(isMobile ? 14 : 18),
         child: Row(
           children: [
-            Icon(PhosphorIconsFill.hardDrive, size: isMobile ? 24 : 28, color: DS.textPrimary),
+            Icon(LucideIcons.hardDrive, size: isMobile ? 24 : 28, color: DS.textPrimary),
             SizedBox(width: isMobile ? 12 : 16),
             Expanded(
               child: Column(
@@ -618,7 +618,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
                 ],
               ),
             ),
-            Icon(PhosphorIconsRegular.caretRight, color: DS.textMuted, size: isMobile ? 16 : 18),
+            Icon(LucideIcons.chevronRight, color: DS.textMuted, size: isMobile ? 16 : 18),
           ],
         ),
       ),
@@ -721,7 +721,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(PhosphorIconsRegular.folderOpen, size: isMobile ? 48 : 60, color: DS.textMuted),
+        Icon(LucideIcons.folderOpen, size: isMobile ? 48 : 60, color: DS.textMuted),
         SizedBox(height: isMobile ? 14 : 20),
         Text('DIRECTORY EMPTY', style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: isMobile ? 12 : 13)),
       ],
@@ -732,7 +732,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(PhosphorIconsRegular.warningOctagon, size: isMobile ? 48 : 60, color: DS.textMuted),
+        Icon(LucideIcons.alertTriangle, size: isMobile ? 48 : 60, color: DS.textMuted),
         SizedBox(height: isMobile ? 14 : 20),
         Text('CONNECTION FAILED', style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: isMobile ? 12 : 13)),
         const SizedBox(height: 6),
@@ -831,7 +831,7 @@ class _FileListTile extends StatelessWidget {
               ),
               // Action button
               if (item.isDirectory)
-                Icon(PhosphorIconsRegular.caretRight, color: DS.textMuted, size: isMobile ? 15 : 17)
+                Icon(LucideIcons.chevronRight, color: DS.textMuted, size: isMobile ? 15 : 17)
               else
                 Actions(
                   actions: {
@@ -845,7 +845,7 @@ class _FileListTile extends StatelessWidget {
                   child: Focus(
                     onKeyEvent: (_, ev) => handleTVSelectKey(ev, onDownload),
                     child: IconButton(
-                      icon: Icon(PhosphorIconsRegular.downloadSimple, color: DS.accent, size: isMobile ? 20 : 22),
+                      icon: Icon(LucideIcons.download, color: DS.accent, size: isMobile ? 20 : 22),
                       onPressed: onDownload,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -945,7 +945,7 @@ class _FileGridCard extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(5),
                       color: DS.surface1.withValues(alpha: 0.8),
-                      child: Icon(PhosphorIconsRegular.downloadSimple, color: DS.accent, size: isMobile ? 16 : 18),
+                      child: Icon(LucideIcons.download, color: DS.accent, size: isMobile ? 16 : 18),
                     ),
                   ),
                 ),
@@ -972,7 +972,7 @@ class _SortMenuButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      icon: Icon(PhosphorIconsRegular.sortDescending, size: isMobile ? 20 : 22),
+      icon: Icon(LucideIcons.arrowDownWideNarrow, size: isMobile ? 20 : 22),
       color: DS.surface1,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.zero,
@@ -994,7 +994,7 @@ class _SortMenuButton extends StatelessWidget {
             style: AppTheme.theme.textTheme.labelMedium?.copyWith(color: active ? DS.accent : DS.textPrimary, fontSize: isMobile ? 11 : 13),
           ),
           const Spacer(),
-          if (active) Icon(sortAsc ? PhosphorIconsBold.arrowUp : PhosphorIconsBold.arrowDown, size: isMobile ? 13 : 15, color: DS.accent),
+          if (active) Icon(sortAsc ? LucideIcons.arrowUp : LucideIcons.arrowDown, size: isMobile ? 13 : 15, color: DS.accent),
         ],
       ),
     );

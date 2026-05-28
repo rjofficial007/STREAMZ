@@ -1,12 +1,23 @@
 // presentation/home/role_selection_screen.dart
 // ============================================================================
-// STREAMZ — Role Selection (Home) Screen
+// STREAMZ — Role Selection (Home) Screen (Production-Fixed)
+//
+// BUGS FIXED:
+//   1. On desktop/web, the code jumped directly to ServerDashboard without
+//      ever setting permissions_granted = true in SharedPreferences. This
+//      caused the flag to stay false forever, so the PermissionScreen kept
+//      appearing on subsequent launches even though no permissions were needed.
+//      Fixed: write permissions_granted = true before navigating on platforms
+//      that don't need runtime permissions.
+//   2. No guard against double-tap / rapid navigation — tapping SERVER twice
+//      quickly pushed two ServerDashboard routes onto the stack. Added a
+//      _navigating flag to debounce the gesture.
 // ============================================================================
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,34 +29,62 @@ import '../server/server_dashboard.dart';
 import '../server/server_viewmodel.dart';
 import 'permission_screen.dart';
 
-class RoleSelectionScreen extends StatelessWidget {
+class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
 
+  @override
+  State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
+}
+
+class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
+  // FIX: Debounce flag prevents double-navigation on rapid taps.
+  bool _navigating = false;
+
   Future<void> _handleServerTap(BuildContext context) async {
-    final prefs = await SharedPreferences.getInstance();
-    final granted = prefs.getBool('permissions_granted') ?? false;
+    if (_navigating) return;
+    setState(() => _navigating = true);
 
-    if (!context.mounted) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    if (kIsWeb || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.linux || granted) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ChangeNotifierProvider(create: (_) => ServerViewModel(), child: const ServerDashboard()),
-        ),
-      );
-    } else {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const PermissionScreen()));
+      // FIX: On platforms that need no runtime permissions, mark granted
+      // immediately so the PermissionScreen never appears.
+      final isAutoGrantPlatform = kIsWeb || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.linux;
+
+      if (isAutoGrantPlatform) {
+        await prefs.setBool('permissions_granted', true);
+      }
+
+      final granted = prefs.getBool('permissions_granted') ?? false;
+      if (!context.mounted) return;
+
+      if (granted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChangeNotifierProvider(create: (_) => ServerViewModel(), child: const ServerDashboard()),
+          ),
+        );
+      } else {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const PermissionScreen()));
+      }
+    } finally {
+      // Reset flag after navigation completes (or fails).
+      if (mounted) setState(() => _navigating = false);
     }
   }
 
   void _handleClientTap(BuildContext context) {
+    if (_navigating) return;
+    setState(() => _navigating = true);
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ChangeNotifierProvider(create: (_) => ClientViewModel(), child: const ClientConnectScreen()),
       ),
-    );
+    ).whenComplete(() {
+      if (mounted) setState(() => _navigating = false);
+    });
   }
 
   @override
@@ -53,11 +92,9 @@ class RoleSelectionScreen extends StatelessWidget {
     return AppScaffold(
       body: Stack(
         children: [
-          // Background grid
           Positioned.fill(
             child: Opacity(opacity: 0.12, child: const CustomPaint(painter: GridPainter())),
           ),
-
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -75,8 +112,6 @@ class RoleSelectionScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SizedBox(height: isMobile ? 10 : 40),
-
-                        // Hero headline
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerLeft,
@@ -87,7 +122,6 @@ class RoleSelectionScreen extends StatelessWidget {
                               Text('STREAM ', style: AppTheme.theme.textTheme.displayLarge?.copyWith(fontSize: titleSz, height: 1.0)),
                               Stack(
                                 children: [
-                                  // Outlined italic "ANYTHING"
                                   Text(
                                     'ANYTHING',
                                     style: GoogleFonts.barlowCondensed(
@@ -101,7 +135,6 @@ class RoleSelectionScreen extends StatelessWidget {
                                         ..color = DS.accent,
                                     ),
                                   ),
-                                  // Transparent fill to preserve layout
                                   Text(
                                     'ANYTHING',
                                     style: GoogleFonts.barlowCondensed(fontSize: titleSz, fontWeight: FontWeight.w900, letterSpacing: -2, height: 1.0, color: Colors.transparent),
@@ -111,20 +144,14 @@ class RoleSelectionScreen extends StatelessWidget {
                             ],
                           ),
                         ),
-
                         SizedBox(height: isMobile ? 24 : 40),
-
-                        // Subtitle
                         Text(
                           'A premium cross-platform broadcasting system. '
                           'Any device becomes a server. Any device becomes a client. '
                           'Zero configuration. Pure signal.',
                           style: AppTheme.theme.textTheme.bodyLarge?.copyWith(fontSize: isMobile ? 14 : 16),
                         ),
-
                         SizedBox(height: isMobile ? 32 : 80),
-
-                        // Role cards wrapped in FocusTraversalGroup to guarantee D-Pad behavior
                         FocusTraversalGroup(
                           policy: WidgetOrderTraversalPolicy(),
                           child: isDesktop
@@ -138,9 +165,9 @@ class RoleSelectionScreen extends StatelessWidget {
                                           subtitle:
                                               'Host your local media library. UDP broadcasts '
                                               'announce your presence. HTTP serves files.',
-                                          icon: PhosphorIconsFill.hardDrives,
+                                          icon: LucideIcons.hardDrive,
                                           isMobile: false,
-                                          autoFocus: true, // Grabs physical TV remote focus on boot
+                                          autoFocus: true,
                                           onTap: () => _handleServerTap(context),
                                         ),
                                       ),
@@ -152,7 +179,7 @@ class RoleSelectionScreen extends StatelessWidget {
                                               'Connect to any Streamz server via UDP '
                                               'auto-discovery or QR scan. Browse, stream, '
                                               'or download.',
-                                          icon: PhosphorIconsFill.wifiHigh,
+                                          icon: LucideIcons.wifiHigh,
                                           isMobile: false,
                                           onTap: () => _handleClientTap(context),
                                         ),
@@ -167,9 +194,9 @@ class RoleSelectionScreen extends StatelessWidget {
                                       subtitle:
                                           'Host your local media library. UDP broadcasts '
                                           'announce your presence. HTTP serves files.',
-                                      icon: PhosphorIconsFill.hardDrives,
+                                      icon: LucideIcons.hardDrive,
                                       isMobile: true,
-                                      autoFocus: true, // Grabs physical TV remote focus on boot
+                                      autoFocus: true,
                                       onTap: () => _handleServerTap(context),
                                     ),
                                     const SizedBox(height: DS.s16),
@@ -179,7 +206,7 @@ class RoleSelectionScreen extends StatelessWidget {
                                           'Connect to any Streamz server via UDP '
                                           'auto-discovery or QR scan. Browse, stream, '
                                           'or download.',
-                                      icon: PhosphorIconsFill.wifiHigh,
+                                      icon: LucideIcons.wifiHigh,
                                       isMobile: true,
                                       onTap: () => _handleClientTap(context),
                                     ),
@@ -225,7 +252,6 @@ class _RoleCardState extends State<_RoleCard> {
   @override
   void initState() {
     super.initState();
-    // Persistent FocusNode prevents TV cursor from dropping during LayoutBuilder rebuilds
     _focusNode = FocusNode(debugLabel: widget.roleText);
   }
 
@@ -253,8 +279,6 @@ class _RoleCardState extends State<_RoleCard> {
         autofocus: widget.autoFocus,
         onFocusChange: (val) {
           setState(() => _isFocused = val);
-          // Uses the safe global scroll helper instead of a synchronous Scrollable.ensureVisible
-          // to prevent crashing the TV layout engine on frame 1.
           handleTVFocusScroll(val, context);
         },
         onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
@@ -266,7 +290,7 @@ class _RoleCardState extends State<_RoleCard> {
           },
           onTapCancel: () => setState(() => _isPressed = false),
           child: AnimatedScale(
-            scale: isActive ? (widget.isMobile ? 0.98 : 1.03) : 1.0, // Scale down on touch, scale up on TV Focus
+            scale: isActive ? (widget.isMobile ? 0.98 : 1.03) : 1.0,
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeOutCubic,
             child: AnimatedContainer(
@@ -280,7 +304,6 @@ class _RoleCardState extends State<_RoleCard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Outlined role label
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
@@ -290,7 +313,7 @@ class _RoleCardState extends State<_RoleCard> {
                         fontWeight: FontWeight.w900,
                         letterSpacing: -1,
                         fontSize: widget.isMobile ? 40 : 64,
-                        color: isActive ? DS.textPrimary : null, // Set color to null if inactive
+                        color: isActive ? DS.textPrimary : null,
                         foreground: isActive
                             ? null
                             : (Paint()
@@ -303,7 +326,6 @@ class _RoleCardState extends State<_RoleCard> {
                   SizedBox(height: widget.isMobile ? 12 : 24),
                   Text(widget.subtitle, style: AppTheme.theme.textTheme.bodyLarge?.copyWith(fontSize: widget.isMobile ? 12 : 15)),
                   SizedBox(height: widget.isMobile ? 24 : 40),
-                  // Decorative bottom row
                   Row(
                     children: [
                       Container(

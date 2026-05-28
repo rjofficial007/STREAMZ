@@ -4,7 +4,7 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -23,11 +23,13 @@ class TVSelectionScreen extends StatelessWidget {
         backgroundColor: DS.bg,
         leading: Actions(
           actions: {
-            ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-              context.read<ClientViewModel>().disconnect();
-              Navigator.pop(context);
-              return null;
-            }),
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (_) {
+                context.read<ClientViewModel>().disconnect();
+                Navigator.pop(context);
+                return null;
+              },
+            ),
           },
           child: Focus(
             onKeyEvent: (_, ev) => handleTVSelectKey(ev, () {
@@ -35,7 +37,7 @@ class TVSelectionScreen extends StatelessWidget {
               Navigator.pop(context);
             }),
             child: IconButton(
-              icon: const Icon(PhosphorIconsRegular.arrowLeft, size: 24, color: DS.textPrimary),
+              icon: Icon(LucideIcons.arrowLeft, size: 24, color: DS.textPrimary),
               onPressed: () {
                 context.read<ClientViewModel>().disconnect();
                 Navigator.pop(context);
@@ -43,10 +45,7 @@ class TVSelectionScreen extends StatelessWidget {
             ),
           ),
         ),
-        title: Text(
-          'SELECT INTERFACE',
-          style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 2),
-        ),
+        title: Text('SELECT INTERFACE', style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 2)),
       ),
       body: Stack(
         children: [
@@ -61,15 +60,12 @@ class TVSelectionScreen extends StatelessWidget {
                   _SelectionCard(
                     title: 'MODERN UI',
                     subtitle: 'NETFLIX-STYLE RAILS',
-                    icon: PhosphorIconsRegular.television,
+                    icon: LucideIcons.tv,
                     autoFocus: true,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ChangeNotifierProvider.value(
-                          value: context.read<ClientViewModel>(),
-                          child: const TVHomeScreen(),
-                        ),
+                        builder: (_) => ChangeNotifierProvider.value(value: context.read<ClientViewModel>(), child: const TVHomeScreen()),
                       ),
                     ),
                   ),
@@ -77,14 +73,11 @@ class TVSelectionScreen extends StatelessWidget {
                   _SelectionCard(
                     title: 'FILE SYSTEM',
                     subtitle: 'RAW DIRECTORY ACCESS',
-                    icon: PhosphorIconsRegular.folderOpen,
+                    icon: LucideIcons.folderOpen,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ChangeNotifierProvider.value(
-                          value: context.read<ClientViewModel>(),
-                          child: const TVFileManagerScreen(),
-                        ),
+                        builder: (_) => ChangeNotifierProvider.value(value: context.read<ClientViewModel>(), child: const TVFileManagerScreen()),
                       ),
                     ),
                   ),
@@ -105,13 +98,7 @@ class _SelectionCard extends StatefulWidget {
   final VoidCallback onTap;
   final bool autoFocus;
 
-  const _SelectionCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.onTap,
-    this.autoFocus = false,
-  });
+  const _SelectionCard({required this.title, required this.subtitle, required this.icon, required this.onTap, this.autoFocus = false});
 
   @override
   State<_SelectionCard> createState() => _SelectionCardState();
@@ -126,10 +113,12 @@ class _SelectionCardState extends State<_SelectionCard> {
     final isActive = _focused || _pressed;
     return Actions(
       actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-          widget.onTap();
-          return null;
-        }),
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onTap();
+            return null;
+          },
+        ),
       },
       child: Focus(
         autofocus: widget.autoFocus,
@@ -159,22 +148,9 @@ class _SelectionCardState extends State<_SelectionCard> {
               children: [
                 Icon(widget.icon, size: 72, color: isActive ? DS.bg : DS.textPrimary),
                 const SizedBox(height: DS.s32),
-                Text(
-                  widget.title,
-                  style: AppTheme.theme.textTheme.displayMedium?.copyWith(
-                    color: isActive ? DS.bg : DS.textPrimary,
-                    fontSize: 36,
-                    height: 1.0,
-                  ),
-                ),
+                Text(widget.title, style: AppTheme.theme.textTheme.displayMedium?.copyWith(color: isActive ? DS.bg : DS.textPrimary, fontSize: 36, height: 1.0)),
                 const SizedBox(height: DS.s8),
-                Text(
-                  widget.subtitle,
-                  style: AppTheme.theme.textTheme.labelMedium?.copyWith(
-                    color: isActive ? DS.bg : DS.textMuted,
-                    letterSpacing: 2,
-                  ),
-                ),
+                Text(widget.subtitle, style: AppTheme.theme.textTheme.labelMedium?.copyWith(color: isActive ? DS.bg : DS.textMuted, letterSpacing: 2)),
               ],
             ),
           ),

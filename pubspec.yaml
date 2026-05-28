@@ -1,7 +1,7 @@
 name: streamz
-description: "A new Flutter project."
+description: "STREAMZ — Cross-platform local media broadcasting system."
 
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: 'none'
 
 version: 1.0.0+1
 
@@ -11,49 +11,58 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
   # State Management
   provider: ^6.1.5+1
+
   # Networking & Server
   shelf: ^1.4.2
   shelf_router: ^1.1.4
   http: ^1.6.0
   network_info_plus: ^8.1.0
   device_info_plus: ^13.1.0
+
   # Media & Storage
   photo_manager: ^3.9.0
   permission_handler: ^12.0.1
+  on_audio_query: ^2.9.0
+  video_thumbnail: ^0.5.6
+
   # UI
   google_fonts: ^8.1.0
   media_kit: ^1.2.6
   media_kit_video: ^2.0.1
   media_kit_libs_video: ^1.0.7
   url_launcher: ^6.3.2
-  wakelock_plus: ^1.6.0
+  wakelock_plus: ^1.6.1
   flutter_background: ^1.3.1
-  on_audio_query: ^2.9.0
-  phosphor_flutter: ^2.1.0
-
-  shared_preferences: ^2.5.5
+  lucide_icons_flutter: ^3.1.14+2
+  cached_network_image: ^3.4.1
   qr_flutter: ^4.1.0
   mobile_scanner: ^7.2.0
+
+  # WebSockets
   shelf_web_socket: ^3.0.0
   web_socket_channel: ^3.0.3
 
-  video_thumbnail: ^0.5.6
-  cached_network_image: ^3.4.1
+  # Persistence
+  shared_preferences: ^2.5.5
 
-  device_preview: ^1.3.1
+  # DI
   get_it: ^9.2.1
-  convert: ^3.1.2
+
+  # Utilities — REQUIRED, were missing from original pubspec
+  crypto: ^3.0.7          # Used by ThumbnailCache for MD5 cache key hashing
+  path_provider: ^2.1.5   # Used by ThumbnailCache for app cache directory
+  convert: ^3.1.2         # Used by MediaScanner for hex encoding
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
   flutter_lints: ^6.0.0
 
 flutter:
-
   uses-material-design: true
 
   assets:
@@ -78,4 +87,3 @@ flutter:
     - assets/images/web_app_bg_2.jpg
     - assets/images/web_app_bg_3.jpg
     - assets/images/web_app_bg_4.jpg
-

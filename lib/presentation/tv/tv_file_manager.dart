@@ -6,7 +6,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter/services.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -41,8 +42,6 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
   List<SFileItem> _activePlaylist = [];
   int _activePlayIndex = -1;
 
-  late ClientViewModel _vm;
-
   String get _title {
     if (_activeCategory != 'root') return _activeCategory.toUpperCase();
     if (_currentPath == null || _currentPath!.isEmpty) return 'ROOT DIRECTORY';
@@ -54,7 +53,6 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _vm = context.read<ClientViewModel>();
       _loadHome();
     });
   }
@@ -199,42 +197,45 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
       barrierDismissible: true,
       barrierLabel: 'Dismiss',
       pageBuilder: (ctx, _, _) => Center(
-        child: Container(
-          width: (size.width * 0.3).clamp(380.0, 500.0),
-          decoration: BoxDecoration(
-            color: DS.surface1,
-            border: Border.all(color: DS.borderDefault, width: 2),
-            boxShadow: const [BoxShadow(color: DS.accent, offset: Offset(8, 8))],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(DS.s24),
-                color: DS.surface2,
-                child: Text(item.name.toUpperCase(), style: AppTheme.theme.textTheme.titleMedium?.copyWith(fontSize: 18), maxLines: 2, overflow: TextOverflow.ellipsis),
-              ),
-              if (item.isPlayable)
-                _TVModalBtn(
-                  label: 'PLAY / VIEW',
-                  autoFocus: true,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _openItem(item);
-                  },
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: (size.width * 0.3).clamp(380.0, 500.0),
+            decoration: BoxDecoration(
+              color: DS.surface1,
+              border: Border.all(color: DS.borderDefault, width: 2),
+              boxShadow: const [BoxShadow(color: DS.accent, offset: Offset(8, 8))],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(DS.s24),
+                  color: DS.surface2,
+                  child: Text(item.name.toUpperCase(), style: AppTheme.theme.textTheme.titleMedium?.copyWith(fontSize: 18), maxLines: 2, overflow: TextOverflow.ellipsis),
                 ),
-              if (!item.isDirectory)
-                _TVModalBtn(
-                  label: 'DOWNLOAD FILE',
-                  autoFocus: !item.isPlayable,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _triggerDownload(item);
-                  },
-                ),
-              _TVModalBtn(label: 'CANCEL', isDestructive: true, onTap: () => Navigator.pop(ctx)),
-            ],
+                if (item.isPlayable)
+                  _TVModalBtn(
+                    label: 'PLAY / VIEW',
+                    autoFocus: true,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _openItem(item);
+                    },
+                  ),
+                if (!item.isDirectory)
+                  _TVModalBtn(
+                    label: 'DOWNLOAD FILE',
+                    autoFocus: !item.isPlayable,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _triggerDownload(item);
+                    },
+                  ),
+                _TVModalBtn(label: 'CANCEL', isDestructive: true, onTap: () => Navigator.pop(ctx)),
+              ],
+            ),
           ),
         ),
       ),
@@ -332,11 +333,11 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
           ),
           const Divider(height: 1, color: DS.borderDefault),
           const SizedBox(height: 8),
-          _TVSidebarBtn(icon: PhosphorIconsFill.hardDrive, label: 'ROOT FS', isActive: _activeCategory == 'root', autoFocus: true, onTap: () => _switchCategory('root', null)),
-          _TVSidebarBtn(icon: PhosphorIconsFill.clockCounterClockwise, label: 'RECENT', isActive: _activeCategory == 'recent', onTap: () => _switchCategory('recent', null)),
-          _TVSidebarBtn(icon: PhosphorIconsFill.filmStrip, label: 'VIDEOS', isActive: _activeCategory == 'video', onTap: () => _switchCategory('video', SFileType.video)),
-          _TVSidebarBtn(icon: PhosphorIconsFill.musicNote, label: 'AUDIO', isActive: _activeCategory == 'audio', onTap: () => _switchCategory('audio', SFileType.audio)),
-          _TVSidebarBtn(icon: PhosphorIconsFill.image, label: 'IMAGES', isActive: _activeCategory == 'image', onTap: () => _switchCategory('image', SFileType.image)),
+          _TVSidebarBtn(icon: LucideIcons.hardDrive, label: 'ROOT FS', isActive: _activeCategory == 'root', autoFocus: true, onTap: () => _switchCategory('root', null)),
+          _TVSidebarBtn(icon: LucideIcons.history, label: 'RECENT', isActive: _activeCategory == 'recent', onTap: () => _switchCategory('recent', null)),
+          _TVSidebarBtn(icon: LucideIcons.film, label: 'VIDEOS', isActive: _activeCategory == 'video', onTap: () => _switchCategory('video', SFileType.video)),
+          _TVSidebarBtn(icon: LucideIcons.music, label: 'AUDIO', isActive: _activeCategory == 'audio', onTap: () => _switchCategory('audio', SFileType.audio)),
+          _TVSidebarBtn(icon: LucideIcons.image, label: 'IMAGES', isActive: _activeCategory == 'image', onTap: () => _switchCategory('image', SFileType.image)),
           const Spacer(),
           const Divider(height: 1, color: DS.borderDefault),
           Padding(
@@ -352,7 +353,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
               },
               child: Focus(
                 onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
-                child: AppButton(label: 'EXIT', icon: PhosphorIconsRegular.arrowLeft, isPrimary: false, height: (size.height * 0.06).clamp(40.0, 60.0), onTap: () => Navigator.pop(context)),
+                child: AppButton(label: 'EXIT', icon: LucideIcons.arrowLeft, isPrimary: false, height: (size.height * 0.06).clamp(40.0, 60.0), onTap: () => Navigator.pop(context)),
               ),
             ),
           ),
@@ -401,7 +402,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
                 hintStyle: TextStyle(color: DS.textMuted),
                 filled: true,
                 fillColor: DS.surface1,
-                prefixIcon: Icon(PhosphorIconsRegular.magnifyingGlass, color: DS.textMuted, size: 20),
+                prefixIcon: Icon(LucideIcons.search, color: DS.textMuted, size: 20),
                 contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.zero,
@@ -430,7 +431,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(PhosphorIconsRegular.warningOctagon, size: 64, color: DS.textMuted),
+            const Icon(LucideIcons.messageCircleWarning, size: 64, color: DS.textMuted),
             const SizedBox(height: 16),
             Text(_error!, style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 16)),
             const SizedBox(height: 24),
@@ -517,6 +518,18 @@ class _TVGridCard extends StatefulWidget {
 class _TVGridCardState extends State<_TVGridCard> {
   bool _focused = false;
 
+  KeyEventResult _handleCardKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    // Support for hardware "Menu" or "Context Menu" buttons (Kodi-style)
+    if (event.logicalKey == LogicalKeyboardKey.contextMenu) {
+      widget.onLongPress();
+      return KeyEventResult.handled;
+    }
+
+    return handleTVSelectKey(event, widget.onTap);
+  }
+
   @override
   Widget build(BuildContext context) {
     String? thumbUrl;
@@ -540,7 +553,7 @@ class _TVGridCardState extends State<_TVGridCard> {
           setState(() => _focused = v);
           if (v) handleTVFocusScroll(v, context);
         },
-        onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
+        onKeyEvent: _handleCardKey,
         child: GestureDetector(
           onTap: widget.onTap,
           onLongPress: widget.onLongPress,
@@ -552,13 +565,13 @@ class _TVGridCardState extends State<_TVGridCard> {
               decoration: BoxDecoration(
                 color: DS.surface1,
                 border: Border.all(color: _focused ? DS.accent : DS.borderDefault, width: _focused ? 3 : 1),
-                boxShadow: _focused ? [BoxShadow(color: DS.accent.withValues(alpha: 0.3), blurRadius: 20)] : [],
+                boxShadow: _focused ? [BoxShadow(color: DS.accent.withValues(alpha: 0.5), blurRadius: 24, spreadRadius: 2)] : [],
               ),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
                   if (widget.item.isDirectory)
-                    Center(child: Icon(PhosphorIconsFill.folder, size: 56, color: _focused ? DS.accent : DS.textPrimary))
+                    Center(child: Icon(LucideIcons.folder, size: 56, color: _focused ? DS.accent : DS.textPrimary))
                   else if (thumbUrl != null)
                     AnimatedOpacity(
                       duration: const Duration(milliseconds: 150),
@@ -580,7 +593,7 @@ class _TVGridCardState extends State<_TVGridCard> {
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         color: DS.accent,
-                        child: const Icon(PhosphorIconsFill.play, color: Colors.black, size: 14),
+                        child: const Icon(LucideIcons.play, color: Colors.black, size: 14),
                       ),
                     ),
 

@@ -60,7 +60,7 @@ abstract final class DS {
   // Focus ring (TV-critical)
   static const focusColor = Color(0xFFFFFFFF);
   static const focusWidth = 3.0;
-  static const focusShadowColor = Color(0x40FFFFFF);
+  static const focusShadowColor = Color(0x80FFFFFF); // Increased from 0x40 for better TV visibility
 
   // ── Rail / Card Sizing ───────────────────────────────────────────────────
   static const railCardW = 200.0; // 16:9 → h=112.5

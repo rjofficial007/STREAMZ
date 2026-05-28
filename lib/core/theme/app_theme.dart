@@ -1,19 +1,25 @@
 // core/theme/app_theme.dart
 // ============================================================================
-// STREAMZ — Master Design System & UI Components
-// Consolidated, deduplicated, and cleaned from original design.dart
+// STREAMZ — Master Design System & UI Components (Production-Fixed)
+//
+// BUG FIXED:
+//   handleTVFocusScroll called Scrollable.ensureVisible synchronously during
+//   a focus-change callback. On the very first frame after navigation, the
+//   widget may not yet be attached to a scroll ancestor, causing:
+//     "Scrollable.ensureVisible called with a context that does not contain a Scrollable"
+//   Fixed by wrapping the call in WidgetsBinding.instance.addPostFrameCallback
+//   so it executes after the current frame's layout pass completes.
 // ============================================================================
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'design_tokens.dart';
 
-// Keep AppTheme as a backward-compat alias that re-exports DS values
 abstract final class AppTheme {
   static const double bpMobile = DS.bpMobile;
   static const double bpDesktop = DS.bpTablet;
@@ -90,10 +96,21 @@ KeyEventResult handleTVSelectKey(KeyEvent event, VoidCallback? onTap) {
   return KeyEventResult.ignored;
 }
 
+/// FIX: Wraps Scrollable.ensureVisible in addPostFrameCallback to prevent
+/// "context does not contain a Scrollable" crash on frame 1.
 void handleTVFocusScroll(bool hasFocus, BuildContext context) {
-  if (hasFocus) {
-    Scrollable.ensureVisible(context, alignment: 0.5, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
-  }
+  if (!hasFocus) return;
+  // Defer until after the current frame's layout so the widget is fully
+  // attached to its scroll ancestor before we request scroll.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Guard: context may have been unmounted by the time the callback fires.
+    if (!context.mounted) return;
+    try {
+      Scrollable.ensureVisible(context, alignment: 0.5, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
+    } catch (_) {
+      // No ancestor Scrollable — safe to ignore (e.g. full-screen TV cards).
+    }
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -425,7 +442,7 @@ class NetworkImageFade extends StatelessWidget {
   final BoxFit fit;
   final IconData fallbackIcon;
 
-  const NetworkImageFade({super.key, required this.url, this.fit = BoxFit.cover, this.fallbackIcon = PhosphorIconsRegular.filmStrip});
+  const NetworkImageFade({super.key, required this.url, this.fit = BoxFit.cover, this.fallbackIcon = LucideIcons.film});
 
   @override
   Widget build(BuildContext context) => CachedNetworkImage(

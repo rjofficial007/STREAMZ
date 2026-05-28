@@ -1,10 +1,13 @@
 // core/di/service_locator.dart
-// Simple GetIt-style service locator.
-// All services are singletons registered at app startup.
+// ============================================================================
+// STREAMZ — Service Locator
+// All services registered as singletons at app startup.
+// ============================================================================
 
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../main.dart' show AppLifecycleBroadcaster;
 import '../../data/local/media_scanner.dart';
 import '../../data/local/progress_store.dart';
 import '../../data/local/thumbnail_cache.dart';
@@ -22,11 +25,15 @@ Future<void> setupServiceLocator() async {
   final prefs = await SharedPreferences.getInstance();
   sl.registerSingleton<SharedPreferences>(prefs);
 
+  // ── App lifecycle broadcaster — registered first, used by ServerViewModel ─
+  sl.registerSingleton<AppLifecycleBroadcaster>(AppLifecycleBroadcaster());
+
   // ── Local services ────────────────────────────────────────────────────────
   sl.registerLazySingleton<ProgressStore>(() => ProgressStore(sl<SharedPreferences>()));
 
   sl.registerLazySingleton<MediaScanner>(() => MediaScanner());
 
+  // ThumbnailCache must be eagerly initialized (requires async directory setup).
   final thumbCache = ThumbnailCache();
   await thumbCache.init();
   sl.registerSingleton<ThumbnailCache>(thumbCache);
@@ -44,6 +51,5 @@ Future<void> setupServiceLocator() async {
 
   // ── Domain services ───────────────────────────────────────────────────────
   sl.registerLazySingleton<DownloadService>(() => DownloadService());
-
   sl.registerLazySingleton<RemoteCommandService>(() => RemoteCommandService());
 }

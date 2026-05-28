@@ -1,6 +1,6 @@
 // data/network/modern_web_html.dart
 // ============================================================================
-// STREAMZ — Built-in Web Interface HTML (Spatial UI - Compact Player)
+// STREAMZ — Built-in Web Interface HTML (Spatial UI - Pro Edition)
 // ============================================================================
 
 const String kModernWebInterfaceHtml = r"""
@@ -14,42 +14,42 @@ const String kModernWebInterfaceHtml = r"""
 <script src="https://unpkg.com/@phosphor-icons/web"></script>
 <style>
   :root {
-    /* Pure Spatial Glass Material Tokens */
-    --glass-base: rgba(40, 40, 40, 0.35);
+    /* Refined Spatial Glass Material */
+    --glass-base: rgba(20, 20, 20, 0.4);
     --glass-hover: rgba(255, 255, 255, 0.15);
     --glass-active: rgba(255, 255, 255, 0.25);
     
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --glass-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.3), inset 0 0 4px rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.15);
+    --glass-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.2), inset 0 0 20px rgba(255, 255, 255, 0.05);
     
-    --blur-intense: blur(10px);
+    --blur-spatial: blur(40px) saturate(180%);
     
-    --text-primary: rgba(255, 255, 255, 0.95);
-    --text-secondary: rgba(255, 255, 255, 0.65);
-    --text-muted: rgba(255, 255, 255, 0.4);
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.7);
+    --text-muted: rgba(255, 255, 255, 0.45);
     
     --accent: #ffffff;
     
     --radius-sm: 12px;
-    --radius-md: 20px;
-    --radius-lg: 32px;
-    --radius-pill: 9999px;
+    --radius-md: 24px;
+    --radius-lg: 40px;
+    --radius-pill: 999px;
     
-    --shadow-spatial: 0 40px 80px -20px rgba(0, 0, 0, 0.6);
-    --shadow-float: 0 16px 40px rgba(0, 0, 0, 0.5);
+    --shadow-spatial: 0 40px 100px -20px rgba(0, 0, 0, 0.8), 0 0 1px rgba(255, 255, 255, 0.1);
+    --shadow-float: 0 20px 50px rgba(0, 0, 0, 0.5);
     
-    --transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    --transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   }
   
   * { box-sizing: border-box; margin: 0; padding: 0; }
   
   body {
     background-color: #000;
-    background-image: url('/assets/images/web_app_bg_1.jpg');
+    background-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=2560');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
-    transition: background-image 0.8s ease-in-out;
+    transition: background-image 1.2s cubic-bezier(0.16, 1, 0.3, 1);
     color: var(--text-primary);
     font-family: 'Inter', -apple-system, sans-serif;
     font-weight: 400;
@@ -59,76 +59,81 @@ const String kModernWebInterfaceHtml = r"""
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 24px;
-    padding: 24px;
+    padding: 32px;
     -webkit-font-smoothing: antialiased;
   }
 
-  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.25); border-radius: 10px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.6); }
 
   /* ── SPATIAL PANELS ────────────────────────────────────────────────────── */
 
   .spatial-panel {
     background: var(--glass-base);
-    backdrop-filter: var(--blur-intense);
-    -webkit-backdrop-filter: var(--blur-intense);
+    backdrop-filter: var(--blur-spatial);
+    -webkit-backdrop-filter: var(--blur-spatial);
     border: 1px solid var(--glass-border);
     box-shadow: var(--shadow-spatial), var(--glass-highlight);
   }
 
   .spatial-layout {
     position: relative;
-    width: 92vw;
-    max-width: 1600px;
-    height: 95vh;
+    width: 100%;
+    max-width: 1440px;
+    height: 100%;
     max-height: 900px;
     display: flex;
     align-items: stretch;
-    gap: 24px;
+    gap: 32px;
+    animation: layoutIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  /* 1. Floating Left Dock */
+  @keyframes layoutIn {
+    from { opacity: 0; transform: translateY(40px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* 1. Floating Side Dock */
   .left-dock {
-    width: 72px;
+    width: 80px;
     height: max-content;
     align-self: center;
     border-radius: var(--radius-pill);
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 24px 0;
-    gap: 16px;
+    padding: 32px 0;
+    gap: 20px;
     z-index: 100;
     flex-shrink: 0;
   }
 
   .dock-btn {
     position: relative;
-    width: 48px;
-    height: 48px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
     background: transparent;
     border: 1px solid transparent;
     color: var(--text-secondary);
-    font-size: 24px;
+    font-size: 26px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     outline: none;
   }
   
-  .dock-btn:hover { background: var(--glass-hover); color: var(--text-primary); transform: scale(1.1); }
-  .dock-btn.active { background: var(--glass-active); color: var(--text-primary); border-color: var(--glass-border); box-shadow: inset 0 1px 1px rgba(255,255,255,0.4); }
+  .dock-btn:hover { background: var(--glass-hover); color: var(--text-primary); transform: scale(1.15) translateZ(20px); }
+  .dock-btn.active { background: #fff; color: #000; box-shadow: 0 10px 30px rgba(255,255,255,0.3); }
 
   .dock-divider {
     width: 32px;
     height: 1px;
-    background: rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.1);
     margin: 4px 0;
   }
 
@@ -136,22 +141,19 @@ const String kModernWebInterfaceHtml = r"""
   .dock-btn::after {
     content: attr(data-tooltip);
     position: absolute;
-    left: calc(100% + 20px);
-    background: rgba(30, 30, 30, 0.6);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--glass-border);
-    padding: 10px 16px;
+    left: calc(100% + 24px);
+    background: rgba(255, 255, 255, 0.95);
+    padding: 8px 16px;
     border-radius: 12px;
     font-size: 13px;
-    font-weight: 600;
-    color: var(--text-primary);
+    font-weight: 700;
+    color: #000;
     white-space: nowrap;
     opacity: 0;
-    transform: translateX(-10px);
+    transform: translateX(-15px);
     pointer-events: none;
-    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-    box-shadow: var(--shadow-float);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
     z-index: 200;
   }
   .dock-btn:hover::after { opacity: 1; transform: translateX(0); }
@@ -162,55 +164,54 @@ const String kModernWebInterfaceHtml = r"""
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 24px;
+    gap: 32px;
     overflow: hidden;
   }
 
   /* 3. Floating Top Bar */
   .top-bar {
-    width: max-content;
+    width: 100%;
+    max-width: 800px;
     height: 64px;
     border-radius: var(--radius-pill);
     display: flex;
     align-items: center;
-    padding: 0 12px 0 24px;
-    gap: 24px;
+    padding: 0 8px 0 32px;
+    gap: 32px;
     flex-shrink: 0;
   }
 
-  .search-container { position: relative; width: 320px; }
-  .search-container i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 20px; }
+  .search-container { position: relative; flex-grow: 1; }
+  .search-container i { position: absolute; left: 0; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 20px; }
   .search-box {
     width: 100%;
-    background: rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: var(--radius-pill);
+    background: transparent;
+    border: none;
     color: var(--text-primary);
     font-family: inherit;
-    font-size: 14px;
-    padding: 10px 16px 10px 38px;
+    font-size: 15px;
+    font-weight: 500;
+    padding: 12px 16px 12px 32px;
     outline: none;
-    transition: all 0.2s;
   }
-  .search-box::placeholder { color: var(--text-subdued); }
-  .search-box:focus { background: rgba(0,0,0,0.5); border-color: rgba(255,255,255,0.3); box-shadow: 0 0 0 4px rgba(255,255,255,0.05); }
+  .search-box::placeholder { color: var(--text-muted); }
 
   .user-pill {
     display: flex;
     align-items: center;
     gap: 12px;
-    background: rgba(0,0,0,0.3);
-    padding: 6px 16px 6px 6px;
+    background: rgba(255,255,255,0.1);
+    padding: 6px 20px 6px 8px;
     border-radius: var(--radius-pill);
     font-size: 13px;
     font-weight: 700;
     letter-spacing: 1px;
     border: 1px solid rgba(255,255,255,0.1);
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.3s;
   }
-  .user-pill:hover { background: rgba(0,0,0,0.5); border-color: rgba(255,255,255,0.2); }
-  .user-pill .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--text-primary); display: flex; align-items: center; justify-content: center; color: #000; font-size: 16px; font-weight: bold; }
+  .user-pill:hover { background: rgba(255,255,255,0.2); transform: scale(1.05); }
+  .user-pill .avatar { width: 32px; height: 32px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; color: #000; font-size: 18px; }
 
   /* 4. Main Window */
   .main-window {
@@ -220,23 +221,26 @@ const String kModernWebInterfaceHtml = r"""
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    animation: windowFade 0.6s 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
+  @keyframes windowFade { from { opacity: 0; transform: scale(0.99); } to { opacity: 1; transform: scale(1); } }
 
   .content-area {
     flex-grow: 1;
     overflow-y: auto;
-    padding: 24px 40px;
+    padding: 40px 48px;
+    scroll-behavior: smooth;
   }
 
-  .page-header { margin-bottom: 24px; display: flex; flex-direction: column; gap: 4px; }
-  .page-title { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; text-transform: capitalize;}
-  .page-meta { font-size: 11px; color: var(--text-secondary); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; }
+  .page-header { margin-bottom: 40px; display: flex; flex-direction: column; gap: 4px; }
+  .page-title { font-size: 32px; font-weight: 800; letter-spacing: -1px; }
+  .page-meta { font-size: 12px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 2px; }
 
-  /* BORDERLESS, FLOATING GRID */
+  /* BORDERLESS GRID */
   .grid-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); 
-    gap: 24px 20px;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); 
+    gap: 32px 24px;
   }
 
   .media-card {
@@ -248,246 +252,228 @@ const String kModernWebInterfaceHtml = r"""
     flex-direction: column;
     outline: none;
     position: relative;
-    transition: transform var(--transition);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  .media-card:hover, .media-card:focus { transform: scale(1.02); }
+  .media-card:hover, .media-card:focus { transform: scale(1.05) translateY(-8px); }
 
   .card-thumb-wrap {
     width: 100%;
     aspect-ratio: 1;
     border-radius: var(--radius-md); 
-    margin-bottom: 12px;
+    margin-bottom: 16px;
     overflow: hidden;
     position: relative;
-    background: rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.08); 
-    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
-    transition: all var(--transition);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1); 
+    box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+    transition: all 0.4s;
   }
 
-  .card-thumb { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .card-thumb { width: 100%; height: 100%; object-fit: cover; transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
   
   .card-thumb-wrap::after {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(to bottom, transparent 60%, rgba(0,0,0,0.6) 100%);
+    background: linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.8) 100%);
     opacity: 0;
     transition: opacity 0.4s;
   }
   
-  .media-card:hover .card-thumb { transform: scale(1.08); }
+  .media-card:hover .card-thumb { transform: scale(1.15); }
   .media-card:hover .card-thumb-wrap::after { opacity: 1; }
-  .media-card:hover .card-thumb-wrap { border-color: rgba(255,255,255,0.2); box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+  .media-card:hover .card-thumb-wrap { border-color: rgba(255,255,255,0.3); box-shadow: 0 25px 60px rgba(0,0,0,0.7); }
 
   .card-play-btn {
     position: absolute;
     inset: 0;
     margin: auto;
-    width: 48px;
-    height: 48px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.2);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.4);
-    color: #fff;
+    background: #fff;
+    color: #000;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
+    font-size: 24px;
     opacity: 0;
-    transform: scale(0.8);
-    transition: all var(--transition);
+    transform: scale(0.6) rotate(-20deg);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     cursor: pointer;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.4);
     z-index: 10;
   }
-  .card-play-btn:hover { background: rgba(255,255,255,0.4); transform: scale(1.1); }
-  .media-card:hover .card-play-btn, .media-card:focus .card-play-btn { opacity: 1; transform: scale(1); }
+  .media-card:hover .card-play-btn, .media-card:focus .card-play-btn { opacity: 1; transform: scale(1) rotate(0deg); }
 
-  .card-info { padding: 0 4px; display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
-  .card-title { font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; }
-  .dl-icon { color: var(--text-subdued); font-size: 18px; transition: color 0.2s; text-decoration: none; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-  .dl-icon:hover { color: var(--text-primary); }
+  .card-info { padding: 0 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .card-title { font-size: 15px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; }
+  .dl-icon { color: var(--text-muted); font-size: 20px; transition: all 0.3s; text-decoration: none; flex-shrink: 0; }
+  .dl-icon:hover { color: #fff; transform: translateY(-2px); }
 
-  /* CSS Grid List View */
-  .list-container { display: flex; flex-direction: column; gap: 4px; }
+  /* List View */
+  .list-container { display: flex; flex-direction: column; gap: 8px; }
   .list-header, .media-row {
     display: grid;
-    grid-template-columns: 56px 1fr 100px 40px; 
+    grid-template-columns: 64px 1fr 120px 48px; 
     align-items: center;
-    gap: 16px;
+    gap: 20px;
   }
   .list-header {
-    padding: 0 20px 12px 20px;
+    padding: 0 24px 16px 24px;
     border-bottom: 1px solid rgba(255,255,255,0.1);
-    margin-bottom: 12px;
-    color: var(--text-secondary);
+    margin-bottom: 8px;
+    color: var(--text-muted);
     font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 1px;
+    font-weight: 700;
+    letter-spacing: 2px;
     text-transform: uppercase;
   }
   .media-row {
-    padding: 8px 20px;
-    border-radius: var(--radius-sm);
+    padding: 12px 24px;
+    border-radius: var(--radius-md);
     background: transparent;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     outline: none;
-    border: 1px solid transparent;
   }
-  .media-row:hover, .media-row:focus { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.1); transform: scale(1.005); }
+  .media-row:hover, .media-row:focus { background: rgba(255,255,255,0.08); transform: translateX(8px); }
 
-  .row-icon-wrap { display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; }
-  .row-icon { font-size: 24px; color: var(--text-secondary); }
-  .row-art { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); }
-  .row-title { font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .row-meta { font-size: 13px; color: var(--text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
+  .row-art { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; box-shadow: 0 8px 16px rgba(0,0,0,0.3); }
+  .row-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+  .row-meta { font-size: 14px; color: var(--text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
 
   /* Empty State */
-  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh; color: var(--text-subdued); gap: 16px; }
-  .empty-state i { font-size: 64px; opacity: 0.5; }
-  .empty-state span { font-weight: 500; font-size: 16px; letter-spacing: 1px; }
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh; color: var(--text-muted); gap: 20px; }
+  .empty-state i { font-size: 80px; opacity: 0.3; }
+  .empty-state span { font-weight: 700; font-size: 18px; letter-spacing: 1px; }
 
-  /* ── 5. FLOATING BOTTOM PLAYER ─────────────────────────────────────────── */
+  /* ── 5. FLOATING PLAYER ─────────────────────────────────────────────── */
   
   .player-console {
-    width: max-content; /* Shrink to wrap contents */
-    height: 72px;
+    width: 100%;
+    max-width: 900px;
+    height: 88px;
     border-radius: var(--radius-pill);
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 0 24px; /* Balanced floating padding */
+    padding: 0 12px 0 12px;
     gap: 24px;
     flex-shrink: 0;
+    margin-bottom: 8px;
+    animation: playerIn 0.8s 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
+  @keyframes playerIn { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
   
   .ctrl-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
     background: transparent;
     border: none;
-    color: var(--text-primary);
-    font-size: 24px;
+    color: #fff;
+    font-size: 26px;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
-    outline: none;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0.9;
-    line-height: 0;
+    outline: none;
   }
-  .ctrl-btn:hover { opacity: 1; transform: scale(1.15); text-shadow: 0 0 12px rgba(255,255,255,0.4); color: #ffffff; }
+  .ctrl-btn:hover { background: var(--glass-hover); transform: scale(1.15); }
+  .ctrl-btn.play { background: #fff; color: #000; box-shadow: 0 15px 30px rgba(255,255,255,0.2); }
+  .ctrl-btn.play:hover { background: #fff; transform: scale(1.1); }
 
-  /* PILL PROGRESS BAR STYLING (Black progress) */
   .now-playing-pill {
-    position: relative; 
+    flex-grow: 1;
+    height: 64px;
     display: flex;
     align-items: center;
-    background: rgba(0, 0, 0, 0.35);
+    background: rgba(0, 0, 0, 0.3);
     border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: inset 0 2px 10px rgba(0,0,0,0.3);
     border-radius: var(--radius-pill);
-    padding: 6px 16px 6px 6px;
-    gap: 16px;
-    width: 380px; 
+    padding: 0 24px 0 10px;
+    gap: 20px;
     overflow: hidden; 
     cursor: pointer;
+    position: relative;
   }
 
-  /* Black Frosted Progress Fill */
   .np-progress-bg {
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
     width: 0%;
-    background: rgba(0, 0, 0, 0.6); 
-    border-right: 1px solid #000;
+    background: rgba(255, 255, 255, 0.15); 
     z-index: 0;
     pointer-events: none;
     transition: width 0.1s linear;
   }
 
-  .np-art, .np-info {
-    position: relative;
-    z-index: 1;
-  }
-  
-  .np-art { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: rgba(0,0,0,0.6); flex-shrink: 0; }
+  .np-art, .np-info { z-index: 1; }
+  .np-art { width: 44px; height: 44px; border-radius: 12px; overflow: hidden; background: rgba(0,0,0,0.5); flex-shrink: 0; }
   .np-art img { width: 100%; height: 100%; object-fit: cover; }
-  .np-info { display: flex; flex-direction: column; overflow: hidden; flex-grow: 1; pointer-events: none; }
-  .np-title { font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;}
-  .np-label { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-  .player-controls-left {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-  }
+  .np-info { display: flex; flex-direction: column; overflow: hidden; flex-grow: 1; }
+  .np-title { font-size: 15px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .np-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; }
 
   /* ── FULLSCREEN OVERLAY ────────────────────────────────────────────────── */
 
   .fs-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.85);
-    backdrop-filter: blur(50px);
-    -webkit-backdrop-filter: blur(50px);
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(80px) saturate(150%);
+    -webkit-backdrop-filter: blur(80px) saturate(150%);
     z-index: 3000;
     display: none;
     align-items: center;
     justify-content: center;
   }
-  .fs-overlay.active { display: flex; animation: fadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
-  @keyframes fadeIn { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: scale(1); } }
+  .fs-overlay.active { display: flex; animation: fsIn 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes fsIn { from { opacity: 0; transform: scale(1.1); } to { opacity: 1; transform: scale(1); } }
 
-  .video-container { width: 100%; height: 100%; position: relative; display: flex; align-items: center; justify-content: center; padding: 40px; }
-  .window-controls { position: absolute; top: 40px; right: 40px; display: flex; gap: 16px; z-index: 3001; opacity: 0; transition: opacity 0.4s; }
-  .video-container:hover .window-controls { opacity: 1; }
+  .video-container { width: 100%; height: 100%; position: relative; display: flex; align-items: center; justify-content: center; padding: 64px; }
+  .window-controls { position: absolute; top: 40px; right: 40px; display: flex; gap: 20px; z-index: 3001; }
 
   .overlay-btn {
-    width: 56px; height: 56px; border-radius: 50%; background: rgba(255,255,255,0.1); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.2);
-    color: #fff; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all var(--transition);
+    width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.1); backdrop-filter: blur(30px); border: 1px solid rgba(255,255,255,0.2);
+    color: #fff; font-size: 26px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s;
   }
   .overlay-btn:hover { background: rgba(255,255,255,0.25); transform: scale(1.1); }
 
-  video { max-width: 100%; max-height: 100%; object-fit: contain; outline: none; border-radius: 24px; box-shadow: 0 60px 120px rgba(0,0,0,0.7); }
-  img#fs-img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 24px; box-shadow: 0 60px 120px rgba(0,0,0,0.7); }
+  video { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 32px; box-shadow: 0 80px 150px rgba(0,0,0,0.8); }
+  img#fs-img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 32px; box-shadow: 0 80px 150px rgba(0,0,0,0.8); }
 
   .vid-controls-overlay {
     position: absolute;
     bottom: 60px;
     left: 50%;
     transform: translateX(-50%);
-    width: max-content;
-    min-width: 600px;
-    background: rgba(30, 30, 30, 0.5);
-    backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px);
-    border: 1px solid rgba(255,255,255,0.15);
+    width: 100%;
+    max-width: 800px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(50px);
+    -webkit-backdrop-filter: blur(50px);
+    border: 1px solid rgba(255,255,255,0.2);
     border-radius: var(--radius-pill);
-    padding: 16px 32px;
+    padding: 12px 12px 12px 32px;
     opacity: 0;
-    transition: opacity 0.4s ease;
+    transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: 3002;
     display: flex;
     align-items: center;
-    gap: 24px;
-    box-shadow: 0 32px 64px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.2);
+    gap: 32px;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.6);
   }
   .video-container:hover .vid-controls-overlay { opacity: 1; }
   
-  .vid-time { font-size: 13px; font-weight: 500; font-family: monospace; color: rgba(255,255,255,0.9); }
+  .vid-time { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; color: #fff; width: 140px; text-align: right; }
   
-  .progress-container { flex-grow: 1; display: flex; align-items: center; cursor: pointer; }
-  .progress-bar-wrap { width: 100%; height: 24px; display: flex; align-items: center; }
-  .progress-bg { width: 100%; height: 6px; background: rgba(255,255,255,0.15); border-radius: 4px; position: relative; }
-  
-  /* Black Video Progress */
-  .progress-fill { height: 100%; width: 0%; background: #000; border-radius: 4px; pointer-events: none; transition: width 0.1s linear; box-shadow: 0 0 12px rgba(0,0,0,0.5); }
+  .progress-container { flex-grow: 1; display: flex; align-items: center; cursor: pointer; height: 40px; }
+  .progress-bg { width: 100%; height: 8px; background: rgba(255,255,255,0.15); border-radius: var(--radius-pill); position: relative; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; background: #fff; border-radius: var(--radius-pill); transition: width 0.1s linear; }
 </style>
 </head>
 <body>
@@ -496,19 +482,19 @@ const String kModernWebInterfaceHtml = r"""
   
   <nav class="left-dock spatial-panel">
     <button class="dock-btn active" id="nav-video" onclick="switchTab('video')" data-tooltip="Videos">
-      <i class="ph-bold ph-video-camera"></i>
+      <i class="ph-fill ph-video-camera"></i>
     </button>
-    <button class="dock-btn" id="nav-audio" onclick="switchTab('audio')" data-tooltip="Music & Audio">
-      <i class="ph-bold ph-music-notes"></i>
+    <button class="dock-btn" id="nav-audio" onclick="switchTab('audio')" data-tooltip="Music">
+      <i class="ph-fill ph-music-note"></i>
     </button>
     <button class="dock-btn" id="nav-image" onclick="switchTab('image')" data-tooltip="Photos">
-      <i class="ph-bold ph-image"></i>
+      <i class="ph-fill ph-image"></i>
     </button>
-    <button class="dock-btn" id="nav-folder" onclick="switchTab('folder')" data-tooltip="Network Files">
-      <i class="ph-bold ph-folder-open"></i>
+    <button class="dock-btn" id="nav-folder" onclick="switchTab('folder')" data-tooltip="Files">
+      <i class="ph-fill ph-folder"></i>
     </button>
     <div class="dock-divider"></div>
-    <button class="dock-btn" onclick="cycleBackground()" data-tooltip="Change Environment">
+    <button class="dock-btn" onclick="cycleBackground()" data-tooltip="Next Env">
       <i class="ph-bold ph-aperture"></i>
     </button>
   </nav>
@@ -518,11 +504,11 @@ const String kModernWebInterfaceHtml = r"""
     <header class="top-bar spatial-panel">
       <div class="search-container">
         <i class="ph-bold ph-magnifying-glass"></i>
-        <input type="text" class="search-box" id="searchInput" placeholder="Search spatial library..." oninput="handleSearch()">
+        <input type="text" class="search-box" id="searchInput" placeholder="Search library..." oninput="handleSearch()">
       </div>
       <div class="user-pill">
         <div class="avatar"><i class="ph-fill ph-planet"></i></div>
-        STREAMZ
+        STUDIO NODE
       </div>
     </header>
 
@@ -537,6 +523,10 @@ const String kModernWebInterfaceHtml = r"""
     </main>
 
     <footer class="player-console spatial-panel">
+      <div class="player-controls">
+        <button class="ctrl-btn" onclick="seekGlobal(-10)"><i class="ph-fill ph-rewind"></i></button>
+      </div>
+
       <div class="now-playing-pill" id="np-pill-progress-wrap">
         <div class="np-progress-bg" id="np-pill-progress"></div>
         <div class="np-art">
@@ -548,9 +538,8 @@ const String kModernWebInterfaceHtml = r"""
         </div>
       </div>
       
-      <div class="player-controls-left">
-        <button class="ctrl-btn" onclick="seekGlobal(-10)"><i class="ph-fill ph-rewind"></i></button>
-        <button class="ctrl-btn" style="font-size: 28px;" onclick="toggleMedia()" id="globalPlayPause"><i class="ph-fill ph-pause"></i></button>
+      <div class="player-controls">
+        <button class="ctrl-btn play" onclick="toggleMedia()" id="globalPlayPause"><i class="ph-fill ph-pause"></i></button>
         <button class="ctrl-btn" onclick="seekGlobal(10)"><i class="ph-fill ph-fast-forward"></i></button>
       </div>
     </footer>
@@ -569,11 +558,9 @@ const String kModernWebInterfaceHtml = r"""
     <audio id="audioPlayer" style="display:none;"></audio>
     
     <div class="vid-controls-overlay" id="vidControls" style="display:none;">
-      <button class="ctrl-btn" style="width: 48px; height: 48px; font-size: 28px;" onclick="toggleMedia()" id="vidPlayBtn"><i class="ph-fill ph-pause"></i></button>
+      <button class="ctrl-btn play" style="width: 48px; height: 48px; font-size: 24px;" onclick="toggleMedia()" id="vidPlayBtn"><i class="ph-fill ph-pause"></i></button>
       <div class="progress-container" id="vid-progress">
-        <div class="progress-bar-wrap">
-          <div class="progress-bg"><div class="progress-fill" id="vid-progress-bar"></div></div>
-        </div>
+        <div class="progress-bg"><div class="progress-fill" id="vid-progress-bar"></div></div>
       </div>
       <div class="vid-time" id="vid-time">0:00 / 0:00</div>
     </div>
@@ -582,10 +569,10 @@ const String kModernWebInterfaceHtml = r"""
 
 <script>
   const backgrounds = [
-    '/assets/images/web_app_bg_1.jpg',
-    '/assets/images/web_app_bg_2.jpg',
-    '/assets/images/web_app_bg_3.jpg',
-    '/assets/images/web_app_bg_4.jpg'
+    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=2560',
+    'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&q=80&w=2560',
+    'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=2560',
+    'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=2560'
   ];
   let bgIndex = 0;
   
@@ -614,9 +601,9 @@ const String kModernWebInterfaceHtml = r"""
 
   const tabMeta = {
     video:  { title: 'Video Archive', sub: 'Verified Server Node' },
-    audio:  { title: 'Music Library', sub: 'Verified Server Node' },
-    image:  { title: 'Photo Library', sub: 'Verified Server Node' },
-    folder: { title: 'File Browser',  sub: 'Root Directory' },
+    audio:  { title: 'Music Library', sub: 'High Fidelity Node' },
+    image:  { title: 'Photo Library', sub: 'Visual Asset Node' },
+    folder: { title: 'File System',   sub: 'Network Directory' },
   };
 
   function connectWS() {
@@ -850,7 +837,6 @@ const String kModernWebInterfaceHtml = r"""
   const aud = document.getElementById('audioPlayer');
   const vid = document.getElementById('videoPlayer');
 
-  // Handle Pill Progress Fill Update
   aud.addEventListener('timeupdate', () => {
     if (!aud.duration) return;
     const progressPercent = (aud.currentTime / aud.duration * 100) + '%';
@@ -858,7 +844,6 @@ const String kModernWebInterfaceHtml = r"""
     sendTelemetry(false, aud);
   });
   
-  // Interactive Pill Seeking logic
   document.getElementById('np-pill-progress-wrap').addEventListener('click', (e) => {
     const wrap = document.getElementById('np-pill-progress-wrap');
     const r = wrap.getBoundingClientRect();
@@ -872,8 +857,8 @@ const String kModernWebInterfaceHtml = r"""
     sendTelemetry(false, vid);
   });
   
-  document.querySelector('#vid-progress .progress-bar-wrap').addEventListener('click', (e) => {
-    const wrap = document.querySelector('#vid-progress .progress-bar-wrap');
+  document.getElementById('vid-progress').addEventListener('click', (e) => {
+    const wrap = document.getElementById('vid-progress');
     const r = wrap.getBoundingClientRect();
     if (vid.duration) vid.currentTime = ((e.clientX - r.left) / r.width) * vid.duration;
   });
@@ -934,7 +919,7 @@ const String kModernWebInterfaceHtml = r"""
       aud.pause(); aud.src = '';
       document.getElementById('np-label').innerText = 'Awaiting signal';
       document.getElementById('np-title').innerText = 'Nothing playing';
-      document.getElementById('np-pill-progress').style.width = '0%'; // Reset progress fill
+      document.getElementById('np-pill-progress').style.width = '0%';
     }
   }
 

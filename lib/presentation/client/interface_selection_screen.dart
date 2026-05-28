@@ -5,7 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -39,7 +39,7 @@ class InterfaceSelectionScreen extends StatelessWidget {
               Navigator.pop(context);
             }),
             child: IconButton(
-              icon: const Icon(PhosphorIconsRegular.arrowLeft, size: 24, color: DS.textPrimary),
+              icon: const Icon(LucideIcons.arrowLeft, size: 24, color: DS.textPrimary),
               onPressed: () {
                 // Disconnect the WebSocket if the user backs out
                 context.read<ClientViewModel>().disconnect();
@@ -100,7 +100,7 @@ class InterfaceSelectionScreen extends StatelessWidget {
                                           child: _DeviceCard(
                                             title: 'TV USER',
                                             subtitle: '10-FOOT UI & D-PAD',
-                                            icon: PhosphorIconsRegular.television,
+                                            icon: LucideIcons.tv,
                                             autoFocus: true, // Grabs focus for physical remotes
                                             isMobileView: false,
                                             onTap: () => Navigator.push(
@@ -116,7 +116,7 @@ class InterfaceSelectionScreen extends StatelessWidget {
                                           child: _DeviceCard(
                                             title: 'MOBILE USER',
                                             subtitle: 'TOUCH-OPTIMIZED UI',
-                                            icon: PhosphorIconsRegular.deviceMobile,
+                                            icon: LucideIcons.smartphone,
                                             isMobileView: false,
                                             onTap: () => Navigator.push(
                                               context,
@@ -138,7 +138,7 @@ class InterfaceSelectionScreen extends StatelessWidget {
                                       _DeviceCard(
                                         title: 'TV USER',
                                         subtitle: '10-FOOT UI & D-PAD',
-                                        icon: PhosphorIconsRegular.television,
+                                        icon: LucideIcons.tv,
                                         autoFocus: true,
                                         isMobileView: true,
                                         onTap: () => Navigator.push(
@@ -152,7 +152,7 @@ class InterfaceSelectionScreen extends StatelessWidget {
                                       _DeviceCard(
                                         title: 'MOBILE USER',
                                         subtitle: 'TOUCH-OPTIMIZED UI',
-                                        icon: PhosphorIconsRegular.deviceMobile,
+                                        icon: LucideIcons.smartphone,
                                         isMobileView: true,
                                         onTap: () => Navigator.push(
                                           context,

@@ -7,7 +7,7 @@ import 'dart:async'; // Added for the slider Timer
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -77,7 +77,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
                       child: Focus(
                         onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
                         child: IconButton(
-                          icon: const Icon(PhosphorIconsRegular.arrowLeft, color: DS.textPrimary),
+                          icon: const Icon(LucideIcons.arrowLeft, color: DS.textPrimary),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ),
@@ -117,7 +117,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
                         child: Focus(
                           onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => _openSearch(context, allMedia)),
                           child: IconButton(
-                            icon: const Icon(PhosphorIconsRegular.magnifyingGlass, color: DS.textPrimary),
+                            icon: const Icon(LucideIcons.search, color: DS.textPrimary),
                             onPressed: () => _openSearch(context, allMedia),
                           ),
                         ),
@@ -261,7 +261,7 @@ class _HeroSectionState extends State<_HeroSection> {
                 fit: StackFit.expand,
                 children: [
                   // Hero Image
-                  NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: item.isAudio ? PhosphorIconsFill.musicNote : PhosphorIconsFill.filmStrip),
+                  NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: item.isAudio ? LucideIcons.music : LucideIcons.video),
 
                   // Gradient Fade to Background Color
                   DecoratedBox(
@@ -320,10 +320,10 @@ class _HeroSectionState extends State<_HeroSection> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            _HeroButton(icon: PhosphorIconsFill.play, label: 'PLAY', isPrimary: true, onTap: () => _play(context, item)),
+                            _HeroButton(icon: LucideIcons.play, label: 'PLAY', isPrimary: true, onTap: () => _play(context, item)),
                             const SizedBox(width: 12),
                             _HeroButton(
-                              icon: PhosphorIconsRegular.info,
+                              icon: LucideIcons.info,
                               label: 'INFO',
                               isPrimary: false,
                               onTap: () {}, // Future expansion
@@ -559,7 +559,7 @@ class _MobileRailCardState extends State<_MobileRailCard> with SingleTickerProvi
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: widget.item.isAudio ? PhosphorIconsFill.musicNote : PhosphorIconsFill.filmStrip),
+                    NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: widget.item.isAudio ? LucideIcons.music : LucideIcons.video),
                     const DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Color(0xCC000000)], stops: [0.5, 1.0]),
@@ -604,7 +604,7 @@ class _EmptyState extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(PhosphorIconsRegular.wifiHigh, size: 48, color: DS.textMuted),
+        const Icon(LucideIcons.wifiHigh, size: 48, color: DS.textMuted),
         const SizedBox(height: DS.s16),
         Text('NO SIGNAL DETECTED', style: AppTheme.theme.textTheme.titleMedium?.copyWith(color: DS.textMuted)),
         const SizedBox(height: DS.s8),
@@ -674,7 +674,7 @@ class _MobileSearchScreenState extends State<_MobileSearchScreen> {
                     child: Focus(
                       onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
                       child: IconButton(
-                        icon: const Icon(PhosphorIconsRegular.arrowLeft, color: DS.textPrimary),
+                        icon: const Icon(LucideIcons.arrowLeft, color: DS.textPrimary),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ),
@@ -706,7 +706,7 @@ class _MobileSearchScreenState extends State<_MobileSearchScreen> {
                                     setState(() => _query = '');
                                   }),
                                   child: IconButton(
-                                    icon: const Icon(PhosphorIconsRegular.x, color: DS.textMuted, size: 18),
+                                    icon: const Icon(LucideIcons.x, color: DS.textMuted, size: 18),
                                     onPressed: () {
                                       _ctrl.clear();
                                       setState(() => _query = '');

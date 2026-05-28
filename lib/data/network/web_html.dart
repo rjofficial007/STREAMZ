@@ -1,6 +1,6 @@
 // data/network/web_html.dart
 // ============================================================================
-// STREAMZ — Built-in Web Interface HTML
+// STREAMZ — Built-in Web Interface HTML (Refined Studio Edition)
 // ============================================================================
 
 const String kWebInterfaceHtml = r"""
@@ -15,17 +15,18 @@ const String kWebInterfaceHtml = r"""
   :root {
     --black: #000000;
     --white: #ffffff;
+    --accent: #ffffff;
     --white-dim: rgba(255,255,255,0.04);
     --white-mid: rgba(255,255,255,0.12);
     --white-border: rgba(255,255,255,0.15);
-    --white-text: rgba(255,255,255,0.5);
+    --white-text: rgba(255,255,255,0.6);
     --white-muted: rgba(255,255,255,0.3);
     --surface: #0a0a0a;
     --surface-2: #111111;
     --font-display: 'Barlow Condensed', sans-serif;
     --font-mono: 'DM Mono', monospace;
     --font-body: 'Barlow', sans-serif;
-    --transition-snap: 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-snap: 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -85,8 +86,8 @@ const String kWebInterfaceHtml = r"""
     outline: none;
   }
   .nav-btn:hover, .nav-btn:focus { background: var(--white-dim); color: var(--white); }
-  .nav-btn.active { background: var(--white); color: var(--black); font-weight: 400; }
-  .search-container { display: flex; align-items: center; min-width: 300px; background: var(--black); }
+  .nav-btn.active { background: var(--white); color: var(--black); font-weight: 700; }
+  .search-container { display: flex; align-items: center; min-width: 300px; background: var(--black); position: relative; }
   .search-box {
     background: transparent;
     border: none;
@@ -96,27 +97,29 @@ const String kWebInterfaceHtml = r"""
     letter-spacing: 1px;
     width: 100%;
     height: 100%;
-    padding: 0 32px;
+    padding: 0 40px;
     outline: none;
     text-transform: uppercase;
   }
   .search-box::placeholder { color: var(--white-muted); }
   .search-box:focus { background: var(--white-dim); }
+  .search-icon { position: absolute; left: 16px; font-size: 14px; color: var(--white-muted); }
 
   .workspace { display: flex; flex-grow: 1; overflow: hidden; position: relative; }
   .content-area {
     flex-grow: 1;
-    padding: 30px;
+    padding: 40px;
     overflow-y: auto;
     position: relative;
+    scroll-behavior: smooth;
   }
-  .page-header { margin-bottom: 48px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .page-header { margin-bottom: 64px; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--white-border); padding-bottom: 24px;}
   .page-title {
     font-family: var(--font-display);
-    font-size: clamp(28px, 6vw, 64px);
+    font-size: clamp(40px, 8vw, 96px);
     font-weight: 900;
-    letter-spacing: -1px;
-    line-height: 0.9;
+    letter-spacing: -2px;
+    line-height: 0.85;
     text-transform: uppercase;
   }
   .page-meta {
@@ -131,7 +134,7 @@ const String kWebInterfaceHtml = r"""
 
   .grid-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 1px;
     background: var(--white-border);
     border: 1px solid var(--white-border);
@@ -150,50 +153,55 @@ const String kWebInterfaceHtml = r"""
   .card:hover, .card:focus { background: var(--white); }
   .card-poster-wrap {
     width: 100%;
-    height: 75%;
+    height: 78%;
     position: relative;
     overflow: hidden;
     border-bottom: 1px solid var(--white-border);
+    background: var(--black);
   }
   .card-poster {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    filter: opacity(0.6);
-    transition: filter var(--transition-snap), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    filter: opacity(0.5) grayscale(1);
+    transition: filter var(--transition-snap), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .card:hover .card-poster, .card:focus .card-poster {
-    filter: opacity(1);
-    transform: scale(1.05);
+    filter: opacity(1) grayscale(0);
+    transform: scale(1.1);
   }
-  .card-info { padding: 0 20px; display: flex; justify-content: space-between; align-items: center; height: 25%; }
+  .card-info { padding: 0 20px; display: flex; justify-content: space-between; align-items: center; height: 22%; }
   .card-title {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 10px;
     letter-spacing: 1px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     color: var(--white-text);
     text-transform: uppercase;
+    flex-grow: 1;
   }
-  .card:hover .card-title, .card:focus .card-title { color: var(--black); font-weight: 400; }
+  .card:hover .card-title, .card:focus .card-title { color: var(--black); font-weight: 700; }
   .action-btn {
     color: var(--white-muted);
     text-decoration: none;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 9px;
     letter-spacing: 2px;
     outline: none;
     text-transform: uppercase;
+    margin-left: 12px;
+    border: 1px solid var(--white-border);
+    padding: 4px 8px;
   }
-  .card:hover .action-btn, .card:focus .action-btn { color: var(--black); font-weight: bold; }
+  .card:hover .action-btn, .card:focus .action-btn { color: var(--black); font-weight: bold; border-color: var(--black); }
 
   .list-container { display: flex; flex-direction: column; border-top: 1px solid var(--white-border); }
   .list-item {
     display: flex;
     align-items: center;
-    padding: 16px 24px;
+    padding: 20px 32px;
     border-bottom: 1px solid var(--white-border);
     background: transparent;
     cursor: crosshair;
@@ -201,29 +209,18 @@ const String kWebInterfaceHtml = r"""
     outline: none;
   }
   .list-item:hover, .list-item:focus { background: var(--white); color: var(--black); }
-  .list-index { font-family: var(--font-mono); width: 60px; font-size: 10px; color: var(--white-muted); letter-spacing: 2px; }
+  .list-index { font-family: var(--font-mono); width: 80px; font-size: 10px; color: var(--white-muted); letter-spacing: 2px; }
   .list-item:hover .list-index, .list-item:focus .list-index { color: var(--black); }
-  .list-art { width: 32px; height: 32px; object-fit: cover; margin-right: 24px; filter: opacity(0.5); border: 1px solid var(--white-border); }
-  .list-item:hover .list-art { filter: opacity(1); }
-  .list-title { flex-grow: 1; font-family: var(--font-mono); font-size: 12px; letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; }
-  .list-meta { font-family: var(--font-mono); font-size: 10px; width: 120px; text-align: right; margin-right: 32px; color: var(--white-text); letter-spacing: 1px; }
+  .list-art { width: 40px; height: 40px; object-fit: cover; margin-right: 32px; filter: grayscale(1) opacity(0.5); border: 1px solid var(--white-border); }
+  .list-item:hover .list-art { filter: grayscale(0) opacity(1); border-color: var(--black); }
+  .list-title { flex-grow: 1; font-family: var(--font-mono); font-size: 13px; font-weight: 400; letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; }
+  .list-meta { font-family: var(--font-mono); font-size: 10px; width: 140px; text-align: right; margin-right: 48px; color: var(--white-text); letter-spacing: 1px; }
   .list-item:hover .list-meta { color: var(--black); }
-  .list-download-icon { color: var(--white-text); text-decoration: none; font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; outline: none; text-transform: uppercase; }
-  .list-item:hover .list-download-icon { color: var(--black); font-weight: bold; }
-
-  /* Progress indicator on cards */
-  .card-progress {
-    position: absolute;
-    bottom: 25%;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: rgba(255,255,255,0.1);
-  }
-  .card-progress-bar { height: 100%; background: var(--white); }
+  .list-download-icon { color: var(--white-text); text-decoration: none; font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; outline: none; text-transform: uppercase; border: 1px solid var(--white-border); padding: 4px 8px; }
+  .list-item:hover .list-download-icon { color: var(--black); font-weight: bold; border-color: var(--black); }
 
   .player-console {
-    height: 90px;
+    height: 100px;
     border-top: 1px solid var(--white-border);
     background: var(--surface);
     display: flex;
@@ -235,29 +232,28 @@ const String kWebInterfaceHtml = r"""
     flex-grow: 1;
     background: transparent;
     border-right: 1px solid var(--white-border);
-    padding: 0 30px;
+    padding: 0 40px;
     display: flex;
     align-items: center;
-    gap: 32px;
+    gap: 40px;
   }
-  .lcd-art { width: 52px; height: 52px; border: 1px solid var(--white-border); overflow: hidden; }
-  .lcd-art img { width: 100%; height: 100%; object-fit: cover; }
-  .lcd-data { display: flex; flex-direction: column; justify-content: center; flex-grow: 1; }
-  .lcd-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 3px; color: var(--white-muted); margin-bottom: 6px; text-transform: uppercase; }
-  .lcd-title { font-family: var(--font-display); font-size: 28px; font-weight: 700; color: var(--white); line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 1px; }
-  .lcd-progress-wrapper { height: 4px; background: rgba(255,255,255,0.1); margin-top: 12px; width: 100%; position: relative; display: none; cursor: crosshair; }
-  .lcd-progress-wrapper:hover { background: rgba(255,255,255,0.2); }
+  .lcd-art { width: 64px; height: 64px; border: 1px solid var(--white-border); overflow: hidden; background: var(--black); }
+  .lcd-art img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(1); }
+  .lcd-data { display: flex; flex-direction: column; justify-content: center; flex-grow: 1; overflow: hidden; }
+  .lcd-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 4px; color: var(--white-muted); margin-bottom: 8px; text-transform: uppercase; }
+  .lcd-title { font-family: var(--font-display); font-size: 32px; font-weight: 700; color: var(--white); line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 1px; }
+  .lcd-progress-wrapper { height: 4px; background: rgba(255,255,255,0.1); margin-top: 16px; width: 100%; position: relative; display: none; cursor: crosshair; }
   .lcd-progress-bar { height: 100%; width: 0%; background: var(--white); pointer-events: none; }
 
   .hardware-controls { display: flex; align-items: stretch; }
   .hw-btn {
-    width: 90px;
+    width: 100px;
     background: transparent;
     border: none;
     border-left: 1px solid var(--white-border);
     color: var(--white-text);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 12px;
     letter-spacing: 2px;
     cursor: crosshair;
     display: flex;
@@ -268,23 +264,23 @@ const String kWebInterfaceHtml = r"""
     text-transform: uppercase;
   }
   .hw-btn:hover, .hw-btn:focus { background: var(--white-dim); color: var(--white); }
-  .hw-btn.play { width: 120px; background: var(--white); color: var(--black); font-weight: bold; }
-  .hw-btn.play:hover, .hw-btn.play:focus { background: rgba(255,255,255,0.8); }
+  .hw-btn.play { width: 140px; background: var(--white); color: var(--black); font-weight: 700; }
+  .hw-btn.play:hover, .hw-btn.play:focus { background: rgba(255,255,255,0.9); }
 
   .fs-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.92);
+    background: rgba(0,0,0,0.98);
     z-index: 2000;
     display: none;
     align-items: center;
     justify-content: center;
   }
-  .fs-overlay.active { display: flex; animation: fadeIn 0.25s ease; }
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .fs-overlay.active { display: flex; animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes fadeIn { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: scale(1); } }
 
   .video-container {
-    width: 90vw;
+    width: 95vw;
     height: 90vh;
     border: 1px solid var(--white-border);
     position: relative;
@@ -292,16 +288,15 @@ const String kWebInterfaceHtml = r"""
     overflow: hidden;
   }
   .video-container:fullscreen { width: 100vw; height: 100vh; border: none; }
-  .video-container:-webkit-full-screen { width: 100vw; height: 100vh; border: none; }
 
   .window-controls { position: absolute; top: 0; right: 0; display: flex; z-index: 2001; }
   .window-btn {
-    width: 60px;
-    height: 60px;
+    width: 64px;
+    height: 64px;
     background: var(--white);
     color: var(--black);
     font-family: var(--font-mono);
-    font-size: 14px;
+    font-size: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -309,9 +304,8 @@ const String kWebInterfaceHtml = r"""
     border: none;
     outline: none;
     border-left: 1px solid var(--black);
-    transition: opacity 0.15s;
   }
-  .window-btn:hover { opacity: 0.8; }
+  .window-btn:hover { background: rgba(255,255,255,0.8); }
 
   video { width: 100%; height: 100%; object-fit: contain; outline: none; cursor: crosshair; }
   img#fs-img { width: 100%; height: 100%; object-fit: contain; }
@@ -321,28 +315,39 @@ const String kWebInterfaceHtml = r"""
     bottom: 0;
     left: 0;
     right: 0;
-    height: 90px;
-    background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+    height: 100px;
+    background: linear-gradient(to top, rgba(0,0,0,1), transparent);
     display: flex;
     align-items: center;
-    padding: 0 40px;
-    gap: 24px;
+    padding: 0 48px;
+    gap: 32px;
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.4s ease;
     z-index: 2002;
   }
   .video-container:hover .vid-controls-overlay { opacity: 1; }
 
   .empty-state {
-    padding: 120px 20px;
+    padding: 160px 20px;
     text-align: center;
     color: var(--white-muted);
     font-family: var(--font-mono);
-    font-size: 12px;
-    letter-spacing: 4px;
+    font-size: 14px;
+    letter-spacing: 8px;
     text-transform: uppercase;
     border: 1px dashed var(--white-border);
-    margin-top: 20px;
+    margin-top: 40px;
+  }
+
+  .status-badge {
+    background: var(--white);
+    color: var(--black);
+    padding: 4px 10px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin-right: 16px;
   }
 </style>
 </head>
@@ -357,7 +362,8 @@ const String kWebInterfaceHtml = r"""
     <button class="nav-btn" id="nav-folder" onclick="switchTab('folder')">NETWORK</button>
   </div>
   <div class="search-container">
-    <input type="text" class="search-box" id="searchInput" placeholder="Query Matrix..." oninput="handleSearch()">
+    <div class="search-icon">CMD></div>
+    <input type="text" class="search-box" id="searchInput" placeholder="SEARCH QUERY..." oninput="handleSearch()">
   </div>
 </div>
 
@@ -377,7 +383,7 @@ const String kWebInterfaceHtml = r"""
       <img id="np-art-img" src="/assets/images/audio_thumbnail.png" onerror="this.style.display='none'">
     </div>
     <div class="lcd-data">
-      <div class="lcd-label">SYSTEM IDLE</div>
+      <div class="lcd-label" id="lcd-status-label">STATUS // IDLE</div>
       <div class="lcd-title" id="np-title">AWAITING SIGNAL...</div>
       <div class="lcd-progress-wrapper" id="np-progress">
         <div class="lcd-progress-bar" id="np-progress-bar"></div>
@@ -394,18 +400,18 @@ const String kWebInterfaceHtml = r"""
 <div class="fs-overlay" id="fsOverlay">
   <div class="video-container" id="mediaContainer">
     <div class="window-controls">
-      <button class="window-btn" onclick="toggleFullscreen()">[ ]</button>
-      <button class="window-btn" onclick="closePlayer()">X</button>
+      <button class="window-btn" onclick="toggleFullscreen()">FS</button>
+      <button class="window-btn" onclick="closePlayer()">ESC</button>
     </div>
     <video id="videoPlayer" onclick="toggleMedia()" ondblclick="toggleFullscreen()"></video>
     <img id="fs-img" style="display:none;">
     <audio id="audioPlayer" style="display:none;"></audio>
     <div class="vid-controls-overlay" id="vidControls" style="display:none;">
-      <button class="hw-btn play" onclick="toggleMedia()" id="vidPlayBtn" style="height:48px;width:100px;border:none;">PAUSE</button>
+      <button class="hw-btn play" onclick="toggleMedia()" id="vidPlayBtn" style="height:54px;width:120px;border:none;">PAUSE</button>
       <div class="lcd-progress-wrapper" id="vid-progress" style="display:block;flex-grow:1;margin:0;">
         <div class="lcd-progress-bar" id="vid-progress-bar"></div>
       </div>
-      <div class="lcd-label" id="vid-time" style="margin:0;font-size:11px;letter-spacing:2px;">00:00 / 00:00</div>
+      <div class="lcd-label" id="vid-time" style="margin:0;font-size:12px;letter-spacing:2px;color:var(--white);">00:00 / 00:00</div>
     </div>
   </div>
 </div>
@@ -465,8 +471,8 @@ const String kWebInterfaceHtml = r"""
   }
 
   function handleRemoteNav(action) {
-    if (action === 'scroll_down') { document.querySelector('.content-area').scrollTop += 300; return; }
-    if (action === 'scroll_up')   { document.querySelector('.content-area').scrollTop -= 300; return; }
+    if (action === 'scroll_down') { document.querySelector('.content-area').scrollTop += 400; return; }
+    if (action === 'scroll_up')   { document.querySelector('.content-area').scrollTop -= 400; return; }
     if (action === 'back')        { closePlayer(); return; }
     const focusable = Array.from(document.querySelectorAll('[tabindex="0"], input, button'));
     if (!focusable.length) return;
@@ -524,7 +530,7 @@ const String kWebInterfaceHtml = r"""
       allMedia  = await res.json();
       buildUI('video');
     } catch(_) {
-      document.getElementById('content-area').innerHTML = '<div class="empty-state">ERR: CONNECTION LOST.</div>';
+      document.getElementById('content-area').innerHTML = '<div class="empty-state">SIGNAL ERROR // DISCONNECTED</div>';
     }
   }
 
@@ -573,7 +579,7 @@ const String kWebInterfaceHtml = r"""
         </div>
         <div class="card-info">
           <div class="card-title" title="${item.title}">${item.title}</div>
-          <a href="/stream/${item.id}" download="${item.title}" class="action-btn" tabindex="-1" onclick="event.stopPropagation()">DL</a>
+          <a href="/stream/${item.id}" download="${item.title}" class="action-btn" tabindex="-1" onclick="event.stopPropagation()">DOWNLOAD</a>
         </div>`;
       card.onclick = () => openPlayer(item);
       container.appendChild(card);
@@ -583,7 +589,7 @@ const String kWebInterfaceHtml = r"""
   async function buildFolderView() {
     const container = document.getElementById('content-area');
     container.className = 'list-container';
-    container.innerHTML = '<div class="empty-state">READING DIRECTORY...</div>';
+    container.innerHTML = '<div class="empty-state">SCANNING NETWORK...</div>';
     document.getElementById('page-subtitle').innerText = currentBrowsePath
         ? 'PATH // ' + currentBrowsePath.toUpperCase()
         : 'PATH // ROOT/FS';
@@ -596,7 +602,7 @@ const String kWebInterfaceHtml = r"""
         const back = document.createElement('div');
         back.className = 'list-item';
         back.setAttribute('tabindex', '0');
-        back.innerHTML = '<div class="list-index">[&lt;]</div><div class="list-title">.. / GO BACK</div>';
+        back.innerHTML = '<div class="list-index">[&lt;]</div><div class="list-title">.. / PARENT DIRECTORY</div>';
         back.onclick = () => {
           let lastSlash = Math.max(currentBrowsePath.lastIndexOf('/'), currentBrowsePath.lastIndexOf('\\'));
           if (lastSlash <= 0 || (lastSlash === 2 && currentBrowsePath.charAt(1) === ':')) {
@@ -615,7 +621,7 @@ const String kWebInterfaceHtml = r"""
         row.className = 'list-item';
         row.setAttribute('tabindex', '0');
         if (item.isDirectory) {
-          row.innerHTML = `<div class="list-index">[DIR]</div><div class="list-title">${item.name}</div>`;
+          row.innerHTML = `<div class="list-index">[NODE]</div><div class="list-title">${item.name}</div>`;
           row.onclick   = () => { currentBrowsePath = item.path; buildFolderView(); };
         } else {
           const ext      = (item.name.split('.').pop() || '').toLowerCase();
@@ -630,7 +636,7 @@ const String kWebInterfaceHtml = r"""
             <img class="list-art" src="${thumb}" onerror="this.src='${fallback}';this.onerror=null;">
             <div class="list-title" title="${item.name}">${item.name}</div>
             <div class="list-meta">${(item.size/1024/1024).toFixed(1)} MB</div>
-            <a href="/api/file?path=${encodeURIComponent(item.path)}" class="list-download-icon" download="${item.name}" onclick="event.stopPropagation()">DL</a>`;
+            <a href="/api/file?path=${encodeURIComponent(item.path)}" class="list-download-icon" download="${item.name}" onclick="event.stopPropagation()">GET</a>`;
           row.onclick = () => {
             if (typeKey !== 'file') openPlayer({ id: item.path, type: typeKey, title: item.name }, true);
             else window.open('/api/file?path=' + encodeURIComponent(item.path), '_blank');
@@ -639,7 +645,7 @@ const String kWebInterfaceHtml = r"""
         container.appendChild(row);
       });
     } catch(_) {
-      container.innerHTML = '<div class="empty-state">ERR: DIRECTORY READ FAILED.</div>';
+      container.innerHTML = '<div class="empty-state">ERR: ACCESS DENIED.</div>';
     }
   }
 
@@ -681,7 +687,7 @@ const String kWebInterfaceHtml = r"""
     if (item.type === 'audio') {
       aud.src = url;
       aud.play();
-      document.querySelector('.lcd-label').innerText    = 'BROADCAST ACTIVE';
+      document.getElementById('lcd-status-label').innerText = 'STATUS // BROADCASTING';
       document.getElementById('np-title').innerText     = item.title;
       document.getElementById('np-progress').style.display = 'block';
       const art = document.getElementById('np-art-img');
@@ -724,7 +730,7 @@ const String kWebInterfaceHtml = r"""
     vid.pause(); vid.src = '';
     if (!aud.paused) {
       aud.pause(); aud.src = '';
-      document.querySelector('.lcd-label').innerText = 'SYSTEM IDLE';
+      document.getElementById('lcd-status-label').innerText = 'STATUS // IDLE';
       document.getElementById('np-title').innerText  = 'AWAITING SIGNAL...';
       document.getElementById('np-progress').style.display = 'none';
     }

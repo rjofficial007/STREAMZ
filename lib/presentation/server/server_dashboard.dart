@@ -10,7 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -86,7 +86,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
                                   child: Focus(
                                     onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
                                     child: IconButton(
-                                      icon: Icon(PhosphorIconsRegular.arrowLeft, size: isMobile ? 18 : 20),
+                                      icon: Icon(LucideIcons.arrowLeft, size: isMobile ? 18 : 20),
                                       padding: EdgeInsets.zero,
                                       constraints: const BoxConstraints(),
                                       onPressed: () => Navigator.pop(context),
@@ -225,7 +225,7 @@ class _CoreCardState extends State<_CoreCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _TerminalHeader(title: 'CORE ENGINE', icon: PhosphorIconsFill.cpu),
+          _TerminalHeader(title: 'CORE ENGINE', icon: LucideIcons.cpu),
           Padding(
             padding: EdgeInsets.all(widget.isMobile ? DS.s16 : DS.s24),
             child: Column(
@@ -349,7 +349,7 @@ class _QRCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _TerminalHeader(title: 'QUICK PAIRING', icon: PhosphorIconsFill.qrCode),
+          _TerminalHeader(title: 'QUICK PAIRING', icon: LucideIcons.qrCode),
           Padding(
             padding: EdgeInsets.all(isMobile ? DS.s24 : DS.s32),
             child: Column(
@@ -392,14 +392,14 @@ class _TelemetryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _TerminalHeader(title: 'LIVE TELEMETRY FEED', icon: PhosphorIconsFill.waveform),
+          _TerminalHeader(title: 'LIVE TELEMETRY FEED', icon: LucideIcons.activity),
           if (sessions.isEmpty)
             Padding(
               padding: const EdgeInsets.all(40),
               child: Center(
                 child: Column(
                   children: [
-                    const Icon(PhosphorIconsRegular.wifiHigh, size: 48, color: DS.textMuted),
+                    const Icon(LucideIcons.wifiHigh, size: 48, color: DS.textMuted),
                     const SizedBox(height: DS.s16),
                     Text('NO SIGNAL DETECTED', style: AppTheme.theme.textTheme.labelSmall?.copyWith(letterSpacing: 4)),
                   ],
@@ -560,12 +560,12 @@ class _NetworkTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _TerminalHeader(title: 'SYSTEM UTILITIES', icon: PhosphorIconsFill.terminal),
+                _TerminalHeader(title: 'SYSTEM UTILITIES', icon: LucideIcons.terminal),
                 Row(
                   children: [
                     Expanded(
                       child: _ActionCard(
-                        icon: PhosphorIconsRegular.globe,
+                        icon: LucideIcons.globe,
                         title: 'WEB UI',
                         meta: 'PORT 8080',
                         isRightBorder: true,
@@ -575,7 +575,7 @@ class _NetworkTab extends StatelessWidget {
                     ),
                     Expanded(
                       child: _ActionCard(
-                        icon: PhosphorIconsRegular.clockCounterClockwise,
+                        icon: LucideIcons.history,
                         title: 'LOGS',
                         meta: 'HISTORY',
                         isBottomBorder: true,
@@ -593,7 +593,7 @@ class _NetworkTab extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _ActionCard(
-                        icon: PhosphorIconsRegular.deviceMobile,
+                        icon: LucideIcons.smartphone,
                         title: 'PREVIEW MOBILE',
                         meta: state.isRunning ? 'LOCAL UI' : 'OFFLINE',
                         isActive: state.isRunning,
@@ -604,7 +604,7 @@ class _NetworkTab extends StatelessWidget {
                     ),
                     Expanded(
                       child: _ActionCard(
-                        icon: PhosphorIconsRegular.television,
+                        icon: LucideIcons.tv,
                         title: 'PREVIEW TV',
                         meta: state.isRunning ? '10-FOOT UI' : 'OFFLINE',
                         isActive: state.isRunning,
@@ -618,7 +618,7 @@ class _NetworkTab extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _ActionCard(
-                        icon: PhosphorIconsRegular.shareNetwork,
+                        icon: LucideIcons.share2,
                         title: 'SHARE',
                         meta: 'COPY LINK',
                         isRightBorder: true,
@@ -638,7 +638,7 @@ class _NetworkTab extends StatelessWidget {
                     ),
                     Expanded(
                       child: _ActionCard(
-                        icon: PhosphorIconsRegular.gameController,
+                        icon: LucideIcons.gamepad2,
                         title: 'REMOTE',
                         meta: 'BROADCAST',
                         onTap: () => showModalBottomSheet(
@@ -688,23 +688,23 @@ class _UniversalRemoteSheet extends StatelessWidget {
           // D-PAD
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: [BrutalistPlayerBtn(icon: PhosphorIconsRegular.caretUp, size: 24, onTap: () => _cmd('nav', 'up'))],
+            children: [BrutalistPlayerBtn(icon: LucideIcons.chevronUp, size: 24, onTap: () => _cmd('nav', 'up'))],
           ),
           const SizedBox(height: DS.s16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              BrutalistPlayerBtn(icon: PhosphorIconsRegular.caretLeft, size: 24, onTap: () => _cmd('nav', 'left')),
+              BrutalistPlayerBtn(icon: LucideIcons.chevronLeft, size: 24, onTap: () => _cmd('nav', 'left')),
               const SizedBox(width: DS.s16),
-              BrutalistPlayerBtn(icon: PhosphorIconsRegular.circle, isPrimary: true, size: 24, onTap: () => _cmd('nav', 'enter')),
+              BrutalistPlayerBtn(icon: LucideIcons.circle, isPrimary: true, size: 24, onTap: () => _cmd('nav', 'enter')),
               const SizedBox(width: DS.s16),
-              BrutalistPlayerBtn(icon: PhosphorIconsRegular.caretRight, size: 24, onTap: () => _cmd('nav', 'right')),
+              BrutalistPlayerBtn(icon: LucideIcons.chevronRight, size: 24, onTap: () => _cmd('nav', 'right')),
             ],
           ),
           const SizedBox(height: DS.s16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: [BrutalistPlayerBtn(icon: PhosphorIconsRegular.caretDown, size: 24, onTap: () => _cmd('nav', 'down'))],
+            children: [BrutalistPlayerBtn(icon: LucideIcons.chevronDown, size: 24, onTap: () => _cmd('nav', 'down'))],
           ),
           const SizedBox(height: DS.s32),
           const Divider(color: DS.borderDefault),
@@ -714,24 +714,24 @@ class _UniversalRemoteSheet extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              BrutalistPlayerBtn(icon: PhosphorIconsFill.skipBack, size: 20, onTap: () => _cmd('media', 'prev')),
+              BrutalistPlayerBtn(icon: LucideIcons.skipBack, size: 20, onTap: () => _cmd('media', 'prev')),
               const SizedBox(width: DS.s16),
-              BrutalistPlayerBtn(icon: PhosphorIconsFill.rewind, size: 20, onTap: () => _cmd('media', 'seek', -10)),
+              BrutalistPlayerBtn(icon: LucideIcons.rewind, size: 20, onTap: () => _cmd('media', 'seek', -10)),
               const SizedBox(width: DS.s16),
-              BrutalistPlayerBtn(icon: PhosphorIconsFill.playPause, isPrimary: true, size: 24, onTap: () => _cmd('media', 'toggle_play')),
+              BrutalistPlayerBtn(icon: LucideIcons.play, isPrimary: true, size: 24, onTap: () => _cmd('media', 'toggle_play')),
               const SizedBox(width: DS.s16),
-              BrutalistPlayerBtn(icon: PhosphorIconsFill.fastForward, size: 20, onTap: () => _cmd('media', 'seek', 10)),
+              BrutalistPlayerBtn(icon: LucideIcons.fastForward, size: 20, onTap: () => _cmd('media', 'seek', 10)),
               const SizedBox(width: DS.s16),
-              BrutalistPlayerBtn(icon: PhosphorIconsFill.skipForward, size: 20, onTap: () => _cmd('media', 'next')),
+              BrutalistPlayerBtn(icon: LucideIcons.skipForward, size: 20, onTap: () => _cmd('media', 'next')),
             ],
           ),
           const SizedBox(height: DS.s24),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              BrutalistPlayerBtn(icon: PhosphorIconsFill.arrowCounterClockwise, size: 20, onTap: () => _cmd('nav', 'back')),
+              BrutalistPlayerBtn(icon: LucideIcons.rotateCcw, size: 20, onTap: () => _cmd('nav', 'back')),
               const SizedBox(width: DS.s32),
-              BrutalistPlayerBtn(icon: PhosphorIconsFill.speakerHigh, size: 20, onTap: () => _cmd('media', 'mute')),
+              BrutalistPlayerBtn(icon: LucideIcons.volume2, size: 20, onTap: () => _cmd('media', 'mute')),
             ],
           ),
           const SizedBox(height: DS.s32),
@@ -770,8 +770,8 @@ class _SharingTab extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _TerminalHeader(title: 'WEB UI THEME', icon: PhosphorIconsFill.layout),
-                    _ToggleRow(label: 'SPATIAL VISIONOS UI', icon: PhosphorIconsRegular.monitor, value: state.useModernWebUI, isMobile: isMobile, onChanged: state.setUseModernWebUI, isLast: true),
+                    _TerminalHeader(title: 'WEB UI THEME', icon: LucideIcons.layout),
+                    _ToggleRow(label: 'SPATIAL VISIONOS UI', icon: LucideIcons.monitor, value: state.useModernWebUI, isMobile: isMobile, onChanged: state.setUseModernWebUI, isLast: true),
                   ],
                 ),
               ),
@@ -787,10 +787,10 @@ class _SharingTab extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _TerminalHeader(title: 'BROADCAST FILTERS', icon: PhosphorIconsFill.faders),
-                    _ToggleRow(label: 'VIDEO PAYLOADS', icon: PhosphorIconsRegular.videoCamera, value: state.shareVideos, isMobile: isMobile, onChanged: state.setShareVideos),
-                    _ToggleRow(label: 'AUDIO PAYLOADS', icon: PhosphorIconsRegular.musicNote, value: state.shareMusic, isMobile: isMobile, onChanged: state.setShareMusic),
-                    _ToggleRow(label: 'IMAGE PAYLOADS', icon: PhosphorIconsRegular.image, value: state.shareImages, isMobile: isMobile, onChanged: state.setShareImages, isLast: true),
+                    _TerminalHeader(title: 'BROADCAST FILTERS', icon: LucideIcons.slidersHorizontal),
+                    _ToggleRow(label: 'VIDEO PAYLOADS', icon: LucideIcons.video, value: state.shareVideos, isMobile: isMobile, onChanged: state.setShareVideos),
+                    _ToggleRow(label: 'AUDIO PAYLOADS', icon: LucideIcons.music, value: state.shareMusic, isMobile: isMobile, onChanged: state.setShareMusic),
+                    _ToggleRow(label: 'IMAGE PAYLOADS', icon: LucideIcons.image, value: state.shareImages, isMobile: isMobile, onChanged: state.setShareImages, isLast: true),
                   ],
                 ),
               ),
@@ -816,7 +816,7 @@ class _SharingTab extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              const Icon(PhosphorIconsFill.folderOpen, color: DS.textPrimary, size: 16),
+                              const Icon(LucideIcons.folderOpen, color: DS.textPrimary, size: 16),
                               const SizedBox(width: DS.s12),
                               Text('MOUNTED DIRECTORIES', style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 11)),
                             ],
@@ -826,21 +826,21 @@ class _SharingTab extends StatelessWidget {
                               actions: {
                                 ActivateIntent: CallbackAction<ActivateIntent>(
                                   onInvoke: (_) async {
-                                    final picked = await Navigator.push(context, MaterialPageRoute(builder: (_) => const _FolderPickerScreen()));
-                                    if (picked is String) context.read<ServerViewModel>().addSharedFolder(picked);
+                                    final picked = await Navigator.push(context, MaterialPageRoute(builder: (_) => const FolderPickerScreen()));
+                                    if (picked is String && context.mounted) context.read<ServerViewModel>().addSharedFolder(picked);
                                     return null;
                                   },
                                 ),
                               },
                               child: Focus(
                                 onKeyEvent: (_, ev) => handleTVSelectKey(ev, () async {
-                                  final picked = await Navigator.push(context, MaterialPageRoute(builder: (_) => const _FolderPickerScreen()));
-                                  if (picked is String) context.read<ServerViewModel>().addSharedFolder(picked);
+                                  final picked = await Navigator.push(context, MaterialPageRoute(builder: (_) => const FolderPickerScreen()));
+                                  if (picked is String && context.mounted) context.read<ServerViewModel>().addSharedFolder(picked);
                                 }),
                                 child: InkWell(
                                   onTap: () async {
-                                    final picked = await Navigator.push(context, MaterialPageRoute(builder: (_) => const _FolderPickerScreen()));
-                                    if (picked is String) context.read<ServerViewModel>().addSharedFolder(picked);
+                                    final picked = await Navigator.push(context, MaterialPageRoute(builder: (_) => const FolderPickerScreen()));
+                                    if (picked is String && context.mounted) context.read<ServerViewModel>().addSharedFolder(picked);
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: DS.s12, vertical: 6),
@@ -928,7 +928,7 @@ class _ConnectionHistoryScreenState extends State<_ConnectionHistoryScreen> {
                             child: Focus(
                               onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
                               child: IconButton(
-                                icon: Icon(PhosphorIconsRegular.arrowLeft, size: isMobile ? 18 : 20),
+                                icon: Icon(LucideIcons.arrowLeft, size: isMobile ? 18 : 20),
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
                                 onPressed: () => Navigator.pop(context),
@@ -1002,7 +1002,7 @@ class _ConnectionHistoryScreenState extends State<_ConnectionHistoryScreen> {
                                   padding: const EdgeInsets.only(top: 60),
                                   child: Column(
                                     children: [
-                                      const Icon(PhosphorIconsRegular.clockCounterClockwise, size: 48, color: DS.textMuted),
+                                      const Icon(LucideIcons.history, size: 48, color: DS.textMuted),
                                       const SizedBox(height: DS.s16),
                                       Text('NO LOGS FOUND', style: AppTheme.theme.textTheme.labelSmall?.copyWith(letterSpacing: 4)),
                                     ],
@@ -1053,7 +1053,7 @@ class _HistoryCardState extends State<_HistoryCard> {
             padding: EdgeInsets.all(widget.isMobile ? DS.s16 : DS.s24),
             child: Row(
               children: [
-                Icon(PhosphorIconsFill.hardDrives, color: DS.textPrimary, size: widget.isMobile ? 20 : 24),
+                Icon(LucideIcons.hardDrive, color: DS.textPrimary, size: widget.isMobile ? 20 : 24),
                 const SizedBox(width: DS.s16),
                 Expanded(
                   child: Column(
@@ -1116,7 +1116,7 @@ class _HistoryCardState extends State<_HistoryCard> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(widget.record.isOnline ? PhosphorIconsFill.lightning : PhosphorIconsFill.wifiSlash, size: 16, color: widget.record.isOnline ? DS.accent : DS.textMuted),
+                            Icon(widget.record.isOnline ? LucideIcons.cloudLightning : LucideIcons.wifiZero, size: 16, color: widget.record.isOnline ? DS.accent : DS.textMuted),
                             const SizedBox(width: DS.s12),
                             Text(
                               widget.record.isOnline ? 'CONNECT NODE' : 'NODE OFFLINE',
@@ -1190,21 +1190,36 @@ class _HistoryCardState extends State<_HistoryCard> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FOLDER PICKER
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Isolate helper ────────────────────────────────────────────────────────────
 
-class _FolderPickerScreen extends StatefulWidget {
-  const _FolderPickerScreen();
-
-  @override
-  State<_FolderPickerScreen> createState() => _FolderPickerScreenState();
+/// Runs in a background isolate via compute().
+/// Returns a sorted list of subdirectory paths under [rootPath].
+List<String> _listSubdirectories(String rootPath) {
+  try {
+    final dir = Directory(rootPath);
+    if (!dir.existsSync()) return [];
+    return dir.listSync(followLinks: false).whereType<Directory>().map((d) => d.path).toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  } catch (_) {
+    return [];
+  }
 }
 
-class _FolderPickerScreenState extends State<_FolderPickerScreen> {
+// ─────────────────────────────────────────────────────────────────────────────
+// FOLDER PICKER SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
+
+class FolderPickerScreen extends StatefulWidget {
+  const FolderPickerScreen({super.key});
+
+  @override
+  State<FolderPickerScreen> createState() => _FolderPickerScreenState();
+}
+
+class _FolderPickerScreenState extends State<FolderPickerScreen> {
   String _path = '';
-  List<Directory> _dirs = [];
+  List<String> _dirs = [];
   bool _loading = false;
+  String? _error;
 
   @override
   void initState() {
@@ -1221,24 +1236,34 @@ class _FolderPickerScreenState extends State<_FolderPickerScreen> {
     }
   }
 
-  void _load() {
-    setState(() => _loading = true);
+  // FIX: Use compute() to move directory listing off the main isolate.
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      final dir = Directory(_path);
-      if (dir.existsSync()) {
-        final list = dir.listSync(followLinks: false).whereType<Directory>().toList();
-        list.sort((a, b) => a.path.toLowerCase().compareTo(b.path.toLowerCase()));
-        _dirs = list;
-      } else {
-        _dirs = [];
+      // compute() spawns an isolate, runs _listSubdirectories, returns result.
+      final dirs = await compute(_listSubdirectories, _path);
+      if (mounted) {
+        setState(() {
+          _dirs = dirs;
+          _loading = false;
+        });
       }
-    } catch (_) {
-      _dirs = [];
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _dirs = [];
+          _error = e.toString();
+          _loading = false;
+        });
+      }
     }
-    setState(() => _loading = false);
   }
 
   void _goUp() {
+    if (_path.isEmpty) return;
     final parent = Directory(_path).parent;
     if (parent.path != _path) {
       _path = parent.path;
@@ -1246,9 +1271,20 @@ class _FolderPickerScreenState extends State<_FolderPickerScreen> {
     }
   }
 
+  void _navigateInto(String dirPath) {
+    _path = dirPath;
+    _load();
+  }
+
+  String _lastName(String path) {
+    final sep = defaultTargetPlatform == TargetPlatform.windows ? '\\' : '/';
+    return path.split(sep).where((s) => s.isNotEmpty).lastOrNull ?? path;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.sizeOf(context).width <= DS.bpMobile;
+
     return AppScaffold(
       appBar: AppBar(
         title: Text('MOUNT DIR', style: TextStyle(fontSize: isMobile ? 16 : 20)),
@@ -1264,7 +1300,7 @@ class _FolderPickerScreenState extends State<_FolderPickerScreen> {
           child: Focus(
             onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
             child: IconButton(
-              icon: Icon(PhosphorIconsRegular.arrowLeft, size: isMobile ? 18 : 24),
+              icon: Icon(LucideIcons.arrowLeft, size: isMobile ? 18 : 24),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -1295,12 +1331,19 @@ class _FolderPickerScreenState extends State<_FolderPickerScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Current path breadcrumb
           Container(
             width: double.infinity,
             padding: EdgeInsets.symmetric(horizontal: DS.s16, vertical: isMobile ? DS.s8 : DS.s12),
             decoration: BoxDecoration(border: Border.all(color: DS.borderDefault)),
-            child: Text(_path.toUpperCase(), style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: isMobile ? 10 : 12)),
+            child: Text(
+              _path.toUpperCase(),
+              style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: isMobile ? 10 : 12),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
+
+          // Go up button
           Actions(
             actions: {
               ActivateIntent: CallbackAction<ActivateIntent>(
@@ -1315,48 +1358,64 @@ class _FolderPickerScreenState extends State<_FolderPickerScreen> {
               child: ListTile(
                 dense: true,
                 focusColor: DS.surface3,
-                leading: Icon(PhosphorIconsRegular.arrowUUpLeft, color: Colors.white, size: isMobile ? 16 : 20),
+                leading: Icon(LucideIcons.arrowUpLeft, color: Colors.white, size: isMobile ? 16 : 20),
                 title: Text('LEVEL UP', style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: isMobile ? 11 : 12)),
                 onTap: _goUp,
               ),
             ),
           ),
+
           const Divider(height: 1, color: DS.borderDefault),
+
+          // Directory listing
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: DS.accent))
+                ? const Center(child: CircularProgressIndicator(color: DS.accent, strokeWidth: 2))
+                : _error != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(DS.s24),
+                      child: Text(
+                        'READ ERROR: $_error',
+                        style: AppTheme.theme.textTheme.labelSmall?.copyWith(color: Colors.redAccent),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  )
+                : _dirs.isEmpty
+                ? Center(child: Text('NO SUBDIRECTORIES', style: AppTheme.theme.textTheme.labelSmall))
                 : ListView.builder(
                     itemCount: _dirs.length,
                     itemBuilder: (_, i) {
-                      final sep = defaultTargetPlatform == TargetPlatform.windows ? '\\' : '/';
-                      final name = _dirs[i].path.split(sep).where((s) => s.isNotEmpty).lastOrNull ?? _dirs[i].path;
+                      final dirPath = _dirs[i];
+                      final name = _lastName(dirPath);
                       return Container(
-                        decoration: BoxDecoration(border: Border.all(color: DS.borderDefault)),
+                        decoration: const BoxDecoration(
+                          border: Border(bottom: BorderSide(color: DS.borderDefault)),
+                        ),
                         child: Actions(
                           actions: {
                             ActivateIntent: CallbackAction<ActivateIntent>(
                               onInvoke: (_) {
-                                _path = _dirs[i].path;
-                                _load();
+                                _navigateInto(dirPath);
                                 return null;
                               },
                             ),
                           },
                           child: Focus(
-                            onKeyEvent: (_, ev) => handleTVSelectKey(ev, () {
-                              _path = _dirs[i].path;
-                              _load();
-                            }),
+                            onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => _navigateInto(dirPath)),
                             child: ListTile(
                               dense: true,
                               focusColor: DS.surface3,
                               contentPadding: const EdgeInsets.symmetric(horizontal: DS.s16),
-                              leading: Icon(PhosphorIconsFill.folder, color: DS.accent, size: isMobile ? 16 : 20),
-                              title: Text(name.toUpperCase(), style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: isMobile ? 11 : 12)),
-                              onTap: () {
-                                _path = _dirs[i].path;
-                                _load();
-                              },
+                              leading: Icon(LucideIcons.folder, color: DS.accent, size: isMobile ? 16 : 20),
+                              title: Text(
+                                name.toUpperCase(),
+                                style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: isMobile ? 11 : 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: Icon(LucideIcons.chevronRight, size: 14, color: DS.textMuted),
+                              onTap: () => _navigateInto(dirPath),
                             ),
                           ),
                         ),
@@ -1594,7 +1653,7 @@ class _DirRowState extends State<_DirRow> {
       padding: const EdgeInsets.symmetric(horizontal: DS.s16, vertical: DS.s12),
       child: Row(
         children: [
-          const Icon(PhosphorIconsRegular.folder, color: DS.textMuted, size: 18),
+          const Icon(LucideIcons.folder, color: DS.textMuted, size: 18),
           const SizedBox(width: DS.s16),
           Expanded(
             child: Column(
@@ -1632,7 +1691,7 @@ class _DirRowState extends State<_DirRow> {
                     color: _isFocused ? Colors.redAccent.withValues(alpha: 0.1) : Colors.transparent,
                     border: Border.all(color: _isFocused ? Colors.redAccent : DS.borderDefault),
                   ),
-                  child: Icon(PhosphorIconsRegular.x, size: 14, color: _isFocused ? Colors.redAccent : DS.textMuted),
+                  child: Icon(LucideIcons.x, size: 14, color: _isFocused ? Colors.redAccent : DS.textMuted),
                 ),
               ),
             ),

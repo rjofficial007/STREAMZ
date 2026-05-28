@@ -6,7 +6,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -84,7 +84,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
           child: Focus(
             onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
             child: IconButton(
-              icon: Icon(PhosphorIconsRegular.arrowLeft, size: isMobile ? 20 : 24),
+              icon: Icon(LucideIcons.arrowLeft, size: isMobile ? 20 : 24),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -208,7 +208,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
                             SizedBox(height: isMobile ? DS.s24 : DS.s32),
                             CompactBtn(
                               label: 'SCAN QR CODE',
-                              icon: PhosphorIconsRegular.qrCode,
+                              icon: LucideIcons.qrCode,
                               isPrimary: false,
                               height: isMobile ? 48 : 56,
                               onTap: () async {
@@ -247,7 +247,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
                             ),
                             child: Row(
                               children: [
-                                const Icon(PhosphorIconsRegular.warningOctagon, color: Colors.redAccent, size: 20),
+                                const Icon(LucideIcons.alertTriangle, color: Colors.redAccent, size: 20),
                                 const SizedBox(width: DS.s16),
                                 Expanded(
                                   child: Text(

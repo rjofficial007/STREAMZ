@@ -1,8 +1,8 @@
 // presentation/client/qr_scanner_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/design_tokens.dart';
@@ -70,7 +70,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                         child: Focus(
                           onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
                           child: IconButton(
-                            icon: const Icon(PhosphorIconsRegular.x, color: Colors.white, size: 24),
+                            icon: const Icon(LucideIcons.x, color: Colors.white, size: 24),
                             onPressed: () => Navigator.pop(context),
                           ),
                         ),
@@ -91,7 +91,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                             setState(() => _isFlashOn = !_isFlashOn);
                           }),
                           child: IconButton(
-                            icon: Icon(_isFlashOn ? PhosphorIconsFill.lightning : PhosphorIconsRegular.lightningSlash, color: _isFlashOn ? DS.accent : Colors.white, size: 24),
+                            icon: Icon(_isFlashOn ? LucideIcons.zap : LucideIcons.zapOff, color: _isFlashOn ? DS.accent : Colors.white, size: 24),
                             onPressed: () {
                               _controller.toggleTorch();
                               setState(() => _isFlashOn = !_isFlashOn);

@@ -2,7 +2,7 @@
 // Shared file-item model used by both mobile and TV file managers.
 
 import 'package:flutter/material.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/utils/file_type_utils.dart';
 
@@ -88,21 +88,21 @@ class SFileItem {
   IconData get icon {
     switch (type) {
       case SFileType.folder:
-        return PhosphorIconsFill.folder;
+        return LucideIcons.folder;
       case SFileType.image:
-        return PhosphorIconsFill.image;
+        return LucideIcons.image;
       case SFileType.video:
-        return PhosphorIconsFill.filmStrip;
+        return LucideIcons.video;
       case SFileType.audio:
-        return PhosphorIconsFill.musicNote;
+        return LucideIcons.music;
       case SFileType.document:
-        return PhosphorIconsFill.fileText;
+        return LucideIcons.fileText;
       case SFileType.apk:
-        return PhosphorIconsFill.androidLogo;
+        return LucideIcons.bot;
       case SFileType.archive:
-        return PhosphorIconsFill.fileZip;
+        return LucideIcons.archive;
       default:
-        return PhosphorIconsFill.file;
+        return LucideIcons.file;
     }
   }
 

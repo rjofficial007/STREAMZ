@@ -7,7 +7,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -107,7 +107,7 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
                           },
                           onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
                           child: IconButton(
-                            icon: Icon(PhosphorIconsRegular.arrowLeft, color: DS.textPrimary, size: (size.width * 0.02).clamp(24.0, 32.0)),
+                            icon: Icon(LucideIcons.arrowLeft, color: DS.textPrimary, size: (size.width * 0.02).clamp(24.0, 32.0)),
                             onPressed: () => Navigator.pop(context),
                           ),
                         ),
@@ -153,7 +153,7 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
                             },
                             onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => _openSearch(context, allMedia)),
                             child: IconButton(
-                              icon: Icon(PhosphorIconsRegular.magnifyingGlass, color: DS.textPrimary, size: (size.width * 0.02).clamp(24.0, 32.0)),
+                              icon: Icon(LucideIcons.search, color: DS.textPrimary, size: (size.width * 0.02).clamp(24.0, 32.0)),
                               onPressed: () => _openSearch(context, allMedia),
                             ),
                           ),
@@ -358,7 +358,7 @@ class _HeroSectionState extends State<_HeroSection> {
               fit: StackFit.expand,
               children: [
                 // Hero Image
-                NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: item.isAudio ? PhosphorIconsFill.musicNote : PhosphorIconsFill.filmStrip),
+                NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: item.isAudio ? LucideIcons.music : LucideIcons.video),
 
                 // Gradient Fade to Background Color
                 DecoratedBox(
@@ -420,10 +420,10 @@ class _HeroSectionState extends State<_HeroSection> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _TVHeroButton(icon: PhosphorIconsFill.play, label: 'PLAY', width: btnWidth, isPrimary: true, onFocus: _recordInteraction, onTap: () => _play(context, item)),
+                          _TVHeroButton(icon: LucideIcons.play, label: 'PLAY', width: btnWidth, isPrimary: true, onFocus: _recordInteraction, onTap: () => _play(context, item)),
                           const SizedBox(width: 24),
                           _TVHeroButton(
-                            icon: PhosphorIconsRegular.info,
+                            icon: LucideIcons.info,
                             label: 'INFO',
                             width: btnWidth,
                             isPrimary: false,
@@ -731,7 +731,7 @@ class _TVRailCardState extends State<_TVRailCard> with SingleTickerProviderState
                     AnimatedOpacity(
                       duration: const Duration(milliseconds: 150),
                       opacity: widget.isFocused ? 1.0 : 0.7,
-                      child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: widget.item.isAudio ? PhosphorIconsFill.musicNote : PhosphorIconsFill.filmStrip),
+                      child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: widget.item.isAudio ? LucideIcons.music : LucideIcons.video),
                     ),
 
                     // Gradient overlay
@@ -790,7 +790,7 @@ class _EmptyState extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(PhosphorIconsRegular.wifiHigh, size: 64, color: DS.textMuted),
+        const Icon(LucideIcons.wifiHigh, size: 64, color: DS.textMuted),
         const SizedBox(height: DS.s24),
         Text('NO SIGNAL', style: AppTheme.theme.textTheme.displayMedium?.copyWith(fontSize: 48, color: DS.textMuted)),
         const SizedBox(height: DS.s12),
@@ -885,7 +885,7 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
                             border: Border.all(color: DS.borderDefault),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Icon(PhosphorIconsRegular.arrowLeft, color: DS.textPrimary, size: 24),
+                          child: const Icon(LucideIcons.arrowLeft, color: DS.textPrimary, size: 24),
                         ),
                       ),
                     ),
@@ -900,7 +900,7 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
                         hintText: 'SEARCH LIBRARY...',
                         hintStyle: TextStyle(color: DS.textMuted),
                         border: InputBorder.none,
-                        prefixIcon: Icon(PhosphorIconsRegular.magnifyingGlass, color: DS.textMuted, size: 24),
+                        prefixIcon: Icon(LucideIcons.search, color: DS.textMuted, size: 24),
                       ),
                       onChanged: (v) {
                         setState(() {

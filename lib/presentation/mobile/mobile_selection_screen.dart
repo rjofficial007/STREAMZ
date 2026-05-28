@@ -4,7 +4,7 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
@@ -37,7 +37,7 @@ class MobileSelectionScreen extends StatelessWidget {
               Navigator.pop(context);
             }),
             child: IconButton(
-              icon: const Icon(PhosphorIconsRegular.arrowLeft, size: 20, color: DS.textPrimary),
+              icon: const Icon(LucideIcons.arrowLeft, size: 20, color: DS.textPrimary),
               onPressed: () {
                 context.read<ClientViewModel>().disconnect();
                 Navigator.pop(context);
@@ -62,7 +62,7 @@ class MobileSelectionScreen extends StatelessWidget {
                     child: _MobileSelectionCard(
                       title: 'MODERN UI',
                       subtitle: 'NETFLIX-STYLE RAILS',
-                      icon: PhosphorIconsRegular.television,
+                      icon: LucideIcons.tv,
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -76,7 +76,7 @@ class MobileSelectionScreen extends StatelessWidget {
                     child: _MobileSelectionCard(
                       title: 'FILE SYSTEM',
                       subtitle: 'RAW DIRECTORY ACCESS',
-                      icon: PhosphorIconsRegular.folderOpen,
+                      icon: LucideIcons.folderOpen,
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(

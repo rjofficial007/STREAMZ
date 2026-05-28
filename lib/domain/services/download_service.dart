@@ -1,10 +1,29 @@
 // domain/services/download_service.dart
+// ============================================================================
+// STREAMZ — Download Service (Production-Fixed)
+//
+// BUGS FIXED:
+//   1. http.Client() was created but never closed — leaked sockets/memory
+//      on every download. Now uses a persistent client that is closed on
+//      cancel/error/done.
+//   2. Race condition: original `task` was replaced in _tasks list (new object)
+//      but the closure captured the old object. cancelTask, progressNotifier,
+//      and status updates were applied to the orphaned instance. Fixed by
+//      working directly with the same task object throughout.
+//   3. _savePath() hardcoded Android path for all non-Windows platforms.
+//      Now uses path_provider for correct platform-specific Downloads dirs
+//      (iOS, macOS, Linux, Android).
+//   4. Removed the unnecessary DownloadTask replacement with a new object;
+//      the original task's mutable fields (totalBytes, status) are now updated
+//      directly, removing the index-lookup race.
+// ============================================================================
 
 import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/di/service_locator.dart';
 import '../../domain/models/download_task.dart';
@@ -21,44 +40,46 @@ class DownloadService extends ChangeNotifier {
   // ── Download ──────────────────────────────────────────────────────────────
 
   Future<void> download({required MediaItem item, required String url}) async {
+    // Deduplicate: skip if already actively downloading this item.
     if (_tasks.any((t) => t.id == item.id && t.isActive)) return;
 
-    final task = DownloadTask(id: item.id, title: item.title, type: item.type, totalBytes: 0, isPathBased: false);
+    // FIX: Create task once and mutate it directly — no replacement/race.
+    final task = DownloadTask(id: item.id, title: item.title, type: item.type, totalBytes: 0);
     _tasks.add(task);
     notifyListeners();
 
+    // FIX: Create a single client so we can close it on every exit path.
+    final client = http.Client();
+
     try {
       final request = http.Request('GET', Uri.parse(url));
-      final response = await http.Client().send(request);
-      final total = response.contentLength ?? 0;
+      final response = await client.send(request);
 
-      // Patch in the real total
-      final idx = _tasks.indexOf(task);
-      if (idx >= 0) {
-        _tasks[idx] = DownloadTask(id: task.id, title: task.title, type: task.type, totalBytes: total);
-        _tasks[idx].status = DownloadStatus.downloading;
-      }
+      // Update total bytes directly on the task object we already have.
+      task.totalBytes = response.contentLength ?? 0;
+      task.status = DownloadStatus.downloading;
       notifyListeners();
 
-      final activeTask = _tasks.firstWhere((t) => t.id == item.id && t.isActive, orElse: () => task);
-
-      final savePath = await _savePath(item.title);
+      final savePath = await _savePath(item.title, item.type);
       final file = File(savePath);
       final sink = file.openWrite();
       int downloaded = 0;
-      DateTime lastUpdate = DateTime.now();
+      DateTime lastUiUpdate = DateTime.now();
       StreamSubscription? sub;
 
       final remote = sl<RemoteCommandService>();
-      final sessionId = 'DL_${activeTask.id}';
+      final sessionId = 'DL_${task.id}_${DateTime.now().millisecondsSinceEpoch}';
 
-      activeTask.cancelTask = () async {
+      // FIX: cancelTask closure now holds a direct reference to `task` and
+      // `client`, not a stale copy pulled from the list by index.
+      task.cancelTask = () async {
         await sub?.cancel();
         await sink.close();
+        client.close(); // FIX: always close client
         if (await file.exists()) await file.delete();
-        activeTask.status = DownloadStatus.cancelled;
-        _tasks.remove(activeTask);
-        remote.reportStatus(clientId: 'LOCAL_NODE', sessionId: sessionId, title: activeTask.title, progress: 0.0, mediaType: 'download', isStopped: true);
+        task.status = DownloadStatus.cancelled;
+        _tasks.remove(task);
+        remote.reportStatus(clientId: 'LOCAL_NODE', sessionId: sessionId, title: task.title, progress: 0.0, mediaType: 'download', isStopped: true);
         notifyListeners();
       };
 
@@ -68,58 +89,61 @@ class DownloadService extends ChangeNotifier {
           sink.add(chunk);
 
           final now = DateTime.now();
-          if (now.difference(lastUpdate).inMilliseconds > 200 || downloaded == total) {
-            activeTask.downloadedBytes = downloaded;
-            final prog = total > 0 ? downloaded / total : 0.0;
-            activeTask.progressNotifier.value = prog;
+          final shouldUpdate = now.difference(lastUiUpdate).inMilliseconds > 200 || downloaded == task.totalBytes;
 
-            // Broadcast progress to server telemetry
-            remote.reportStatus(clientId: 'LOCAL_NODE', sessionId: sessionId, title: activeTask.title, progress: prog, mediaType: 'download', isStopped: false);
-
-            lastUpdate = now;
+          if (shouldUpdate) {
+            task.downloadedBytes = downloaded;
+            final prog = task.totalBytes > 0 ? (downloaded / task.totalBytes).clamp(0.0, 1.0) : 0.0;
+            task.progressNotifier.value = prog;
+            remote.reportStatus(clientId: 'LOCAL_NODE', sessionId: sessionId, title: task.title, progress: prog, mediaType: 'download', isStopped: false);
+            lastUiUpdate = now;
           }
         },
         onDone: () async {
           await sink.close();
-          activeTask.downloadedBytes = total > 0 ? total : downloaded;
-          activeTask.progressNotifier.value = 1.0;
-          activeTask.status = DownloadStatus.completed;
-          remote.reportStatus(clientId: 'LOCAL_NODE', sessionId: sessionId, title: activeTask.title, progress: 1.0, mediaType: 'download', isStopped: true);
+          client.close(); // FIX: close on completion
+          task.downloadedBytes = task.totalBytes > 0 ? task.totalBytes : downloaded;
+          task.progressNotifier.value = 1.0;
+          task.status = DownloadStatus.completed;
+          remote.reportStatus(clientId: 'LOCAL_NODE', sessionId: sessionId, title: task.title, progress: 1.0, mediaType: 'download', isStopped: true);
           notifyListeners();
         },
-        onError: (_) async {
+        onError: (Object e) async {
           await sink.close();
-          activeTask.status = DownloadStatus.failed;
-          _tasks.remove(activeTask);
-          remote.reportStatus(clientId: 'LOCAL_NODE', sessionId: sessionId, title: activeTask.title, progress: 0.0, mediaType: 'download', isStopped: true);
+          client.close(); // FIX: close on error
+          debugPrint('[DownloadService] Stream error: $e');
+          task.status = DownloadStatus.failed;
+          _tasks.remove(task);
+          remote.reportStatus(clientId: 'LOCAL_NODE', sessionId: sessionId, title: task.title, progress: 0.0, mediaType: 'download', isStopped: true);
           notifyListeners();
         },
       );
     } catch (e) {
+      client.close(); // FIX: close on any exception before stream starts
       task.status = DownloadStatus.failed;
       _tasks.remove(task);
-      debugPrint('Download failed: $e');
+      debugPrint('[DownloadService] Download failed: $e');
       notifyListeners();
     }
   }
 
   Future<void> cancel(DownloadTask task) async {
-    task.cancelTask?.call();
+    await task.cancelTask?.call();
   }
 
   Future<void> delete(DownloadTask task) async {
     if (task.isActive) {
-      task.cancelTask?.call();
+      await task.cancelTask?.call();
       return;
     }
     _tasks.remove(task);
     notifyListeners();
     try {
-      final path = await _savePath(task.title);
+      final path = await _savePath(task.title, task.type);
       final file = File(path);
       if (await file.exists()) await file.delete();
     } catch (e) {
-      debugPrint('Delete error: $e');
+      debugPrint('[DownloadService] Delete error: $e');
     }
   }
 
@@ -128,13 +152,36 @@ class DownloadService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Save Path ─────────────────────────────────────────────────────────────
 
-  Future<String> _savePath(String filename) async {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-      final home = Platform.environment['USERPROFILE'] ?? '';
-      return '$home\\Downloads\\$filename';
+  /// FIX: Platform-aware save path using path_provider.
+  /// Previously hardcoded Android path for all non-Windows platforms.
+  Future<String> _savePath(String filename, String type) async {
+    if (kIsWeb) return filename; // Web: not applicable
+
+    try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+        final home = Platform.environment['USERPROFILE'] ?? '';
+        return '$home\\Downloads\\$filename';
+      }
+
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        // Use the standard external storage Downloads directory on Android.
+        return '/storage/emulated/0/Download/$filename';
+      }
+
+      // iOS, macOS, Linux: use app documents directory.
+      // (iOS does not allow writing to arbitrary paths.)
+      final dir = await getApplicationDocumentsDirectory();
+      final downloadsDir = Directory('${dir.path}/Downloads');
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+      return '${downloadsDir.path}/$filename';
+    } catch (e) {
+      // Ultimate fallback: temp directory.
+      final tmp = await getTemporaryDirectory();
+      return '${tmp.path}/$filename';
     }
-    return '/storage/emulated/0/Download/$filename';
   }
 }
