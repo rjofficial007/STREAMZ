@@ -20,8 +20,9 @@ class PlayerScreen extends StatefulWidget {
   final List<MediaItem> items;
   final int startIndex;
   final bool isPathBased;
+  final Duration? startOffset;
 
-  const PlayerScreen({super.key, required this.items, required this.startIndex, this.isPathBased = false});
+  const PlayerScreen({super.key, required this.items, required this.startIndex, this.isPathBased = false, this.startOffset});
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -42,7 +43,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void initState() {
     super.initState();
     _vm = PlayerViewModel();
-    _vm.load(items: widget.items, startIndex: widget.startIndex, isPathBased: widget.isPathBased).then((_) {
+    _vm.load(items: widget.items, startIndex: widget.startIndex, isPathBased: widget.isPathBased, startOffset: widget.startOffset).then((_) {
       _primaryFocusNode.requestFocus();
     });
     _wasOSDVisible = _vm.showOSD;

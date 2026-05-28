@@ -55,6 +55,7 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
   Widget build(BuildContext context) {
     final vm = context.watch<ClientViewModel>();
     final allMedia = vm.remoteMedia;
+    final stations = vm.stations;
     final continueWatching = vm.continueWatching;
     final videos = vm.videos;
     final audio = vm.audio;
@@ -184,6 +185,21 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
 
                   SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
 
+                  // Live Stations
+                  if (stations.isNotEmpty) ...[
+                    SliverToBoxAdapter(
+                      child: _TVStationRail(
+                        stations: stations,
+                        railIndex: 0,
+                        focusedRail: _railFocus,
+                        onRailFocus: (i) => setState(() => _railFocus = i),
+                        vm: vm,
+                        hPad: hPad,
+                      ),
+                    ),
+                    SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
+                  ],
+
                   // Continue Watching
                   if (continueWatching.isNotEmpty) ...[
                     SliverToBoxAdapter(
@@ -191,7 +207,7 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
                         title: 'CONTINUE WATCHING',
                         items: continueWatching,
                         showProgress: true,
-                        railIndex: 0,
+                        railIndex: stations.isNotEmpty ? 1 : 0,
                         focusedRail: _railFocus,
                         onRailFocus: (i) => setState(() => _railFocus = i),
                         vm: vm,
@@ -257,7 +273,7 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
   }
 
   int _calcRailIndex(List continueWatching, List videos, int base) {
-    int idx = 0;
+    int idx = context.read<ClientViewModel>().stations.isNotEmpty ? 1 : 0;
     if (continueWatching.isNotEmpty) idx++;
     if (videos.isNotEmpty) idx++;
     return idx + (base - 2);
@@ -796,6 +812,215 @@ class _EmptyState extends StatelessWidget {
         const SizedBox(height: DS.s12),
         Text('CONNECT TO A SERVER TO BEGIN STREAMING', style: AppTheme.theme.textTheme.labelSmall?.copyWith(letterSpacing: 4)),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TV STATION RAIL
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TVStationRail extends StatefulWidget {
+  final List<Map<String, dynamic>> stations;
+  final int railIndex;
+  final int focusedRail;
+  final void Function(int) onRailFocus;
+  final double hPad;
+  final ClientViewModel vm;
+
+  const _TVStationRail({required this.stations, required this.railIndex, required this.focusedRail, required this.onRailFocus, required this.hPad, required this.vm});
+
+  @override
+  State<_TVStationRail> createState() => _TVStationRailState();
+}
+
+class _TVStationRailState extends State<_TVStationRail> {
+  final ScrollController _scrollCtrl = ScrollController();
+  int _focusedCard = -1;
+
+  void _onCardFocus(int index, double cardW) {
+    setState(() => _focusedCard = index);
+    widget.onRailFocus(widget.railIndex);
+    Scrollable.ensureVisible(context, alignment: 0.5, duration: const Duration(milliseconds: 250));
+    final offset = index * (cardW + 16) - widget.hPad;
+    if (_scrollCtrl.hasClients) {
+      _scrollCtrl.animateTo(offset.clamp(0.0, _scrollCtrl.position.maxScrollExtent), duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final double cardW = (size.width * 0.16).clamp(240.0, 400.0);
+    final double cardH = 140.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(widget.hPad, 0, widget.hPad, 12),
+          child: Row(
+            children: [
+              const Icon(LucideIcons.radio, color: DS.accent, size: 24),
+              const SizedBox(width: 12),
+              Text(
+                'LIVE BROADCASTS',
+                style: AppTheme.theme.textTheme.labelMedium?.copyWith(letterSpacing: 2, fontSize: (size.width * 0.012).clamp(14.0, 24.0), fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: cardH + 20,
+          child: ListView.builder(
+            controller: _scrollCtrl,
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: EdgeInsets.symmetric(horizontal: widget.hPad),
+            itemCount: widget.stations.length,
+            clipBehavior: Clip.none,
+            itemBuilder: (_, i) => Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: _TVStationCard(
+                station: widget.stations[i],
+                width: cardW,
+                height: cardH,
+                isFocused: _focusedCard == i && widget.focusedRail == widget.railIndex,
+                vm: widget.vm,
+                onFocus: () => _onCardFocus(i, cardW),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TVStationCard extends StatefulWidget {
+  final Map<String, dynamic> station;
+  final double width;
+  final double height;
+  final bool isFocused;
+  final ClientViewModel vm;
+  final VoidCallback onFocus;
+
+  const _TVStationCard({required this.station, required this.width, required this.height, required this.isFocused, required this.vm, required this.onFocus});
+
+  @override
+  State<_TVStationCard> createState() => _TVStationCardState();
+}
+
+class _TVStationCardState extends State<_TVStationCard> with SingleTickerProviderStateMixin {
+  late AnimationController _scaleCtrl;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 150));
+    _scale = Tween(begin: 1.0, end: 1.08).animate(CurvedAnimation(parent: _scaleCtrl, curve: Curves.easeOutCubic));
+  }
+
+  @override
+  void didUpdateWidget(_TVStationCard old) {
+    super.didUpdateWidget(old);
+    widget.isFocused ? _scaleCtrl.forward() : _scaleCtrl.reverse();
+  }
+
+  @override
+  void dispose() {
+    _scaleCtrl.dispose();
+    super.dispose();
+  }
+
+  void _tuneIn() async {
+    final res = await widget.vm.joinStation(widget.station['id']);
+    if (res != null && mounted) {
+      final item = MediaItem.fromJson(res['item']);
+      final offsetMs = res['positionMs'] as int;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PlayerScreen(
+            items: [item],
+            startIndex: 0,
+            isPathBased: true,
+            startOffset: Duration(milliseconds: offsetMs),
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nowPlaying = widget.station['nowPlaying'];
+    final title = widget.station['name'].toString().toUpperCase();
+    final itemTitle = nowPlaying != null ? nowPlaying['item']['title'].toString().toUpperCase() : 'AWAITING SIGNAL';
+
+    return Actions(
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
+          _tuneIn();
+          return null;
+        }),
+      },
+      child: Focus(
+        onFocusChange: (f) {
+          if (f) widget.onFocus();
+        },
+        onKeyEvent: (_, ev) => handleTVSelectKey(ev, _tuneIn),
+        child: GestureDetector(
+          onTap: _tuneIn,
+          child: ScaleTransition(
+            scale: _scale,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: widget.width,
+              height: widget.height,
+              decoration: BoxDecoration(
+                color: widget.isFocused ? DS.surface3 : DS.surface1,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: widget.isFocused ? Colors.white : DS.borderDefault, width: widget.isFocused ? 4 : 1),
+                boxShadow: widget.isFocused ? [BoxShadow(color: DS.accent.withValues(alpha: 0.5), blurRadius: 24)] : [],
+              ),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(child: Text(title, style: AppTheme.theme.textTheme.titleMedium?.copyWith(fontSize: 18, color: widget.isFocused ? Colors.white : DS.textPrimary), maxLines: 1)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        color: Colors.redAccent,
+                        child: Text('LIVE', style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('NOW PLAYING', style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: 10, color: DS.textMuted)),
+                      const SizedBox(height: 4),
+                      Text(itemTitle, style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 14, color: DS.accent), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -24,6 +24,7 @@ class ClientViewModel extends ChangeNotifier {
   bool _isDiscovering = false;
   String? _connectionError;
   List<MediaItem> _remoteMedia = [];
+  List<Map<String, dynamic>> _stations = [];
 
   final List<String> _ipHistory = [];
   StreamSubscription? _cmdSub;
@@ -37,6 +38,7 @@ class ClientViewModel extends ChangeNotifier {
   bool get isDiscovering => _isDiscovering;
   String? get connectionError => _connectionError;
   List<MediaItem> get remoteMedia => List.unmodifiable(_remoteMedia);
+  List<Map<String, dynamic>> get stations => List.unmodifiable(_stations);
   List<String> get ipHistory => List.unmodifiable(_ipHistory);
   bool get isConnected => _targetIp.isNotEmpty;
 
@@ -133,6 +135,7 @@ class ClientViewModel extends ChangeNotifier {
       _mediaRepo.setClient(client);
 
       _remoteMedia = await _mediaRepo.fetchRemoteMedia();
+      _stations = await _mediaRepo.fetchStations();
 
       remote.connect(ip.trim());
       await _serverRepo.logAccess(ip.trim());
@@ -158,9 +161,12 @@ class ClientViewModel extends ChangeNotifier {
     if (_targetIp.isEmpty) return;
     try {
       _remoteMedia = await _mediaRepo.fetchRemoteMedia();
+      _stations = await _mediaRepo.fetchStations();
       notifyListeners();
     } catch (_) {}
   }
+
+  Future<Map<String, dynamic>?> joinStation(String id) => _mediaRepo.joinStation(id);
 
   void disconnect() {
     remote.disconnect();

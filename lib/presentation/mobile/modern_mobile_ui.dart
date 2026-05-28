@@ -9,12 +9,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
 import '../client/client_viewmodel.dart';
 import '../player/player_screen.dart';
+
 
 class ModernMobileUIScreen extends StatefulWidget {
   const ModernMobileUIScreen({super.key});
@@ -40,6 +42,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
   Widget build(BuildContext context) {
     final vm = context.watch<ClientViewModel>();
     final allMedia = vm.remoteMedia;
+    final stations = vm.stations;
     final continueWatching = vm.continueWatching;
     final videos = vm.videos;
     final audio = vm.audio;
@@ -139,6 +142,14 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
                     const SliverToBoxAdapter(child: SizedBox(height: 100)),
 
                   const SliverToBoxAdapter(child: SizedBox(height: DS.s24)),
+
+                  // Live Stations
+                  if (stations.isNotEmpty) ...[
+                    SliverToBoxAdapter(
+                      child: _StationRail(stations: stations, vm: vm, hPad: hPad),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: DS.s24)),
+                  ],
 
                   // Continue Watching
                   if (continueWatching.isNotEmpty) ...[
@@ -610,6 +621,135 @@ class _EmptyState extends StatelessWidget {
         const SizedBox(height: DS.s8),
         Text('LIBRARY EMPTY OR SYNCING', style: AppTheme.theme.textTheme.labelSmall?.copyWith(letterSpacing: 2)),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATION RAIL
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _StationRail extends StatelessWidget {
+  final List<Map<String, dynamic>> stations;
+  final ClientViewModel vm;
+  final double hPad;
+
+  const _StationRail({required this.stations, required this.vm, required this.hPad});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 8),
+          child: Row(
+            children: [
+              const Icon(LucideIcons.radio, color: DS.accent, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                'LIVE BROADCASTS',
+                style: AppTheme.theme.textTheme.labelMedium?.copyWith(letterSpacing: 1, fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 120,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: EdgeInsets.symmetric(horizontal: hPad),
+            itemCount: stations.length,
+            itemBuilder: (_, i) => Padding(
+              padding: const EdgeInsets.only(right: DS.s8),
+              child: _StationCard(station: stations[i], vm: vm),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StationCard extends StatefulWidget {
+  final Map<String, dynamic> station;
+  final ClientViewModel vm;
+
+  const _StationCard({required this.station, required this.vm});
+
+  @override
+  State<_StationCard> createState() => _StationCardState();
+}
+
+class _StationCardState extends State<_StationCard> {
+  bool _focused = false;
+
+  void _tuneIn() async {
+    final res = await widget.vm.joinStation(widget.station['id']);
+    if (res != null && mounted) {
+      final item = MediaItem.fromJson(res['item']);
+      final offsetMs = res['positionMs'] as int;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PlayerScreen(
+            items: [item],
+            startIndex: 0,
+            isPathBased: true,
+            startOffset: Duration(milliseconds: offsetMs),
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nowPlaying = widget.station['nowPlaying'];
+    final title = widget.station['name'].toString().toUpperCase();
+    final itemTitle = nowPlaying != null ? nowPlaying['item']['title'].toString().toUpperCase() : 'AWAITING SIGNAL';
+
+    return Focus(
+      onFocusChange: (v) => setState(() => _focused = v),
+      onKeyEvent: (_, ev) => handleTVSelectKey(ev, _tuneIn),
+      child: GestureDetector(
+        onTap: _tuneIn,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: 200,
+          decoration: BoxDecoration(
+            color: _focused ? DS.surface3 : DS.surface1,
+            border: Border.all(color: _focused ? DS.accent : DS.borderDefault),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(child: Text(title, style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    color: Colors.redAccent,
+                    child: Text('LIVE', style: GoogleFonts.dmMono(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white)),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('NOW PLAYING', style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: 8, color: DS.textMuted)),
+                  const SizedBox(height: 2),
+                  Text(itemTitle, style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 10, color: DS.accent), maxLines: 1, overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

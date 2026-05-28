@@ -32,11 +32,14 @@ import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../../core/di/service_locator.dart';
 import '../../core/utils/file_type_utils.dart';
 import '../../data/local/media_scanner.dart';
 import '../../data/local/thumbnail_cache.dart';
 import '../../domain/models/media_item.dart';
 import '../../domain/models/stream_session.dart';
+import '../../domain/models/broadcast_station.dart';
+import '../../domain/services/station_service.dart';
 import 'modern_web_html.dart';
 import 'web_html.dart';
 
@@ -48,6 +51,8 @@ class HttpServerService {
   final ThumbnailCache _thumbCache;
 
   HttpServer? _server;
+
+  List<BroadcastStation> stations = [];
 
   // FIX: Typed list instead of List<dynamic>.
   final List<WebSocketChannel> _sockets = [];
@@ -125,6 +130,27 @@ class HttpServerService {
     router.get('/api/media', (_) {
       final items = getMediaItems();
       return shelf.Response.ok(jsonEncode(items.map((e) => e.toJson()).toList()), headers: {'content-type': 'application/json'});
+    });
+
+    // Stations
+    router.get('/api/stations', (_) {
+      final svc = sl<StationService>();
+      final results = stations.map((s) {
+        final state = svc.getPlaybackState(s);
+        return {
+          ...s.toJson(),
+          'nowPlaying': state?.toJson(),
+        };
+      }).toList();
+      return shelf.Response.ok(jsonEncode(results), headers: {'content-type': 'application/json'});
+    });
+
+    router.get('/api/stations/join/<id>', (shelf.Request r, String id) {
+      final station = stations.firstWhere((s) => s.id == id, orElse: () => throw Exception('Station not found'));
+      final svc = sl<StationService>();
+      final state = svc.getPlaybackState(station);
+      if (state == null) return shelf.Response.notFound('No active content');
+      return shelf.Response.ok(jsonEncode(state.toJson()), headers: {'content-type': 'application/json'});
     });
 
     // Directory browse
@@ -391,7 +417,7 @@ class HttpServerService {
     }
 
     // 3. Video thumbnail via file path.
-    if (data == null && !kIsWeb) {
+    if (data == null && !kIsWeb && defaultTargetPlatform != TargetPlatform.windows) {
       // The id may be either a scanner ID or a raw file path.
       final filePath = _scanner.fileById(id)?.path ?? id;
       if (_isPathAllowed(filePath, sharedFolders) && File(filePath).existsSync()) {

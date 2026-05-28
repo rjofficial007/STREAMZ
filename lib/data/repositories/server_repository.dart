@@ -8,6 +8,7 @@ import '../../domain/models/connection_record.dart';
 
 class ServerRepository {
   static const _logsKey = 'access_logs';
+  static const _stationsKey = 'broadcast_stations';
 
   final SharedPreferences _prefs;
   final List<ConnectionRecord> _history = [];
@@ -17,6 +18,18 @@ class ServerRepository {
   }
 
   List<ConnectionRecord> get connectionHistory => List.unmodifiable(_history);
+
+  // ── Stations ─────────────────────────────────────────────────────────────
+
+  List<Map<String, dynamic>> loadStations() {
+    final list = _prefs.getStringList(_stationsKey) ?? [];
+    return list.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
+  }
+
+  Future<void> saveStations(List<Map<String, dynamic>> stations) async {
+    final list = stations.map((e) => jsonEncode(e)).toList();
+    await _prefs.setStringList(_stationsKey, list);
+  }
 
   // ── Load / Save ──────────────────────────────────────────────────────────
 

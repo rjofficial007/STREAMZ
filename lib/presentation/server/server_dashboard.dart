@@ -21,6 +21,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../data/network/http_server.dart';
 import '../../domain/models/connection_record.dart';
 import '../../domain/models/stream_session.dart';
+import '../../domain/models/broadcast_station.dart';
 import '../client/client_viewmodel.dart';
 import '../mobile/mobile_selection_screen.dart';
 import '../tv/tv_selection_screen.dart';
@@ -47,7 +48,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
     final state = context.watch<ServerViewModel>();
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         backgroundColor: DS.bg,
         body: Stack(
@@ -122,6 +123,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
                               Tab(text: 'ACTIVITY'),
                               Tab(text: 'NETWORK'),
                               Tab(text: 'SHARING'),
+                              Tab(text: 'STATIONS'),
                             ],
                           ),
                         ),
@@ -133,6 +135,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
                             _ActivityTab(state: state, pad: pad, isMobile: isMobile, isDesktop: isDesktop),
                             _NetworkTab(state: state, pad: pad, isMobile: isMobile),
                             _SharingTab(state: state, pad: pad, isMobile: isMobile),
+                            _StationsTab(state: state, pad: pad, isMobile: isMobile),
                           ],
                         ),
                       ),
@@ -1695,6 +1698,255 @@ class _DirRowState extends State<_DirRow> {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATIONS TAB
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _StationsTab extends StatelessWidget {
+  final ServerViewModel state;
+  final double pad;
+  final bool isMobile;
+  const _StationsTab({required this.state, required this.pad, required this.isMobile});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(pad, DS.s24, pad, 40),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: DS.borderDefault),
+                  color: DS.surface1,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _TerminalHeader(title: 'BROADCAST STATIONS', icon: LucideIcons.radio),
+                    Container(
+                      padding: const EdgeInsets.all(DS.s24),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('CREATE NEW STATION', style: AppTheme.theme.textTheme.labelMedium),
+                                const SizedBox(height: 4),
+                                Text('LINEAR PLAYLIST BROADCAST', style: AppTheme.theme.textTheme.labelSmall?.copyWith(color: DS.textMuted)),
+                              ],
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => _showCreateStationDialog(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              color: DS.accent,
+                              child: Text('INITIATE', style: GoogleFonts.dmMono(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: DS.s24),
+              if (state.stations.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Text('NO ACTIVE BROADCASTS', style: AppTheme.theme.textTheme.labelSmall?.copyWith(letterSpacing: 4)),
+                  ),
+                )
+              else
+                ...state.stations.map((s) => _StationCard(station: s, state: state, isMobile: isMobile)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCreateStationDialog(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final items = state.getLocalMediaItems(shareImages: false);
+    final selectedItems = <MediaItem>[];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: DS.bg,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+          title: Text('NEW STATION', style: AppTheme.theme.textTheme.displayLarge?.copyWith(fontSize: 24)),
+          content: SizedBox(
+            width: 500,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  style: GoogleFonts.dmMono(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'STATION NAME',
+                    labelStyle: TextStyle(color: DS.textMuted),
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: DS.borderDefault)),
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: DS.accent)),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text('SELECT MEDIA (${selectedItems.length})', style: AppTheme.theme.textTheme.labelSmall),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Container(
+                    decoration: Border.all(color: DS.borderDefault),
+                    child: ListView.builder(
+                      itemCount: items.length,
+                      itemBuilder: (ctx, i) {
+                        final item = items[i];
+                        final isSelected = selectedItems.contains(item);
+                        return ListTile(
+                          onTap: () => setDialogState(() => isSelected ? selectedItems.remove(item) : selectedItems.add(item)),
+                          leading: Icon(item.isVideo ? LucideIcons.video : LucideIcons.music, color: isSelected ? DS.accent : DS.textMuted),
+                          title: Text(item.title, style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 12), maxLines: 1),
+                          trailing: Icon(isSelected ? LucideIcons.checkSquare : LucideIcons.square, color: isSelected ? DS.accent : DS.textMuted),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCEL', style: TextStyle(color: DS.textMuted))),
+            TextButton(
+              onPressed: () {
+                if (nameCtrl.text.isNotEmpty && selectedItems.isNotEmpty) {
+                  state.createStation(nameCtrl.text, selectedItems);
+                  Navigator.pop(ctx);
+                }
+              },
+              child: const Text('BROADCAST', style: TextStyle(color: DS.accent)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StationCard extends StatelessWidget {
+  final BroadcastStation station;
+  final ServerViewModel state;
+  final bool isMobile;
+  const _StationCard({required this.station, required this.state, required this.isMobile});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: DS.s16),
+      decoration: BoxDecoration(border: Border.all(color: DS.borderDefault), color: DS.surface1),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(DS.s20),
+            child: Row(
+              children: [
+                const Icon(LucideIcons.radio, color: DS.accent, size: 24),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(station.name.toUpperCase(), style: AppTheme.theme.textTheme.titleMedium),
+                      const SizedBox(height: 4),
+                      Text('${station.playlist.length} ITEMS // ${station.totalDuration.inMinutes} MINS', style: AppTheme.theme.textTheme.labelSmall?.copyWith(color: DS.textMuted)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(LucideIcons.trash2, color: Colors.redAccent, size: 20),
+                  onPressed: () => state.removeStation(station.id),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: DS.borderDefault),
+          _StationLiveStatus(station: station),
+        ],
+      ),
+    );
+  }
+}
+
+class _StationLiveStatus extends StatefulWidget {
+  final BroadcastStation station;
+  const _StationLiveStatus({required this.station});
+
+  @override
+  State<_StationLiveStatus> createState() => _StationLiveStatusState();
+}
+
+class _StationLiveStatusState extends State<_StationLiveStatus> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final playbackState = sl<StationService>().getPlaybackState(widget.station);
+    if (playbackState == null) return const SizedBox();
+
+    final item = playbackState.item;
+    final totalMs = item.duration;
+    final progress = totalMs > 0 ? playbackState.position.inMilliseconds / totalMs : 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(DS.s20),
+      color: DS.surface2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('LIVE NOW', style: GoogleFonts.dmMono(color: DS.accent, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 2)),
+              Text(item.title.toUpperCase(), style: AppTheme.theme.textTheme.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Stack(
+            children: [
+              Container(height: 2, color: DS.bg),
+              FractionallySizedBox(
+                widthFactor: progress.clamp(0.0, 1.0),
+                child: Container(height: 2, color: DS.accent),
+              ),
+            ],
           ),
         ],
       ),

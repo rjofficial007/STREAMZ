@@ -75,8 +75,8 @@ class PlayerViewModel extends ChangeNotifier {
     });
   }
 
-  Future<void> load({required List<MediaItem> items, required int startIndex, bool isPathBased = false}) async {
-    await _playerService.load(items: items, startIndex: startIndex, isPathBased: isPathBased);
+  Future<void> load({required List<MediaItem> items, required int startIndex, bool isPathBased = false, Duration? startOffset}) async {
+    await _playerService.load(items: items, startIndex: startIndex, isPathBased: isPathBased, startOffset: startOffset);
     if (!_isDisposed) {
       wakeOSD();
       notifyListeners();

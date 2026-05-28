@@ -35,6 +35,7 @@ import '../../data/repositories/server_repository.dart';
 import '../../domain/models/connection_record.dart';
 import '../../domain/models/media_item.dart';
 import '../../domain/models/stream_session.dart';
+import '../../domain/models/broadcast_station.dart';
 
 class ServerViewModel extends ChangeNotifier {
   final HttpServerService _httpServer = sl<HttpServerService>();
@@ -53,6 +54,7 @@ class ServerViewModel extends ChangeNotifier {
   bool _shareImages = true;
   bool _shareMusic = true;
   List<String> _sharedFolders = [];
+  List<BroadcastStation> _stations = [];
 
   final Map<String, StreamSession> _activeSessions = {};
 
@@ -77,6 +79,7 @@ class ServerViewModel extends ChangeNotifier {
   bool get shareImages => _shareImages;
   bool get shareMusic => _shareMusic;
   List<String> get sharedFolders => List.unmodifiable(_sharedFolders);
+  List<BroadcastStation> get stations => List.unmodifiable(_stations);
   List<StreamSession> get activeSessions => _activeSessions.values.toList();
   List<ConnectionRecord> get connectionHistory => _serverRepo.connectionHistory;
   int get connectedClients => _httpServer.socketCount;
@@ -86,6 +89,7 @@ class ServerViewModel extends ChangeNotifier {
 
   ServerViewModel() {
     _initDefaultFolders();
+    _loadStations();
     _wireCallbacks();
     _httpServer.useModernWebUI = _useModernWebUI;
 
@@ -93,10 +97,29 @@ class ServerViewModel extends ChangeNotifier {
     _lifecycleBus.addListener(_onLifecycleChange);
   }
 
+  void _loadStations() {
+    final list = _serverRepo.loadStations();
+    _stations = list.map((e) => BroadcastStation.fromJson(e)).toList();
+    _httpServer.stations = _stations;
+  }
+
+  Future<void> _saveStations() async {
+    await _serverRepo.saveStations(_stations.map((e) => e.toJson()).toList());
+  }
+
   void _initDefaultFolders() {
     if (kIsWeb) return;
     if (defaultTargetPlatform == TargetPlatform.windows) {
-      _sharedFolders = ['C:\\'];
+      final home = Platform.environment['USERPROFILE'];
+      if (home != null) {
+        _sharedFolders = [
+          '$home\\Videos',
+          '$home\\Music',
+          '$home\\Pictures',
+        ];
+      } else {
+        _sharedFolders = ['C:\\'];
+      }
     } else if (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS) {
       _sharedFolders = ['/storage/emulated/0'];
     } else {
@@ -344,6 +367,29 @@ class ServerViewModel extends ChangeNotifier {
 
   void forgetConnection(ConnectionRecord record) {
     _serverRepo.forgetConnection(record.ip);
+    notifyListeners();
+  }
+
+  // ── Station Management ──────────────────────────────────────────────────
+
+  void createStation(String name, List<MediaItem> items) {
+    if (items.isEmpty) return;
+    final station = BroadcastStation(
+      id: 'STN_${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+      playlist: items,
+      startTime: DateTime.now(),
+    );
+    _stations.add(station);
+    _httpServer.stations = _stations;
+    _saveStations();
+    notifyListeners();
+  }
+
+  void removeStation(String id) {
+    _stations.removeWhere((s) => s.id == id);
+    _httpServer.stations = _stations;
+    _saveStations();
     notifyListeners();
   }
 

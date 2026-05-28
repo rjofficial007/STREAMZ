@@ -71,7 +71,7 @@ class PlayerService extends ChangeNotifier {
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
-  Future<void> load({required List<MediaItem> items, required int startIndex, bool isPathBased = false}) async {
+  Future<void> load({required List<MediaItem> items, required int startIndex, bool isPathBased = false, Duration? startOffset}) async {
     // Cancel any in-flight timers from a previous load before re-assigning.
     _saveTimer?.cancel();
     _statusTimer?.cancel();
@@ -84,19 +84,24 @@ class PlayerService extends ChangeNotifier {
     _isStopped = false;
     _sessionId = 'SESSION_${DateTime.now().millisecondsSinceEpoch}';
 
-    await _openCurrent();
+    await _openCurrent(startOffset: startOffset);
     _startTimers();
     _listenCommands();
     notifyListeners();
   }
 
-  Future<void> _openCurrent() async {
+  Future<void> _openCurrent({Duration? startOffset}) async {
     final item = current;
     if (item == null) return;
     if (!item.isImage) {
       await player.open(Media(mediaUrl));
-      // Restore saved position for non-path-based items.
-      if (!_isPathBased) {
+      
+      if (startOffset != null) {
+        // Small delay allows the player to initialise before seeking.
+        await Future.delayed(const Duration(milliseconds: 400));
+        await player.seek(startOffset);
+      } else if (!_isPathBased) {
+        // Restore saved position for non-path-based items.
         final saved = _repo.getProgress(item.id);
         if (saved > 5) {
           // Small delay allows the player to initialise before seeking.

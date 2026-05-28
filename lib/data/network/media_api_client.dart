@@ -46,6 +46,18 @@ class MediaApiClient {
     return (jsonDecode(res.body) as List).cast<Map<String, dynamic>>();
   }
 
+  Future<List<Map<String, dynamic>>> fetchStations() async {
+    final res = await http.get(_uri('/api/stations')).timeout(_timeout);
+    if (res.statusCode != 200) return [];
+    return (jsonDecode(res.body) as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<Map<String, dynamic>?> joinStation(String id) async {
+    final res = await http.get(_uri('/api/stations/join/$id')).timeout(_timeout);
+    if (res.statusCode != 200) return null;
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
   Future<bool> ping() async {
     try {
       final res = await http.get(_uri('/api/media')).timeout(const Duration(seconds: 5));

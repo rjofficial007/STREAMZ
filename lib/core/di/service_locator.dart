@@ -17,6 +17,7 @@ import '../../data/repositories/media_repository.dart';
 import '../../data/repositories/server_repository.dart';
 import '../../domain/services/download_service.dart';
 import '../../domain/services/remote_command_service.dart';
+import '../../domain/services/station_service.dart';
 
 final sl = GetIt.instance;
 
@@ -52,4 +53,5 @@ Future<void> setupServiceLocator() async {
   // ── Domain services ───────────────────────────────────────────────────────
   sl.registerLazySingleton<DownloadService>(() => DownloadService());
   sl.registerLazySingleton<RemoteCommandService>(() => RemoteCommandService());
+  sl.registerLazySingleton<StationService>(() => StationService());
 }

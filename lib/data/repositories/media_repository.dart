@@ -28,6 +28,16 @@ class MediaRepository {
     return _client!.browse(path);
   }
 
+  Future<List<Map<String, dynamic>>> fetchStations() async {
+    if (_client == null) return [];
+    return _client!.fetchStations();
+  }
+
+  Future<Map<String, dynamic>?> joinStation(String id) async {
+    if (_client == null) return null;
+    return _client!.joinStation(id);
+  }
+
   // ── Local ─────────────────────────────────────────────────────────────────
 
   List<MediaItem> getLocalMediaItems({bool shareVideos = true, bool shareMusic = true, bool shareImages = true}) =>

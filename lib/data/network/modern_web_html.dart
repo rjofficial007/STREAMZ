@@ -343,6 +343,26 @@ const String kModernWebInterfaceHtml = r"""
   .row-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
   .row-meta { font-size: 14px; color: var(--text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
 
+  /* Station Card */
+  .station-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .station-card:hover { transform: translateY(-8px); background: rgba(255, 255, 255, 0.1); border-color: var(--accent); }
+  .station-header { display: flex; justify-content: space-between; align-items: flex-start; }
+  .station-name { font-size: 18px; font-weight: 800; letter-spacing: 1px; }
+  .live-badge { background: #ff4b4b; color: #fff; font-size: 10px; font-weight: 900; padding: 2px 8px; border-radius: 4px; letter-spacing: 1px; }
+  .station-meta { display: flex; flex-direction: column; gap: 4px; }
+  .now-playing-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+  .now-playing-title { font-size: 14px; font-weight: 600; color: var(--accent); }
+
   /* Empty State */
   .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh; color: var(--text-muted); gap: 20px; }
   .empty-state i { font-size: 80px; opacity: 0.3; }
@@ -490,6 +510,9 @@ const String kModernWebInterfaceHtml = r"""
     <button class="dock-btn" id="nav-image" onclick="switchTab('image')" data-tooltip="Photos">
       <i class="ph-fill ph-image"></i>
     </button>
+    <button class="dock-btn" id="nav-station" onclick="switchTab('station')" data-tooltip="Stations">
+      <i class="ph-fill ph-radio"></i>
+    </button>
     <button class="dock-btn" id="nav-folder" onclick="switchTab('folder')" data-tooltip="Files">
       <i class="ph-fill ph-folder"></i>
     </button>
@@ -582,6 +605,7 @@ const String kModernWebInterfaceHtml = r"""
   }
 
   let allMedia = [];
+  let allStations = [];
   let currentTab = 'video'; 
   let currentBrowsePath = '';
   let ws;
@@ -600,10 +624,11 @@ const String kModernWebInterfaceHtml = r"""
   };
 
   const tabMeta = {
-    video:  { title: 'Video Archive', sub: 'Verified Server Node' },
-    audio:  { title: 'Music Library', sub: 'High Fidelity Node' },
-    image:  { title: 'Photo Library', sub: 'Visual Asset Node' },
-    folder: { title: 'File System',   sub: 'Network Directory' },
+    video:   { title: 'Video Archive',  sub: 'Verified Server Node' },
+    audio:   { title: 'Music Library',  sub: 'High Fidelity Node' },
+    image:   { title: 'Photo Library',  sub: 'Visual Asset Node' },
+    station: { title: 'Live Stations', sub: 'Linear Broadcast Feed' },
+    folder:  { title: 'File System',    sub: 'Network Directory' },
   };
 
   function connectWS() {
@@ -716,7 +741,7 @@ const String kModernWebInterfaceHtml = r"""
   }
 
   function handleSearch() {
-    if (currentTab === 'folder') return;
+    if (currentTab === 'folder' || currentTab === 'station') return;
     const q = document.getElementById('searchInput').value.toLowerCase();
     if (!q) { buildUI(currentTab); return; }
     renderGrid(allMedia.filter(m => m.type === currentTab && m.title.toLowerCase().includes(q)));
@@ -724,6 +749,7 @@ const String kModernWebInterfaceHtml = r"""
 
   function buildUI(type) {
     if (type === 'folder') buildFolderView();
+    else if (type === 'station') buildStationView();
     else renderGrid(allMedia.filter(m => m.type === type));
   }
 
@@ -749,6 +775,49 @@ const String kModernWebInterfaceHtml = r"""
       card.onclick = () => openPlayer(item);
       container.appendChild(card);
     });
+  }
+
+  async function buildStationView() {
+    const container = document.getElementById('content-area');
+    container.className = 'grid-container';
+    container.innerHTML = '<div class="empty-state"><i class="ph-light ph-spinner-gap ph-spin"></i><span>Tuning in...</span></div>';
+    try {
+      const res = await fetch('/api/stations');
+      allStations = await res.json();
+      container.innerHTML = allStations.length === 0 ? '<div class="empty-state"><i class="ph-light ph-radio"></i><span>No active broadcasts</span></div>' : '';
+      allStations.forEach(s => {
+        const card = document.createElement('div');
+        card.className = 'station-card';
+        card.setAttribute('tabindex', '0');
+        const nowPlaying = s.nowPlaying ? s.nowPlaying.item.title.toUpperCase() : 'AWAITING SIGNAL';
+        card.innerHTML = `
+          <div class="station-header">
+            <div class="station-name">${s.name.toUpperCase()}</div>
+            <div class="live-badge">LIVE</div>
+          </div>
+          <div class="station-meta">
+            <div class="now-playing-label">Now Playing</div>
+            <div class="now-playing-title">${nowPlaying}</div>
+          </div>
+        `;
+        card.onclick = () => joinStation(s.id);
+        container.appendChild(card);
+      });
+    } catch(_) {
+      container.innerHTML = '<div class="empty-state"><i class="ph-light ph-warning-circle"></i><span>Failed to load stations</span></div>';
+    }
+  }
+
+  async function joinStation(id) {
+    try {
+      const res = await fetch('/api/stations/join/' + id);
+      const data = await res.json();
+      const item = data.item;
+      const pos = data.positionMs / 1000;
+      openPlayer({ id: item.id, type: item.type, title: item.title }, true, pos);
+    } catch(_) {
+      alert('Failed to join station');
+    }
   }
 
   async function buildFolderView() {
@@ -865,7 +934,7 @@ const String kModernWebInterfaceHtml = r"""
 
   window.addEventListener('beforeunload', () => sendTelemetry(true, null));
 
-  function openPlayer(item, isPath = false) {
+  function openPlayer(item, isPath = false, startOffset = 0) {
     if (currentSessionId) sendTelemetry(true, null);
     currentSessionId  = 'SESSION_' + Date.now();
     currentMediaTitle = item.title;
@@ -874,6 +943,7 @@ const String kModernWebInterfaceHtml = r"""
 
     if (item.type === 'audio') {
       aud.src = url;
+      if (startOffset > 0) aud.currentTime = startOffset;
       aud.play();
       document.getElementById('np-label').innerText = 'Spatial Audio Active';
       document.getElementById('np-title').innerText = item.title;
@@ -900,6 +970,7 @@ const String kModernWebInterfaceHtml = r"""
       vid.src = url;
       vid.style.display   = 'block';
       ctrls.style.display = 'flex';
+      if (startOffset > 0) vid.currentTime = startOffset;
       vid.play();
       updatePlayBtn(false);
     } else if (item.type === 'image') {
