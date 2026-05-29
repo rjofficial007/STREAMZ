@@ -3,6 +3,7 @@
 // STREAMZ — Server NOC Dashboard
 // ============================================================================
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -22,6 +23,8 @@ import '../../data/network/http_server.dart';
 import '../../domain/models/connection_record.dart';
 import '../../domain/models/stream_session.dart';
 import '../../domain/models/broadcast_station.dart';
+import '../../domain/models/media_item.dart';
+import '../../domain/services/station_service.dart';
 import '../client/client_viewmodel.dart';
 import '../mobile/mobile_selection_screen.dart';
 import '../tv/tv_selection_screen.dart';
@@ -95,11 +98,21 @@ class _ServerDashboardState extends State<ServerDashboard> {
                                   ),
                                 ),
                                 const SizedBox(width: DS.s12),
-                                Text('NODE // BROADCAST', style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: isMobile ? 10 : 12, letterSpacing: 4)),
+                                Expanded(
+                                  child: Text(
+                                    'NODE // BROADCAST',
+                                    style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: isMobile ? 10 : 12, letterSpacing: 4),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                               ],
                             ),
                             SizedBox(height: isMobile ? DS.s8 : DS.s12),
-                            Text('SERVER', style: AppTheme.theme.textTheme.displayLarge?.copyWith(fontSize: isMobile ? 48 : 72, height: 1.0)),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text('SERVER', style: AppTheme.theme.textTheme.displayLarge?.copyWith(fontSize: isMobile ? 48 : 72, height: 1.0)),
+                            ),
                           ],
                         ),
                       ),
@@ -296,13 +309,19 @@ class _CoreCardState extends State<_CoreCard> {
                   padding: EdgeInsets.symmetric(vertical: widget.isMobile ? DS.s16 : DS.s20),
                   color: widget.state.isInitializing ? DS.surface3 : (_isFocused ? Colors.white : DS.accent),
                   child: Center(
-                    child: Text(
-                      widget.state.isInitializing ? 'BOOTING...' : (widget.state.isRunning ? 'STOP ENGINE' : 'START ENGINE'),
-                      style: AppTheme.theme.textTheme.displayLarge?.copyWith(
-                        color: widget.state.isInitializing ? DS.textMuted : Colors.black,
-                        letterSpacing: 0.8,
-                        fontSize: widget.isMobile ? 20 : 72,
-                        height: 1.0,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: DS.s16),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          widget.state.isInitializing ? 'BOOTING...' : (widget.state.isRunning ? 'STOP ENGINE' : 'START ENGINE'),
+                          style: AppTheme.theme.textTheme.displayLarge?.copyWith(
+                            color: widget.state.isInitializing ? DS.textMuted : Colors.black,
+                            letterSpacing: 0.8,
+                            fontSize: widget.isMobile ? 24 : 72,
+                            height: 1.0,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -585,7 +604,7 @@ class _NetworkTab extends StatelessWidget {
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => ChangeNotifierProvider.value(value: context.read<ServerViewModel>(), child: const _ConnectionHistoryScreen()),
+                            builder: (_) => const _ConnectionHistoryScreen(),
                           ),
                         ),
                       ),
@@ -1466,32 +1485,39 @@ class _StatBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    height: isMobile ? 90 : 110,
-    decoration: BoxDecoration(
-      border: Border.all(color: DS.borderDefault),
-      color: DS.surface1,
-    ),
-    padding: const EdgeInsets.all(DS.s16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(label, style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: 9)),
-        const Spacer(),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
+        height: isMobile ? 100 : 110,
+        decoration: BoxDecoration(
+          border: Border.all(color: DS.borderDefault),
+          color: DS.surface1,
+        ),
+        padding: const EdgeInsets.all(DS.s16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              value,
-              style: AppTheme.theme.textTheme.headlineSmall?.copyWith(fontSize: isMobile ? 28 : 36, color: DS.accent, height: 1.0),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(label, style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: 9)),
             ),
-            if (unit != null) ...[const SizedBox(width: 4), Text(unit!, style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: 10))],
+            const Spacer(),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    value,
+                    style: AppTheme.theme.textTheme.headlineSmall?.copyWith(fontSize: isMobile ? 28 : 36, color: DS.accent, height: 1.0),
+                  ),
+                  if (unit != null) ...[const SizedBox(width: 4), Text(unit!, style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: 10))],
+                ],
+              ),
+            ),
           ],
         ),
-      ],
-    ),
-  );
+      );
 }
 
 class _ActionCard extends StatefulWidget {
@@ -1783,63 +1809,78 @@ class _StationsTab extends StatelessWidget {
     final nameCtrl = TextEditingController();
     final items = state.getLocalMediaItems(shareImages: false);
     final selectedItems = <MediaItem>[];
+    final width = MediaQuery.sizeOf(context).width;
+    final isMobile = width < DS.bpMobile;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: DS.bg,
+          insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 40, vertical: 24),
           shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-          title: Text('NEW STATION', style: AppTheme.theme.textTheme.displayLarge?.copyWith(fontSize: 24)),
+          title: Text('NEW STATION', style: AppTheme.theme.textTheme.displayLarge?.copyWith(fontSize: isMobile ? 20 : 24)),
           content: SizedBox(
-            width: 500,
+            width: width * 0.9,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextField(
                   controller: nameCtrl,
-                  style: GoogleFonts.dmMono(color: Colors.white),
+                  style: GoogleFonts.dmMono(color: Colors.white, fontSize: 13),
+                  onChanged: (_) => setDialogState(() {}),
                   decoration: const InputDecoration(
                     labelText: 'STATION NAME',
-                    labelStyle: TextStyle(color: DS.textMuted),
+                    labelStyle: TextStyle(color: DS.textMuted, fontSize: 11),
                     enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: DS.borderDefault)),
                     focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: DS.accent)),
                   ),
                 ),
                 const SizedBox(height: 20),
-                Text('SELECT MEDIA (${selectedItems.length})', style: AppTheme.theme.textTheme.labelSmall),
+                Text('SELECT MEDIA (${selectedItems.length})', style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: 10)),
                 const SizedBox(height: 10),
-                Expanded(
+                Flexible(
                   child: Container(
-                    decoration: Border.all(color: DS.borderDefault),
-                    child: ListView.builder(
-                      itemCount: items.length,
-                      itemBuilder: (ctx, i) {
-                        final item = items[i];
-                        final isSelected = selectedItems.contains(item);
-                        return ListTile(
-                          onTap: () => setDialogState(() => isSelected ? selectedItems.remove(item) : selectedItems.add(item)),
-                          leading: Icon(item.isVideo ? LucideIcons.video : LucideIcons.music, color: isSelected ? DS.accent : DS.textMuted),
-                          title: Text(item.title, style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 12), maxLines: 1),
-                          trailing: Icon(isSelected ? LucideIcons.checkSquare : LucideIcons.square, color: isSelected ? DS.accent : DS.textMuted),
-                        );
-                      },
-                    ),
+                    decoration: BoxDecoration(border: Border.all(color: DS.borderDefault)),
+                    child: items.isEmpty
+                        ? const Center(child: Text('WAITING FOR SCAN...', style: TextStyle(color: DS.textMuted, fontSize: 10)))
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: items.length,
+                            itemBuilder: (ctx, i) {
+                              final item = items[i];
+                              final isSelected = selectedItems.contains(item);
+                              return ListTile(
+                                dense: true,
+                                onTap: () => setDialogState(() => isSelected ? selectedItems.remove(item) : selectedItems.add(item)),
+                                leading: Icon(item.isVideo ? LucideIcons.video : LucideIcons.music, color: isSelected ? DS.accent : DS.textMuted, size: 18),
+                                title: Text(item.title, style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                trailing: Icon(isSelected ? LucideIcons.checkSquare : LucideIcons.square, color: isSelected ? DS.accent : DS.textMuted, size: 18),
+                              );
+                            },
+                          ),
                   ),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCEL', style: TextStyle(color: DS.textMuted))),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCEL', style: TextStyle(color: DS.textMuted, fontFamily: 'DM Mono', fontSize: 12))),
             TextButton(
-              onPressed: () {
-                if (nameCtrl.text.isNotEmpty && selectedItems.isNotEmpty) {
-                  state.createStation(nameCtrl.text, selectedItems);
-                  Navigator.pop(ctx);
-                }
-              },
-              child: const Text('BROADCAST', style: TextStyle(color: DS.accent)),
+              onPressed: (nameCtrl.text.isEmpty || selectedItems.isEmpty)
+                  ? null
+                  : () {
+                      state.createStation(nameCtrl.text, selectedItems);
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: DS.accent,
+                          content: Text('BROADCAST "${nameCtrl.text.toUpperCase()}" INITIATED', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontFamily: 'DM Mono', fontSize: 12)),
+                        ),
+                      );
+                    },
+              child: Text('BROADCAST', style: TextStyle(color: (nameCtrl.text.isEmpty || selectedItems.isEmpty) ? DS.textMuted : DS.accent, fontFamily: 'DM Mono', fontSize: 12)),
             ),
           ],
         ),
@@ -1935,7 +1976,16 @@ class _StationLiveStatusState extends State<_StationLiveStatus> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('LIVE NOW', style: GoogleFonts.dmMono(color: DS.accent, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 2)),
-              Text(item.title.toUpperCase(), style: AppTheme.theme.textTheme.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+              const SizedBox(width: DS.s16),
+              Expanded(
+                child: Text(
+                  item.title.toUpperCase(),
+                  style: AppTheme.theme.textTheme.labelSmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),

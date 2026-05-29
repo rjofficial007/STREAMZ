@@ -11,7 +11,8 @@ STREAMZ is a premium, cross-platform local media broadcasting system. Built with
 ### **SERVER NODE (NOC)**
 *   **Zero-Config HTTP Engine:** Hosts a local REST API and Web server using `shelf` and `shelf_router`.
 *   **UDP Auto-Discovery:** Broadcasts its presence across the local subnet (`239.1.2.3` multicast) for instant client pairing.
-*   **Media Indexing:** Deep scans device storage for Videos, Audio, and Images using `photo_manager` and `on_audio_query`.
+*   **Media Indexing:** Deep scans device storage for Videos, Audio, and Images using `photo_manager`, `on_audio_query`, and raw filesystem crawlers.
+*   **Linear Broadcast Stations:** Create virtual "TV Channels" from local media. The server maintains a synchronized playlist cycle, allowing multiple clients to "tune in" to the exact same moment in a broadcast.
 *   **Live Telemetry:** Real-time dashboard tracking connected nodes, outbound bandwidth (MB/s), and active playback progress via WebSockets.
 *   **Universal Remote:** Built-in D-Pad and media controls to hijack and command any connected client screen.
 
@@ -38,7 +39,7 @@ The codebase strictly adheres to **Clean Architecture** principles, decoupling t
 *   **Dependency Injection:** `GetIt` (Service Locator Pattern)
 *   **Media Engine:** `media_kit` (libmpv backend)
 *   **Local Server:** `shelf`, `shelf_router`, `shelf_web_socket`
-*   **Persistence:** `shared_preferences` (Progress caching, IP history)
+*   **Persistence:** `shared_preferences` (Progress caching, IP history, Station records)
 *   **Network:** `http`, UDP Multicast (`RawDatagramSocket`), WebSockets
 
 ### **Directory Structure**
@@ -53,14 +54,14 @@ lib/
 │   ├── network/          # HttpServer, UdpDiscovery, MediaApiClient, Web HTML
 │   └── repositories/     # MediaRepository, ServerRepository
 ├── domain/
-│   ├── models/           # MediaItem, StreamSession, ConnectionRecord
-│   └── services/         # PlayerService, DownloadService, RemoteCommandService
+│   ├── models/           # MediaItem, StreamSession, ConnectionRecord, BroadcastStation
+│   └── services/         # PlayerService, DownloadService, RemoteCommandService, StationService
 └── presentation/
     ├── client/           # Client Connection, ViewModels
     ├── home/             # Role Selection, Permissions
     ├── mobile/           # Mobile Selection, File Manager, Download Sheet
     ├── player/           # Universal Media Player
-    ├── server/           # NOC Dashboard, ViewModels
+    ├── server/           # NOC Dashboard, Station Management, ViewModels
     ├── shared/           # Shared UI components
     └── tv/               # 10-Foot UI: Rails, File Manager, Selection Gateway
 ```
@@ -71,7 +72,7 @@ lib/
 
 The UI/UX abandons traditional Material Design soft corners and elevations in favor of a **High-Contrast Brutalist Aesthetic**.
 
-*   **Palette:** Absolute Black (`#000000`), Stark White (`#FFFFFF`), and High-Visibility Accents.
+*   **Palette:** Absolute Black (`#000000`), Stark White (`#FFFFFF`), and High-Visibility Accents (`#FFFF00`).
 *   **Geometry:** Strict zero-radius (`radius0`) borders. Sharp edges only.
 *   **Typography:**
     *   **Barlow Condensed:** Used for massive, high-impact display headers.
@@ -108,7 +109,8 @@ STREAMZ requires comprehensive storage permissions to function as a server.
 ---
 
 ## 🔒 SECURITY & ROUTING
-*   **Path Traversal Prevention:** The internal HTTP server utilizes normalized path resolution (`_isPathAllowed`) to prevent `../` directory traversal attacks.
+*   **Path Traversal Prevention:** The internal HTTP server utilizes normalized path resolution (`_isPathAllowed`) with URL-decoding and OS-level canonicalization to prevent `../` directory traversal attacks.
 *   **Network Isolation:** Broadcasts and WebSockets are restricted to the local subnet. Localhost (`127.0.0.1`) accesses are ignored in telemetry to prevent log spam during internal previews.
+*   **Session Integrity:** The server monitors IP changes and hot-restarts the HTTP engine automatically if the host moves to a new network interface.
 
 ---

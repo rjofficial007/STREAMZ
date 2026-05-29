@@ -4,7 +4,6 @@
 // ============================================================================
 
 import '../models/broadcast_station.dart';
-import '../models/media_item.dart';
 
 class StationService {
   StationPlaybackState? getPlaybackState(BroadcastStation station) {
@@ -16,13 +15,16 @@ class StationService {
     final now = DateTime.now();
     final elapsed = now.difference(station.startTime);
     final totalMs = totalDuration.inMilliseconds;
+
+    // Use modulo to find where we are in the repeating playlist cycle.
     final currentCycleMs = elapsed.inMilliseconds % totalMs;
 
     int accumulatedMs = 0;
     for (int i = 0; i < station.playlist.length; i++) {
       final item = station.playlist[i];
-      final itemMs = (item.duration ?? Duration.zero).inMilliseconds;
-      
+      // MediaItem.duration is in seconds, convert to ms for comparison.
+      final itemMs = item.duration * 1000;
+
       if (currentCycleMs < accumulatedMs + itemMs) {
         return StationPlaybackState(
           item: item,
@@ -34,10 +36,6 @@ class StationService {
     }
 
     // Fallback to first item if something went wrong
-    return StationPlaybackState(
-      item: station.playlist.first,
-      position: Duration.zero,
-      itemIndex: 0,
-    );
+    return StationPlaybackState(item: station.playlist.first, position: Duration.zero, itemIndex: 0);
   }
 }

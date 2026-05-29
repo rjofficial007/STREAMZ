@@ -362,7 +362,6 @@ const String kWebInterfaceHtml = r"""
     <button class="nav-btn" id="nav-folder" onclick="switchTab('folder')">NETWORK</button>
   </div>
   <div class="search-container">
-    <div class="search-icon">CMD></div>
     <input type="text" class="search-box" id="searchInput" placeholder="SEARCH QUERY..." oninput="handleSearch()">
   </div>
 </div>

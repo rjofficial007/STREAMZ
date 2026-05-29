@@ -18,6 +18,7 @@ import '../../data/repositories/server_repository.dart';
 import '../../domain/services/download_service.dart';
 import '../../domain/services/remote_command_service.dart';
 import '../../domain/services/station_service.dart';
+import '../../domain/services/video_thumbnail_service.dart';
 
 final sl = GetIt.instance;
 
@@ -39,8 +40,14 @@ Future<void> setupServiceLocator() async {
   await thumbCache.init();
   sl.registerSingleton<ThumbnailCache>(thumbCache);
 
+  sl.registerLazySingleton<VideoThumbnailService>(() => VideoThumbnailService());
+
   // ── Network services ──────────────────────────────────────────────────────
-  sl.registerLazySingleton<HttpServerService>(() => HttpServerService(scanner: sl<MediaScanner>(), thumbCache: sl<ThumbnailCache>()));
+  sl.registerLazySingleton<HttpServerService>(() => HttpServerService(
+    scanner: sl<MediaScanner>(),
+    thumbCache: sl<ThumbnailCache>(),
+    thumbGenerator: sl<VideoThumbnailService>(),
+  ));
 
   sl.registerLazySingleton<UdpBroadcaster>(() => UdpBroadcaster());
   sl.registerLazySingleton<UdpDiscovery>(() => UdpDiscovery());

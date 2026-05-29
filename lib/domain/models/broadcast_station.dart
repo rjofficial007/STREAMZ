@@ -11,33 +11,16 @@ class BroadcastStation {
   final List<MediaItem> playlist;
   final DateTime startTime;
 
-  BroadcastStation({
-    required this.id,
-    required this.name,
-    required this.playlist,
-    required this.startTime,
-  });
+  BroadcastStation({required this.id, required this.name, required this.playlist, required this.startTime});
 
   Duration get totalDuration {
-    return playlist.fold(
-      Duration.zero,
-      (total, item) => total + (item.duration ?? Duration.zero),
-    );
+    return playlist.fold<Duration>(Duration.zero, (total, item) => total + Duration(seconds: item.duration));
   }
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'playlist': playlist.map((e) => e.toJson()).toList(),
-        'startTime': startTime.toIso8601String(),
-      };
+  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'playlist': playlist.map((e) => e.toJson()).toList(), 'startTime': startTime.toIso8601String()};
 
-  factory BroadcastStation.fromJson(Map<String, dynamic> json) => BroadcastStation(
-        id: json['id'],
-        name: json['name'],
-        playlist: (json['playlist'] as List).map((e) => MediaItem.fromJson(e)).toList(),
-        startTime: DateTime.parse(json['startTime']),
-      );
+  factory BroadcastStation.fromJson(Map<String, dynamic> json) =>
+      BroadcastStation(id: json['id'], name: json['name'], playlist: (json['playlist'] as List).map((e) => MediaItem.fromJson(e)).toList(), startTime: DateTime.parse(json['startTime']));
 }
 
 class StationPlaybackState {
@@ -45,15 +28,7 @@ class StationPlaybackState {
   final Duration position;
   final int itemIndex;
 
-  StationPlaybackState({
-    required this.item,
-    required this.position,
-    required this.itemIndex,
-  });
+  StationPlaybackState({required this.item, required this.position, required this.itemIndex});
 
-  Map<String, dynamic> toJson() => {
-    'item': item.toJson(),
-    'positionMs': position.inMilliseconds,
-    'itemIndex': itemIndex,
-  };
+  Map<String, dynamic> toJson() => {'item': item.toJson(), 'positionMs': position.inMilliseconds, 'itemIndex': itemIndex};
 }

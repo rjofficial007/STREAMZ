@@ -66,8 +66,7 @@ class MediaScanner {
     }
   }
 
-  /// Incremental directory scan — calls [onBatch] with each chunk found.
-  /// Non-blocking: yields to event loop every 100 items.
+  /// Refactored to use async stream-based scanning to prevent UI thread blockage.
   Future<void> scanDirectory(
     String rootPath, {
     required bool includeVideos,
@@ -77,39 +76,43 @@ class MediaScanner {
   }) async {
     if (kIsWeb) return;
 
-    final queue = <Directory>[Directory(rootPath)];
-    int processed = 0;
+    final dir = Directory(rootPath);
+    if (!await dir.exists()) return;
 
-    while (queue.isNotEmpty) {
-      final dir = queue.removeLast();
-      List<FileSystemEntity> entities;
-      try {
-        entities = dir.listSync(followLinks: false);
-      } catch (_) {
-        continue;
-      }
+    final batch = <MapEntry<String, File>>[];
+    int processedCount = 0;
 
-      final batch = <MapEntry<String, File>>[];
-
-      for (final entity in entities) {
-        if (entity is Directory) {
-          queue.add(entity);
-        } else if (entity is File) {
+    try {
+      await for (final entity in dir.list(recursive: true, followLinks: false).handleError((_) {})) {
+        if (entity is File) {
           final type = FileTypeUtils.fromFilename(entity.path);
-          if ((type == MediaFileType.video && includeVideos) || (type == MediaFileType.audio && includeAudio) || (type == MediaFileType.image && includeImages)) {
+          final isTarget = (type == MediaFileType.video && includeVideos) || (type == MediaFileType.audio && includeAudio) || (type == MediaFileType.image && includeImages);
+
+          if (isTarget) {
             final id = _pathToId(entity.path);
             winFiles[id] = entity;
             batch.add(MapEntry(id, entity));
           }
         }
-        processed++;
+
+        processedCount++;
+        // Batch and yield to keep UI responsive and prevent notification flooding.
+        if (batch.length >= 50) {
+          onBatch(List.from(batch));
+          batch.clear();
+          await Future.delayed(Duration.zero);
+        } else if (processedCount % 200 == 0) {
+          // Even if no targets found, yield occasionally to unblock event loop.
+          await Future.delayed(Duration.zero);
+        }
       }
 
-      if (batch.isNotEmpty) onBatch(batch);
-
-      if (processed % 100 == 0) {
-        await Future.delayed(Duration.zero);
+      // Flush remaining.
+      if (batch.isNotEmpty) {
+        onBatch(batch);
       }
+    } catch (e) {
+      debugPrint('[MediaScanner] Directory scan error: $e');
     }
   }
 

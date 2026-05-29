@@ -74,6 +74,23 @@ class MobileSelectionScreen extends StatelessWidget {
                   const SizedBox(height: DS.s24),
                   Expanded(
                     child: _MobileSelectionCard(
+                      title: 'LIVE STATIONS',
+                      subtitle: 'LINEAR BROADCASTS',
+                      icon: LucideIcons.radio,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChangeNotifierProvider.value(
+                            value: context.read<ClientViewModel>(),
+                            child: const ModernMobileUIScreen(), // We'll jump to the station section inside ModernMobileUIScreen or similar
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: DS.s24),
+                  Expanded(
+                    child: _MobileSelectionCard(
                       title: 'FILE SYSTEM',
                       subtitle: 'RAW DIRECTORY ACCESS',
                       icon: LucideIcons.folderOpen,

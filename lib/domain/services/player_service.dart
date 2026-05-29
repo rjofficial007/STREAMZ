@@ -10,6 +10,7 @@
 //   3. _statusTimer and _saveTimer were not cancelled before re-starting on
 //      subsequent load() calls — caused duplicate timer callbacks.
 //   4. stop() is now idempotent and safe to call multiple times.
+//   5. Race conditions in load() fixed with _loadVersion cancellation token.
 // ============================================================================
 
 import 'dart:async';
@@ -36,6 +37,9 @@ class PlayerService extends ChangeNotifier {
   Timer? _saveTimer;
   Timer? _statusTimer;
   StreamSubscription<RemoteCommand>? _cmdSub;
+
+  // Simple version-based cancellation token for async operations.
+  int _loadVersion = 0;
 
   PlayerService({required MediaRepository repo, required RemoteCommandService remote}) : player = Player(), _repo = repo, _remote = remote;
 
@@ -72,6 +76,9 @@ class PlayerService extends ChangeNotifier {
   // ── Load ──────────────────────────────────────────────────────────────────
 
   Future<void> load({required List<MediaItem> items, required int startIndex, bool isPathBased = false, Duration? startOffset}) async {
+    _loadVersion++;
+    final currentV = _loadVersion;
+
     // Cancel any in-flight timers from a previous load before re-assigning.
     _saveTimer?.cancel();
     _statusTimer?.cancel();
@@ -84,31 +91,43 @@ class PlayerService extends ChangeNotifier {
     _isStopped = false;
     _sessionId = 'SESSION_${DateTime.now().millisecondsSinceEpoch}';
 
-    await _openCurrent(startOffset: startOffset);
+    await _openCurrent(startOffset: startOffset, version: currentV);
+
+    // If a newer load arrived while we were awaiting, abort this lifecycle.
+    if (currentV != _loadVersion) return;
+
     _startTimers();
     _listenCommands();
     notifyListeners();
   }
 
-  Future<void> _openCurrent({Duration? startOffset}) async {
+  Future<void> _openCurrent({Duration? startOffset, int? version}) async {
     final item = current;
     if (item == null) return;
+    
+    final targetV = version ?? _loadVersion;
+
     if (!item.isImage) {
-      await player.open(Media(mediaUrl));
-      
+      // open() is async and can take time.
+      await player.open(Media(mediaUrl), play: false);
+      if (targetV != _loadVersion) return;
+
       if (startOffset != null) {
         // Small delay allows the player to initialise before seeking.
         await Future.delayed(const Duration(milliseconds: 400));
+        if (targetV != _loadVersion) return;
         await player.seek(startOffset);
       } else if (!_isPathBased) {
         // Restore saved position for non-path-based items.
         final saved = _repo.getProgress(item.id);
         if (saved > 5) {
-          // Small delay allows the player to initialise before seeking.
           await Future.delayed(const Duration(milliseconds: 400));
+          if (targetV != _loadVersion) return;
           await player.seek(Duration(seconds: saved));
         }
       }
+      
+      if (targetV != _loadVersion) return;
       await player.play();
     } else {
       await player.stop();
@@ -249,6 +268,7 @@ class PlayerService extends ChangeNotifier {
 
   @override
   void dispose() {
+    _loadVersion++; // Abort any active load
     stop();
     player.dispose();
     super.dispose();

@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
@@ -311,6 +312,7 @@ class _HeroSectionState extends State<_HeroSection> {
   final PageController _pageCtrl = PageController();
   int _currentPage = 0;
   Timer? _timer;
+  bool _hasFocus = false;
 
   // Anti-Focus Trap: Tracks when the user last moved their D-Pad into the Hero
   DateTime _lastInteraction = DateTime.fromMillisecondsSinceEpoch(0);
@@ -320,9 +322,8 @@ class _HeroSectionState extends State<_HeroSection> {
     super.initState();
     if (widget.items.length > 1) {
       _timer = Timer.periodic(const Duration(seconds: 6), (_) {
-        // Only auto-slide if the user hasn't interacted with the Hero in the last 10 seconds.
-        // This prevents the UI from stealing focus and destroying the D-Pad cursor.
-        if (DateTime.now().difference(_lastInteraction).inSeconds > 10) {
+        // Stop auto-slide if the user is focused on the Hero OR has interacted recently.
+        if (!_hasFocus && DateTime.now().difference(_lastInteraction).inSeconds > 10) {
           if (_pageCtrl.hasClients) {
             int next = _currentPage + 1;
             if (next >= widget.items.length) next = 0;
@@ -360,9 +361,11 @@ class _HeroSectionState extends State<_HeroSection> {
     final titleFs = (size.width * 0.035).clamp(32.0, 72.0);
     final btnWidth = (size.width * 0.12).clamp(160.0, 240.0);
 
-    return Stack(
-      children: [
-        PageView.builder(
+    return Focus(
+      onFocusChange: (v) => setState(() => _hasFocus = v),
+      child: Stack(
+        children: [
+          PageView.builder(
           controller: _pageCtrl,
           onPageChanged: (idx) => setState(() => _currentPage = idx),
           itemCount: widget.items.length,
@@ -477,7 +480,7 @@ class _HeroSectionState extends State<_HeroSection> {
             ),
           ),
       ],
-    );
+    ));
   }
 }
 
@@ -943,14 +946,15 @@ class _TVStationCardState extends State<_TVStationCard> with SingleTickerProvide
   void _tuneIn() async {
     final res = await widget.vm.joinStation(widget.station['id']);
     if (res != null && mounted) {
-      final item = MediaItem.fromJson(res['item']);
+      final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
+      final startIndex = res['itemIndex'] as int? ?? 0;
       final offsetMs = res['positionMs'] as int;
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => PlayerScreen(
-            items: [item],
-            startIndex: 0,
+            items: items,
+            startIndex: startIndex,
             isPathBased: true,
             startOffset: Duration(milliseconds: offsetMs),
           ),

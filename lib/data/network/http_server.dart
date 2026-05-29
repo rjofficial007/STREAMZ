@@ -29,17 +29,17 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart' as shelf_router;
 import 'package:shelf_web_socket/shelf_web_socket.dart';
-import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../core/di/service_locator.dart';
 import '../../core/utils/file_type_utils.dart';
 import '../../data/local/media_scanner.dart';
 import '../../data/local/thumbnail_cache.dart';
+import '../../domain/models/broadcast_station.dart';
 import '../../domain/models/media_item.dart';
 import '../../domain/models/stream_session.dart';
-import '../../domain/models/broadcast_station.dart';
 import '../../domain/services/station_service.dart';
+import '../../domain/services/video_thumbnail_service.dart';
 import 'modern_web_html.dart';
 import 'web_html.dart';
 
@@ -49,6 +49,7 @@ typedef ConnectionLogCallback = void Function(String ip);
 class HttpServerService {
   final MediaScanner _scanner;
   final ThumbnailCache _thumbCache;
+  final VideoThumbnailService _thumbGenerator;
 
   HttpServer? _server;
 
@@ -64,7 +65,10 @@ class HttpServerService {
   ConnectionLogCallback? onConnection;
   void Function()? onSocketsChanged;
 
-  HttpServerService({required MediaScanner scanner, required ThumbnailCache thumbCache}) : _scanner = scanner, _thumbCache = thumbCache;
+  HttpServerService({required MediaScanner scanner, required ThumbnailCache thumbCache, required VideoThumbnailService thumbGenerator})
+    : _scanner = scanner,
+      _thumbCache = thumbCache,
+      _thumbGenerator = thumbGenerator;
 
   bool get isRunning => _server != null;
   int get socketCount => _sockets.length;
@@ -137,10 +141,7 @@ class HttpServerService {
       final svc = sl<StationService>();
       final results = stations.map((s) {
         final state = svc.getPlaybackState(s);
-        return {
-          ...s.toJson(),
-          'nowPlaying': state?.toJson(),
-        };
+        return {...s.toJson(), 'nowPlaying': state?.toJson()};
       }).toList();
       return shelf.Response.ok(jsonEncode(results), headers: {'content-type': 'application/json'});
     });
@@ -394,46 +395,68 @@ class HttpServerService {
   // ── Thumbnail Serving ──────────────────────────────────────────────────────
 
   Future<shelf.Response> _serveThumbnail(String id, List<String> sharedFolders) async {
+    String cacheKey = id;
+    File? file = _scanner.fileById(id);
+
+    // If it's a local file, incorporate the modification timestamp into the cache key.
+    // This ensures that if a file is replaced, a new thumbnail is generated.
+    try {
+      final targetFile = file ?? File(id);
+      if (await targetFile.exists()) {
+        final stat = await targetFile.stat();
+        cacheKey = '${id}_${stat.modified.millisecondsSinceEpoch}';
+      }
+    } catch (_) {}
+
     // Check disk cache first.
-    final cached = await _thumbCache.get(id);
+    final cached = await _thumbCache.get(cacheKey);
     if (cached != null) {
       return shelf.Response.ok(cached, headers: {'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400'});
     }
 
     Uint8List? data;
 
-    // 1. PhotoManager asset (Android/iOS photo library).
+    // 1. PhotoManager asset (Android/iOS/macOS photo library).
     final asset = _scanner.assetById(id);
     if (asset != null) {
-      data = await asset.thumbnailDataWithSize(const ThumbnailSize(300, 300));
+      data = await asset.thumbnailDataWithSize(const ThumbnailSize(400, 400));
     }
 
     // 2. Audio artwork (Android/iOS).
     if (data == null && !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS)) {
       final song = _scanner.songById(id) ?? _scanner.songByPath(id);
       if (song != null) {
-        data = await OnAudioQuery().queryArtwork(song.id, ArtworkType.AUDIO, size: 300);
+        data = await OnAudioQuery().queryArtwork(song.id, ArtworkType.AUDIO, size: 400);
       }
     }
 
-    // 3. Video thumbnail via file path.
-    if (data == null && !kIsWeb && defaultTargetPlatform != TargetPlatform.windows) {
+    // 3. Video thumbnail via robust cross-platform generator.
+    if (data == null && !kIsWeb) {
       // The id may be either a scanner ID or a raw file path.
-      final filePath = _scanner.fileById(id)?.path ?? id;
+      final filePath = file?.path ?? id;
       if (_isPathAllowed(filePath, sharedFolders) && File(filePath).existsSync()) {
-        final ext = filePath.split('.').last.toLowerCase();
-        if ({'mp4', 'mkv', 'webm', 'avi', 'mov', 'ts', 'm4v'}.contains(ext)) {
-          data = await VideoThumbnail.thumbnailData(video: filePath, imageFormat: ImageFormat.JPEG, maxWidth: 300, quality: 75);
+        final type = FileTypeUtils.fromFilename(filePath);
+        if (type == MediaFileType.video) {
+          data = await _thumbGenerator.generateThumbnail(filePath, maxWidth: 400, quality: 85);
         }
       }
     }
 
     if (data != null) {
-      await _thumbCache.put(id, data);
-      return shelf.Response.ok(data, headers: {'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400'});
+      await _thumbCache.put(cacheKey, data);
+      final ct = _detectImageType(data);
+      return shelf.Response.ok(data, headers: {'Content-Type': ct, 'Cache-Control': 'public, max-age=86400'});
     }
 
     return shelf.Response.notFound('No thumbnail');
+  }
+
+  String _detectImageType(Uint8List bytes) {
+    if (bytes.length < 4) return 'image/jpeg';
+    if (bytes[0] == 0xFF && bytes[1] == 0xD8) return 'image/jpeg';
+    if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) return 'image/png';
+    if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46) return 'image/gif';
+    return 'image/jpeg';
   }
 
   static const _corsHeaders = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Origin, Content-Type'};

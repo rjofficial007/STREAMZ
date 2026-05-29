@@ -32,10 +32,10 @@ import '../../data/network/http_server.dart';
 import '../../data/network/udp_discovery.dart';
 import '../../data/repositories/media_repository.dart';
 import '../../data/repositories/server_repository.dart';
+import '../../domain/models/broadcast_station.dart';
 import '../../domain/models/connection_record.dart';
 import '../../domain/models/media_item.dart';
 import '../../domain/models/stream_session.dart';
-import '../../domain/models/broadcast_station.dart';
 
 class ServerViewModel extends ChangeNotifier {
   final HttpServerService _httpServer = sl<HttpServerService>();
@@ -112,11 +112,7 @@ class ServerViewModel extends ChangeNotifier {
     if (defaultTargetPlatform == TargetPlatform.windows) {
       final home = Platform.environment['USERPROFILE'];
       if (home != null) {
-        _sharedFolders = [
-          '$home\\Videos',
-          '$home\\Music',
-          '$home\\Pictures',
-        ];
+        _sharedFolders = ['$home\\Videos', '$home\\Music', '$home\\Pictures'];
       } else {
         _sharedFolders = ['C:\\'];
       }
@@ -229,6 +225,10 @@ class ServerViewModel extends ChangeNotifier {
   }
 
   List<MediaItem> _getMediaItems() => _mediaRepo.getLocalMediaItems(shareVideos: _shareVideos, shareMusic: _shareMusic, shareImages: _shareImages);
+
+  List<MediaItem> getLocalMediaItems({bool? shareVideos, bool? shareMusic, bool? shareImages}) {
+    return _mediaRepo.getLocalMediaItems(shareVideos: shareVideos ?? _shareVideos, shareMusic: shareMusic ?? _shareMusic, shareImages: shareImages ?? _shareImages);
+  }
 
   // ── WakeLock ──────────────────────────────────────────────────────────────
 
@@ -374,12 +374,7 @@ class ServerViewModel extends ChangeNotifier {
 
   void createStation(String name, List<MediaItem> items) {
     if (items.isEmpty) return;
-    final station = BroadcastStation(
-      id: 'STN_${DateTime.now().millisecondsSinceEpoch}',
-      name: name,
-      playlist: items,
-      startTime: DateTime.now(),
-    );
+    final station = BroadcastStation(id: 'STN_${DateTime.now().millisecondsSinceEpoch}', name: name, playlist: items, startTime: DateTime.now());
     _stations.add(station);
     _httpServer.stations = _stations;
     _saveStations();

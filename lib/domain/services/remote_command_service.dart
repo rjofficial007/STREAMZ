@@ -29,8 +29,7 @@ import '../../domain/models/remote_command.dart';
 class RemoteCommandService extends ChangeNotifier {
   WebSocketChannel? _channel;
   StreamSubscription? _sub;
-  final _commandController =
-  StreamController<RemoteCommand>.broadcast();
+  final _commandController = StreamController<RemoteCommand>.broadcast();
 
   bool _connected = false;
   bool _disposed = false;
@@ -58,8 +57,7 @@ class RemoteCommandService extends ChangeNotifier {
     _closeChannel();
 
     try {
-      _channel =
-          WebSocketChannel.connect(Uri.parse('ws://$ip:8080/ws'));
+      _channel = WebSocketChannel.connect(Uri.parse('ws://$ip:8080/ws'));
     } catch (e) {
       debugPrint('[WS] Connect error: $e');
       _scheduleReconnect();
@@ -69,7 +67,7 @@ class RemoteCommandService extends ChangeNotifier {
     _connected = false; // Will be set true once first message/ready arrives.
 
     _sub = _channel!.stream.listen(
-          (message) {
+      (message) {
         if (_disposed) return;
         // Mark connected on first successful message.
         if (!_connected) {
@@ -77,8 +75,7 @@ class RemoteCommandService extends ChangeNotifier {
           notifyListeners();
         }
         try {
-          final data =
-          jsonDecode(message as String) as Map<String, dynamic>;
+          final data = jsonDecode(message as String) as Map<String, dynamic>;
           _commandController.add(RemoteCommand.fromJson(data));
         } catch (_) {
           // Non-JSON frame — ignore gracefully.
@@ -115,10 +112,7 @@ class RemoteCommandService extends ChangeNotifier {
     _reconnectTimer?.cancel();
     _reconnectAttempt++;
     // Exponential backoff: 2^attempt seconds, capped at _maxBackoffSeconds.
-    final delaySec =
-    (_maxBackoffSeconds < (1 << _reconnectAttempt))
-        ? _maxBackoffSeconds
-        : (1 << _reconnectAttempt);
+    final delaySec = (_maxBackoffSeconds < (1 << _reconnectAttempt)) ? _maxBackoffSeconds : (1 << _reconnectAttempt);
     debugPrint('[WS] Reconnecting in ${delaySec}s (attempt $_reconnectAttempt)');
     _reconnectTimer = Timer(Duration(seconds: delaySec), () {
       if (!_disposed && _lastIp != null) _doConnect(_lastIp!);
@@ -158,26 +152,11 @@ class RemoteCommandService extends ChangeNotifier {
     }
   }
 
-  void reportStatus({
-    required String clientId,
-    required String sessionId,
-    required String title,
-    required double progress,
-    required String mediaType,
-    required bool isStopped,
-  }) {
+  void reportStatus({required String clientId, required String sessionId, required String title, required double progress, required String mediaType, required bool isStopped}) {
     // FIX: Same null guard as send().
     if (_channel == null || !_connected) return;
     try {
-      _channel!.sink.add(jsonEncode({
-        'type': 'report_status',
-        'clientId': clientId,
-        'sessionId': sessionId,
-        'title': title,
-        'progress': progress,
-        'mediaType': mediaType,
-        'isStopped': isStopped,
-      }));
+      _channel!.sink.add(jsonEncode({'type': 'report_status', 'clientId': clientId, 'sessionId': sessionId, 'title': title, 'progress': progress, 'mediaType': mediaType, 'isStopped': isStopped}));
     } catch (e) {
       debugPrint('[WS] reportStatus error: $e');
     }

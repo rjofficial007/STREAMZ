@@ -62,7 +62,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ChangeNotifierProvider(create: (_) => ServerViewModel(), child: const ServerDashboard()),
+            builder: (_) => const ServerDashboard(),
           ),
         );
       } else {

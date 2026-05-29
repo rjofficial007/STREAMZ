@@ -14,6 +14,7 @@ import 'core/theme/app_theme.dart';
 import 'domain/services/download_service.dart';
 import 'domain/services/remote_command_service.dart';
 import 'presentation/home/role_selection_screen.dart';
+import 'presentation/server/server_viewmodel.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +29,7 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider<DownloadService>(create: (_) => sl<DownloadService>()),
         ChangeNotifierProvider<RemoteCommandService>(create: (_) => sl<RemoteCommandService>()),
+        ChangeNotifierProvider<ServerViewModel>(create: (_) => ServerViewModel()),
       ],
       child: const StreamzApp(),
     ),

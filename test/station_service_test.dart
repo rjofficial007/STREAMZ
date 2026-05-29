@@ -10,9 +10,9 @@ void main() {
     final service = StationService();
     
     final items = [
-      const MediaItem(id: '1', title: 'Video 1', duration: 10000, type: 'video', folder: 'test'), // 10s
-      const MediaItem(id: '2', title: 'Video 2', duration: 20000, type: 'video', folder: 'test'), // 20s
-      const MediaItem(id: '3', title: 'Video 3', duration: 30000, type: 'video', folder: 'test'), // 30s
+      const MediaItem(id: '1', title: 'Video 1', duration: 10, type: 'video', folder: 'test'), // 10s
+      const MediaItem(id: '2', title: 'Video 2', duration: 20, type: 'video', folder: 'test'), // 20s
+      const MediaItem(id: '3', title: 'Video 3', duration: 30, type: 'video', folder: 'test'), // 30s
     ];
     // Total duration: 60s
 
