@@ -1,6 +1,6 @@
 // presentation/mobile/modern_mobile_ui.dart
 // ============================================================================
-// STREAMZ — Modern Mobile UI (Brutalist Web Studio Edition)
+// STREAMZ — Modern Mobile UI (Brutalist Web Studio Edition - Edge to Edge)
 // ============================================================================
 
 import 'dart:async';
@@ -63,8 +63,9 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
     final audio = vm.audio;
     final images = vm.images;
 
-    final isMobile = DS.isMobile(context);
-    final hPad = isMobile ? 16.0 : 32.0;
+    // Zero outer padding for edge-to-edge grids, minimal padding just for text readability
+    const double hPad = 0.0;
+    const double textPad = 16.0;
 
     final featuredItems = [...continueWatching, ...videos].take(5).toList();
 
@@ -82,6 +83,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
               floating: true,
               elevation: 0,
               pinned: true,
+              titleSpacing: 0,
               leading: Actions(
                 actions: {
                   ActivateIntent: CallbackAction<ActivateIntent>(
@@ -148,7 +150,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
             // Live Stations
             if (stations.isNotEmpty) ...[
               SliverToBoxAdapter(
-                child: _StationRail(stations: stations, vm: vm, hPad: hPad),
+                child: _StationRail(stations: stations, vm: vm, hPad: hPad, textPad: textPad),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
@@ -156,7 +158,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
             // Continue Watching
             if (continueWatching.isNotEmpty) ...[
               SliverToBoxAdapter(
-                child: _MobileContentRail(title: 'CONTINUE WATCHING', subTitle: 'PATH // ROOT/RESUME', items: continueWatching, showProgress: true, vm: vm, hPad: hPad),
+                child: _MobileContentRail(title: 'CONTINUE WATCHING', subTitle: 'PATH // ROOT/RESUME', items: continueWatching, showProgress: true, vm: vm, hPad: hPad, textPad: textPad),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
@@ -164,7 +166,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
             // Videos
             if (videos.isNotEmpty) ...[
               SliverToBoxAdapter(
-                child: _MobileContentRail(title: 'VIDEO ARCHIVE', subTitle: 'PATH // ROOT/VIDEOS', items: videos, vm: vm, hPad: hPad),
+                child: _MobileContentRail(title: 'VIDEO ARCHIVE', subTitle: 'PATH // ROOT/VIDEOS', items: videos, vm: vm, hPad: hPad, textPad: textPad),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
@@ -172,7 +174,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
             // Audio
             if (audio.isNotEmpty) ...[
               SliverToBoxAdapter(
-                child: _MobileContentRail(title: 'AUDIO MATRIX', subTitle: 'PATH // ROOT/AUDIO', items: audio, vm: vm, hPad: hPad),
+                child: _MobileContentRail(title: 'AUDIO MATRIX', subTitle: 'PATH // ROOT/AUDIO', items: audio, vm: vm, hPad: hPad, textPad: textPad),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
@@ -180,7 +182,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
             // Images
             if (images.isNotEmpty) ...[
               SliverToBoxAdapter(
-                child: _MobileContentRail(title: 'PHOTO DB', subTitle: 'PATH // ROOT/IMAGES', items: images, vm: vm, hPad: hPad),
+                child: _MobileContentRail(title: 'PHOTO DB', subTitle: 'PATH // ROOT/IMAGES', items: images, vm: vm, hPad: hPad, textPad: textPad),
               ),
             ],
 
@@ -233,7 +235,7 @@ class _HeroSectionState extends State<_HeroSection> {
         if (_pageCtrl.hasClients) {
           int next = _currentPage + 1;
           if (next >= widget.items.length) next = 0;
-          _pageCtrl.animateToPage(next, duration: const Duration(milliseconds: 0), curve: Curves.linear); // Sharp transition
+          _pageCtrl.animateToPage(next, duration: const Duration(milliseconds: 0), curve: Curves.linear);
         }
       });
     }
@@ -301,7 +303,7 @@ class _HeroSectionState extends State<_HeroSection> {
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: kWebWhite),
+                              decoration: const BoxDecoration(color: kWebWhite),
                               child: Text(
                                 'PLAY',
                                 style: GoogleFonts.dmMono(color: kWebBlack, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2),
@@ -371,9 +373,10 @@ class _MobileContentRail extends StatelessWidget {
   final List<MediaItem> items;
   final bool showProgress;
   final double hPad;
+  final double textPad;
   final ClientViewModel vm;
 
-  const _MobileContentRail({required this.title, required this.subTitle, required this.items, required this.vm, required this.hPad, this.showProgress = false});
+  const _MobileContentRail({required this.title, required this.subTitle, required this.items, required this.vm, required this.hPad, required this.textPad, this.showProgress = false});
 
   void _play(BuildContext context, MediaItem item) {
     final idx = items.indexOf(item);
@@ -386,7 +389,7 @@ class _MobileContentRail extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 12),
+          padding: EdgeInsets.fromLTRB(textPad, 0, textPad, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -403,7 +406,7 @@ class _MobileContentRail extends StatelessWidget {
           ),
         ),
         Container(
-          height: 140, // Perfect square item height
+          height: 140,
           decoration: BoxDecoration(
             border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)),
             color: kWebSurface,
@@ -411,10 +414,11 @@ class _MobileContentRail extends StatelessWidget {
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
+            padding: EdgeInsets.symmetric(horizontal: hPad), // Flush padding
             itemCount: items.length,
             itemBuilder: (_, i) => _MobileRailCard(
               item: items[i],
-              size: 140, // Square dimension
+              size: 140,
               showProgress: showProgress,
               vm: vm,
               onTap: () => _play(context, items[i]),
@@ -464,7 +468,7 @@ class _MobileRailCardState extends State<_MobileRailCard> {
           width: widget.size,
           decoration: BoxDecoration(
             color: _isFocused || _isPressed ? kWebWhite : kWebSurface2,
-            border: Border(right: BorderSide(color: kWebBorder)),
+            border: Border(right: BorderSide(color: kWebBorder)), // Only right border for flush continuous scroll
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -533,8 +537,9 @@ class _StationRail extends StatelessWidget {
   final List<Map<String, dynamic>> stations;
   final ClientViewModel vm;
   final double hPad;
+  final double textPad;
 
-  const _StationRail({required this.stations, required this.vm, required this.hPad});
+  const _StationRail({required this.stations, required this.vm, required this.hPad, required this.textPad});
 
   @override
   Widget build(BuildContext context) {
@@ -542,7 +547,7 @@ class _StationRail extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 12),
+          padding: EdgeInsets.fromLTRB(textPad, 0, textPad, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -561,6 +566,7 @@ class _StationRail extends StatelessWidget {
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
+            padding: EdgeInsets.symmetric(horizontal: hPad), // Flush padding
             itemCount: stations.length,
             itemBuilder: (_, i) => _StationCard(station: stations[i], vm: vm),
           ),
@@ -700,7 +706,10 @@ class _MobileSearchScreenState extends State<_MobileSearchScreen> {
                     icon: const Icon(LucideIcons.arrowLeft),
                     onPressed: () => Navigator.pop(context),
                   ),
-
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('CMD>', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 12)),
+                  ),
                   Expanded(
                     child: TextField(
                       controller: _ctrl,
@@ -732,6 +741,7 @@ class _MobileSearchScreenState extends State<_MobileSearchScreen> {
               child: _query.isEmpty
                   ? Center(
                 child: Container(
+                  margin: EdgeInsets.zero, // Outer padding removed
                   padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 32),
                   decoration: BoxDecoration(border: Border.all(color: kWebBorder, style: BorderStyle.solid)),
                   child: Text('AWAITING SIGNAL // CMD READY', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 4)),
@@ -740,6 +750,7 @@ class _MobileSearchScreenState extends State<_MobileSearchScreen> {
                   : results.isEmpty
                   ? Center(
                 child: Container(
+                  margin: EdgeInsets.zero,
                   padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 32),
                   decoration: BoxDecoration(border: Border.all(color: kWebBorder, style: BorderStyle.solid)),
                   child: Text('0 SIGNALS FOUND', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 4)),
@@ -748,8 +759,8 @@ class _MobileSearchScreenState extends State<_MobileSearchScreen> {
                   : Container(
                 decoration: BoxDecoration(color: kWebBorder),
                 child: GridView.builder(
+                  padding: EdgeInsets.zero, // Outer padding removed
                   physics: const BouncingScrollPhysics(),
-                  // Exactly 4 items per row as requested for mobile UI density
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 4,
                     childAspectRatio: 1.0,
@@ -784,6 +795,7 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      margin: EdgeInsets.zero, // Outer padding removed
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 32),
       decoration: BoxDecoration(border: Border.all(color: kWebBorder, style: BorderStyle.solid)),
       child: Column(
