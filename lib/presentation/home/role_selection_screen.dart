@@ -26,7 +26,6 @@ import '../../core/theme/design_tokens.dart';
 import '../client/client_connect_screen.dart';
 import '../client/client_viewmodel.dart';
 import '../server/server_dashboard.dart';
-import '../server/server_viewmodel.dart';
 import 'permission_screen.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
@@ -112,36 +111,53 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SizedBox(height: isMobile ? 10 : 40),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              Text('STREAM ', style: AppTheme.theme.textTheme.displayLarge?.copyWith(fontSize: titleSz, height: 1.0)),
-                              Stack(
-                                children: [
-                                  Text(
-                                    'ANYTHING',
-                                    style: GoogleFonts.barlowCondensed(
-                                      fontSize: titleSz,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: -2,
-                                      height: 1.0,
-                                      foreground: Paint()
-                                        ..style = PaintingStyle.stroke
-                                        ..strokeWidth = isMobile ? 1 : 2
-                                        ..color = DS.accent,
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            // Caps the size so it never stretches across the entire TV screen
+                            maxWidth: 700,
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              // Forces the Row to only occupy the exact width of its text children
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
+                              children: [
+                                Text(
+                                  'STREAM ',
+                                  style: AppTheme.theme.textTheme.displayLarge?.copyWith(fontSize: titleSz, height: 1.0),
+                                ),
+                                Stack(
+                                  children: [
+                                    Text(
+                                      'ANYTHING',
+                                      style: GoogleFonts.barlowCondensed(
+                                        fontSize: titleSz,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: -2,
+                                        height: 1.0,
+                                        foreground: Paint()
+                                          ..style = PaintingStyle.stroke
+                                          ..strokeWidth = isMobile ? 1 : 2
+                                          ..color = DS.accent,
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    'ANYTHING',
-                                    style: GoogleFonts.barlowCondensed(fontSize: titleSz, fontWeight: FontWeight.w900, letterSpacing: -2, height: 1.0, color: Colors.transparent),
-                                  ),
-                                ],
-                              ),
-                            ],
+                                    Text(
+                                      'ANYTHING',
+                                      style: GoogleFonts.barlowCondensed(
+                                        fontSize: titleSz,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: -2,
+                                        height: 1.0,
+                                        color: Colors.transparent,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                         SizedBox(height: isMobile ? 24 : 40),

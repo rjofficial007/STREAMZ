@@ -18,6 +18,9 @@ class TVSelectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<ClientViewModel>();
+    final hasLive = vm.stations.isNotEmpty;
+
     return AppScaffold(
       appBar: AppBar(
         backgroundColor: DS.bg,
@@ -62,6 +65,7 @@ class TVSelectionScreen extends StatelessWidget {
                     subtitle: 'NETFLIX-STYLE RAILS',
                     icon: LucideIcons.tv,
                     autoFocus: true,
+                    isLive: hasLive,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -97,8 +101,9 @@ class _SelectionCard extends StatefulWidget {
   final IconData icon;
   final VoidCallback onTap;
   final bool autoFocus;
+  final bool isLive;
 
-  const _SelectionCard({required this.title, required this.subtitle, required this.icon, required this.onTap, this.autoFocus = false});
+  const _SelectionCard({required this.title, required this.subtitle, required this.icon, required this.onTap, this.autoFocus = false, this.isLive = false});
 
   @override
   State<_SelectionCard> createState() => _SelectionCardState();
@@ -148,7 +153,7 @@ class _SelectionCardState extends State<_SelectionCard> {
               children: [
                 Icon(widget.icon, size: 72, color: isActive ? DS.bg : DS.textPrimary),
                 const SizedBox(height: DS.s32),
-                Text(widget.title, style: AppTheme.theme.textTheme.displayMedium?.copyWith(color: isActive ? DS.bg : DS.textPrimary, fontSize: 36, height: 1.0)),
+                Center(child: Text(widget.title, style: AppTheme.theme.textTheme.displayMedium?.copyWith(color: isActive ? DS.bg : DS.textPrimary, fontSize: 36, height: 1.0))),
                 const SizedBox(height: DS.s8),
                 Text(widget.subtitle, style: AppTheme.theme.textTheme.labelMedium?.copyWith(color: isActive ? DS.bg : DS.textMuted, letterSpacing: 2)),
               ],

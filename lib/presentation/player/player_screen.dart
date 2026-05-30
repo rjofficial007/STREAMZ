@@ -1,6 +1,6 @@
 // presentation/player/player_screen.dart
 // ============================================================================
-// STREAMZ — Universal Media Player Screen (Cinematic UI & D-Pad Optimized)
+// STREAMZ — Universal Media Player Screen (Brutalist Web Studio Edition)
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -15,6 +15,22 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
 import 'player_viewmodel.dart';
+
+// --- Web UI Color Palette & Styles ---
+const Color kWebBlack = Color(0xFF000000);
+const Color kWebSurface = Color(0xFF0A0A0A);
+const Color kWebSurface2 = Color(0xFF111111);
+const Color kWebWhite = Color(0xFFFFFFFF);
+final Color kWebBorder = Colors.white.withValues(alpha: 0.15);
+final Color kWebTextMuted = Colors.white.withValues(alpha: 0.3);
+final Color kWebText = Colors.white.withValues(alpha: 0.6);
+
+const ColorFilter kGreyscale = ColorFilter.matrix(<double>[
+  0.2126, 0.7152, 0.0722, 0, 0,
+  0.2126, 0.7152, 0.0722, 0, 0,
+  0.2126, 0.7152, 0.0722, 0, 0,
+  0,      0,      0,      1, 0,
+]);
 
 class PlayerScreen extends StatefulWidget {
   final List<MediaItem> items;
@@ -37,8 +53,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _wasOSDVisible = true;
   bool _showSidebar = false;
 
-  bool get _isTV => MediaQuery.sizeOf(context).width >= DS.bpTV;
-
   @override
   void initState() {
     super.initState();
@@ -52,8 +66,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _onVMChange() {
     if (mounted) {
-      // Auto-Refocus: If the OSD was asleep and just woke up, snap the user's TV
-      // remote cursor back to the primary Play/Pause button so they aren't lost.
       if (_vm.showOSD && !_wasOSDVisible) {
         _primaryFocusNode.requestFocus();
       }
@@ -92,7 +104,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       return KeyEventResult.handled;
     }
 
-    // 2. Hardware Media Keys (Always work, regardless of OSD state)
+    // 2. Hardware Media Keys
     if (key == LogicalKeyboardKey.mediaPlayPause || key == LogicalKeyboardKey.space) {
       _vm.player.playOrPause();
       _vm.wakeOSD();
@@ -117,9 +129,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
       return KeyEventResult.handled;
     }
 
-    // 3. OSD Hidden State (D-Pad acts as quick media controls)
+    // 3. OSD Hidden State
     if (!_vm.showOSD) {
-      _vm.wakeOSD(); // Any key wakes the UI
+      _vm.wakeOSD();
 
       if (item?.isVideo == true) {
         if (key == LogicalKeyboardKey.arrowRight) {
@@ -130,7 +142,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
           _vm.seekRelative(const Duration(seconds: -10));
           return KeyEventResult.handled;
         }
-        // PRO SKIP: Up/Down for large jumps (Kodi/VLC Style)
         if (key == LogicalKeyboardKey.arrowUp) {
           _vm.seekRelative(const Duration(minutes: 1));
           return KeyEventResult.handled;
@@ -149,16 +160,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
           return KeyEventResult.handled;
         }
       }
-
-      // If it was just "Enter" or "Up/Down", we just woke the OSD and do nothing else.
       return KeyEventResult.handled;
     }
 
-    // 4. OSD Visible State (D-Pad acts as UI Navigation)
-    _vm.wakeOSD(); // Reset hide timer on any navigation
-
-    // We explicitly IGNORE arrow keys here so Flutter's Focus Engine takes over
-    // and naturally moves the highlight box to the next on-screen button.
+    // 4. OSD Visible State
+    _vm.wakeOSD();
     return KeyEventResult.ignored;
   }
 
@@ -176,7 +182,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return ChangeNotifierProvider.value(
       value: _vm,
       child: Scaffold(
-        backgroundColor: Colors.black, // True black background for media playback
+        backgroundColor: kWebBlack,
         body: FocusScope(
           node: _osdFocusScope,
           onKeyEvent: _onKey,
@@ -202,10 +208,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
               final half = MediaQuery.sizeOf(context).width / 2;
               final delta = -d.primaryDelta! / MediaQuery.sizeOf(context).height * 100;
               if (d.globalPosition.dx < half) {
-                // Left side: Brightness (Simulator/Hardware dependent, using volume for demo if brightness unavailable)
-                _vm.adjustVolume(delta);
+                _vm.adjustVolume(delta); // Simulating brightness via volume for demo
               } else {
-                // Right side: Volume
                 _vm.adjustVolume(delta);
               }
             },
@@ -218,7 +222,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 if (_showSidebar)
                   GestureDetector(
                     onTap: () => setState(() => _showSidebar = false),
-                    child: Container(color: Colors.black45),
+                    child: Container(color: kWebBlack.withValues(alpha: 0.6)),
                   ),
                 _buildToolsSidebar(),
               ],
@@ -237,12 +241,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     if (item.isImage) {
       return Container(
-        color: Colors.black,
+        color: kWebBlack,
         child: Center(
           child: Image.network(
             _vm.mediaUrl,
             fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => const Icon(LucideIcons.image, color: Colors.white24, size: 64),
+            errorBuilder: (_, _, _) => Icon(LucideIcons.image, color: kWebTextMuted, size: 64),
           ),
         ),
       );
@@ -251,44 +255,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (item.isAudio) {
       return LayoutBuilder(
         builder: (_, c) {
-          // Constrained size for audio art
           final sz = (c.maxHeight * 0.4).clamp(180.0, 500.0);
           return Container(
-            color: Colors.black,
+            color: kWebBlack,
             child: Center(
               child: Padding(
                 padding: EdgeInsets.only(bottom: c.maxHeight * 0.15),
-                // Apply the Brutalist Effect here
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
+                child: Container(
                   width: sz,
                   height: sz,
                   decoration: BoxDecoration(
-                    color: DS.surface1,
-                    border: Border.all(
-                      color: DS.borderDefault,
-                      width: _isTV ? 3 : 2, // Slightly thicker for brutalist look
-                    ),
-                    boxShadow: [
-                      // Signature Brutalist Offset Shadow
-                      BoxShadow(
-                        color: DS.accent,
-                        offset: const Offset(8, 8),
-                        blurRadius: 0, // Brutalist shadows are usually sharp
-                      ),
-                    ],
+                    color: kWebSurface,
+                    border: Border.all(color: kWebWhite, width: 2), // Brutalist sharp border
                   ),
-                  child: Stack(
-                    children: [
-                      // Artwork
-                      Positioned.fill(
-                        child: NetworkImageFade(url: _vm.thumbUrl, fit: BoxFit.cover, fallbackIcon: LucideIcons.music),
-                      ),
-                      // Optional: Subtle overlay to pop the "Brutalist" border
-                      Container(
-                        decoration: BoxDecoration(border: Border.all(color: Colors.white10, width: 1)),
-                      ),
-                    ],
+                  child: ColorFiltered(
+                    colorFilter: kGreyscale, // Brutalist industrial styling
+                    child: NetworkImageFade(url: _vm.thumbUrl, fit: BoxFit.cover, fallbackIcon: LucideIcons.music),
                   ),
                 ),
               ),
@@ -300,7 +282,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     // Video
     return Container(
-      color: Colors.black,
+      color: kWebBlack,
       child: Video(controller: _vm.videoController, controls: NoVideoControls, fit: _vm.videoFit),
     );
   }
@@ -310,25 +292,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Widget _buildGestureFeedback() => Center(
     child: AnimatedOpacity(
       opacity: _vm.gestureOpacity,
-      duration: const Duration(milliseconds: 150),
-      child: LayoutBuilder(
-        builder: (_, c) {
-          final hPad = c.maxWidth * 0.04;
-          final vPad = c.maxHeight * 0.025;
-          final fs = (c.maxWidth * 0.022).clamp(12.0, 32.0); // Sleeker font size
-          return Container(
-            padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
-            decoration: BoxDecoration(
-              color: DS.surface1.withValues(alpha: 0.8), // Slightly transparent
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: DS.borderDefault, width: 1),
-            ),
-            child: Text(
-              _vm.gestureTxt,
-              style: AppTheme.theme.textTheme.titleMedium?.copyWith(color: DS.accent, fontSize: fs),
-            ),
-          );
-        },
+      duration: const Duration(milliseconds: 100),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        decoration: BoxDecoration(
+          color: kWebSurface.withValues(alpha: 0.9),
+          border: Border.all(color: kWebBorder, width: 1),
+        ),
+        child: Text(
+          _vm.gestureTxt,
+          style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2),
+        ),
       ),
     ),
   );
@@ -337,9 +311,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Widget _buildOSD() => AnimatedOpacity(
     opacity: _vm.showOSD ? 1.0 : 0.0,
-    duration: const Duration(milliseconds: 300), // Smoother cinematic fade
+    duration: const Duration(milliseconds: 150),
     child: ExcludeFocus(
-      excluding: !_vm.showOSD, // Drops Focusability entirely when OSD hides
+      excluding: !_vm.showOSD,
       child: IgnorePointer(
         ignoring: !_vm.showOSD,
         child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [_buildTopBar(), const Spacer(), _buildBottomBar()]),
@@ -347,344 +321,83 @@ class _PlayerScreenState extends State<PlayerScreen> {
     ),
   );
 
-  Widget _buildToolsSidebar() {
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      right: _showSidebar ? 0 : -350,
-      top: 0,
-      bottom: 0,
-      width: 300,
-      child: Container(
-        decoration: BoxDecoration(
-          color: DS.surface1.withValues(alpha: 0.95),
-          border: const Border(left: BorderSide(color: DS.borderDefault)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(DS.s24),
-              color: DS.surface2,
-              child: Row(
-                children: [
-                  const Icon(LucideIcons.settings2, color: DS.accent, size: 20),
-                  const SizedBox(width: 12),
-                  Text('TOOLS', style: AppTheme.theme.textTheme.titleMedium),
-                  const Spacer(),
-                  BrutalistPlayerBtn(icon: LucideIcons.x, size: 16, onTap: () => setState(() => _showSidebar = false)),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(12),
-                children: [
-                  _VlcSidebarItem(icon: LucideIcons.subtitles, label: 'SUBTITLES', onTap: () => _showTrackModal('subtitles')),
-                  _VlcSidebarItem(icon: LucideIcons.activity, label: 'AUDIO TRACK', onTap: () => _showTrackModal('audio')),
-                  _VlcSidebarItem(icon: LucideIcons.layers, label: 'SYNC DELAY', onTap: _showSyncModal),
-                  _VlcSidebarItem(icon: LucideIcons.gauge, label: 'PLAYBACK SPEED', onTap: _showSpeedModal),
-                  _VlcSidebarItem(icon: LucideIcons.minimize, label: 'VIDEO FIT', onTap: _showFitModal),
-                  _VlcSidebarItem(icon: LucideIcons.clock, label: _vm.sleepMinutesRemaining > 0 ? '${_vm.sleepMinutesRemaining}M REMAINING' : 'SLEEP TIMER', onTap: _showSleepModal),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showTrackModal(String type) {
-    final tracks = type == 'audio' ? _vm.player.state.tracks.audio : _vm.player.state.tracks.subtitle;
-    final current = type == 'audio' ? _vm.player.state.track.audio : _vm.player.state.track.subtitle;
-
-    showGeneralDialog(
-      context: context,
-      barrierColor: Colors.black87,
-      barrierDismissible: true,
-      barrierLabel: 'Close',
-      pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 400,
-            decoration: BoxDecoration(
-              color: DS.surface1,
-              border: Border.all(color: DS.borderDefault),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(DS.s24),
-                  color: DS.surface2,
-                  child: Text('${type.toUpperCase()} TRACKS', style: AppTheme.theme.textTheme.titleMedium),
-                ),
-                if (type == 'subtitles')
-                  _TrackTile(
-                    label: 'DISABLE SUBTITLES',
-                    isActive: current.id == 'no',
-                    onTap: () {
-                      _vm.setSubtitleTrack(SubtitleTrack.no());
-                      Navigator.pop(ctx);
-                    },
-                  ),
-                ...tracks.map(
-                  (t) => _TrackTile(
-                    label: (t.title ?? t.language ?? t.id).toUpperCase(),
-                    isActive: t.id == current.id,
-                    onTap: () {
-                      type == 'audio' ? _vm.setAudioTrack(t as AudioTrack) : _vm.setSubtitleTrack(t as SubtitleTrack);
-                      Navigator.pop(ctx);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showSpeedModal() {
-    final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
-    final current = _vm.player.state.rate;
-
-    showGeneralDialog(
-      context: context,
-      barrierColor: Colors.black87,
-      barrierDismissible: true,
-      barrierLabel: 'Close',
-      pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 300,
-            decoration: BoxDecoration(
-              color: DS.surface1,
-              border: Border.all(color: DS.borderDefault),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(DS.s24),
-                  color: DS.surface2,
-                  child: Text('PLAYBACK SPEED', style: AppTheme.theme.textTheme.titleMedium),
-                ),
-                ...speeds.map(
-                  (s) => _TrackTile(
-                    label: '${s}X',
-                    isActive: (s - current).abs() < 0.01,
-                    onTap: () {
-                      _vm.setRate(s);
-                      Navigator.pop(ctx);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showFitModal() {
-    final fits = {BoxFit.contain: 'FIT (CONTAIN)', BoxFit.cover: 'FILL (COVER)', BoxFit.fill: 'STRETCH (FILL)'};
-
-    showGeneralDialog(
-      context: context,
-      barrierColor: Colors.black87,
-      barrierDismissible: true,
-      barrierLabel: 'Close',
-      pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 300,
-            decoration: BoxDecoration(
-              color: DS.surface1,
-              border: Border.all(color: DS.borderDefault),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(DS.s24),
-                  color: DS.surface2,
-                  child: Text('VIDEO FIT', style: AppTheme.theme.textTheme.titleMedium),
-                ),
-                ...fits.entries.map(
-                  (e) => _TrackTile(
-                    label: e.value,
-                    isActive: _vm.videoFit == e.key,
-                    onTap: () {
-                      _vm.setVideoFit(e.key);
-                      Navigator.pop(ctx);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showSleepModal() {
-    final options = [0, 5, 15, 30, 60, 120];
-
-    showGeneralDialog(
-      context: context,
-      barrierColor: Colors.black87,
-      barrierDismissible: true,
-      barrierLabel: 'Close',
-      pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 300,
-            decoration: BoxDecoration(
-              color: DS.surface1,
-              border: Border.all(color: DS.borderDefault),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(DS.s24),
-                  color: DS.surface2,
-                  child: Text('SLEEP TIMER', style: AppTheme.theme.textTheme.titleMedium),
-                ),
-                ...options.map(
-                  (m) => _TrackTile(
-                    label: m == 0 ? 'OFF' : '$m MINUTES',
-                    isActive: _vm.sleepMinutesRemaining == m,
-                    onTap: () {
-                      _vm.setSleepTimer(m);
-                      Navigator.pop(ctx);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildTopBar() {
     final item = _vm.current;
-    return LayoutBuilder(
-      builder: (_, c) {
-        final hPad = (c.maxWidth * 0.03).clamp(24.0, 64.0);
-        final vPad = MediaQuery.paddingOf(context).top + (c.maxHeight * 0.03).clamp(16.0, 48.0);
-        final titleFs = (c.maxWidth * 0.025).clamp(16.0, 40.0); // Refined typography size
-        final btnSz = (c.maxWidth * 0.02).clamp(16.0, 32.0);
-
-        return Container(
-          padding: EdgeInsets.fromLTRB(hPad, vPad, hPad, (c.maxHeight * 0.05).clamp(20.0, 60.0)),
-          decoration: BoxDecoration(
-            // Replaced solid block with a sleek, cinematic transparent fade
-            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [DS.bg.withValues(alpha: 0.85), Colors.transparent]),
+    return Container(
+      // Minimal safe area padding to keep it extremely compact
+      padding: EdgeInsets.fromLTRB(24, MediaQuery.paddingOf(context).top + 12, 24, 12),
+      decoration: BoxDecoration(
+        color: kWebSurface.withValues(alpha: 0.95),
+        border: Border(bottom: BorderSide(color: kWebBorder)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          BrutalistPlayerBtn(icon: LucideIcons.x, size: 20, onTap: () => Navigator.pop(context)),
+          const SizedBox(width: 24),
+          Expanded(
+            child: Text(
+              (item?.title ?? '').toUpperCase(),
+              style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 24, fontWeight: FontWeight.w900, height: 1.0, letterSpacing: 1),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              BrutalistPlayerBtn(icon: LucideIcons.x, size: btnSz, onTap: () => Navigator.pop(context)),
-              SizedBox(width: hPad * 0.5),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'NOW PLAYING // ${_typeLabel(item)}',
-                      style: AppTheme.theme.textTheme.labelSmall?.copyWith(color: DS.accent, fontSize: (c.maxWidth * 0.01).clamp(9.0, 14.0)),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      (item?.title ?? '').toUpperCase(),
-                      style: AppTheme.theme.textTheme.displayMedium?.copyWith(fontSize: titleFs, height: 1.1),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                '${_vm.currentIndex + 1}/${_vm.playlist.length}',
-                style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: (c.maxWidth * 0.01).clamp(9.0, 16.0), color: Colors.white70),
-              ),
-              const SizedBox(width: 16),
-              BrutalistPlayerBtn(
-                icon: LucideIcons.ellipsisVertical,
-                size: btnSz,
-                onTap: () => setState(() => _showSidebar = true),
-              ),
-            ],
+          const SizedBox(width: 16),
+          Text(
+            'CMD // ${_vm.currentIndex + 1}/${_vm.playlist.length}',
+            style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 12, letterSpacing: 2),
           ),
-        );
-      },
+          const SizedBox(width: 16),
+          BrutalistPlayerBtn(
+            icon: LucideIcons.settings2,
+            size: 20,
+            onTap: () => setState(() => _showSidebar = true),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildBottomBar() {
     final item = _vm.current;
-    return LayoutBuilder(
-      builder: (_, c) {
-        final hPad = (c.maxWidth * 0.03).clamp(24.0, 64.0);
-        final vPad = MediaQuery.paddingOf(context).bottom + (c.maxHeight * 0.03).clamp(16.0, 48.0);
-
-        // Re-clamped sizes: Much more elegant and less aggressive on massive displays
-        final mainSz = (c.maxWidth * 0.03).clamp(24.0, 56.0);
-        final skipSz = (c.maxWidth * 0.02).clamp(18.0, 36.0);
-        final seekSz = (c.maxWidth * 0.015).clamp(16.0, 32.0);
-        final gap = (c.maxWidth * 0.03).clamp(16.0, 48.0);
-
-        return Container(
-          padding: EdgeInsets.fromLTRB(hPad, (c.maxHeight * 0.05).clamp(20.0, 80.0), hPad, vPad),
-          decoration: BoxDecoration(
-            // Replaced solid block with a sleek, cinematic transparent fade
-            gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [DS.bg.withValues(alpha: 0.95), Colors.transparent]),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return Container(
+      // Squeezed padding against the bottom safe area
+      padding: EdgeInsets.fromLTRB(24, 12, 24, MediaQuery.paddingOf(context).bottom + 12),
+      decoration: BoxDecoration(
+        color: kWebSurface.withValues(alpha: 0.95),
+        border: Border(top: BorderSide(color: kWebBorder)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (item?.isImage == false) ...[
+            BrutalistProgressBar(player: _vm.player, compact: true), // Forced compact
+            const SizedBox(height: 12)
+          ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              if (item?.isImage == false) ...[BrutalistProgressBar(player: _vm.player, compact: !_isTV), SizedBox(height: gap)],
+              Expanded(
+                child: Align(alignment: Alignment.centerLeft, child: _buildZone1(item, 20)),
+              ),
               Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: Align(alignment: Alignment.centerLeft, child: _buildZone1(item, seekSz)),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      BrutalistPlayerBtn(icon: LucideIcons.skipBack, size: skipSz, onTap: _vm.prev),
-                      SizedBox(width: gap),
-                      _buildCenterBtn(item, mainSz),
-                      SizedBox(width: gap),
-                      BrutalistPlayerBtn(icon: LucideIcons.skipForward, size: skipSz, onTap: _vm.next),
-                    ],
-                  ),
-                  Expanded(
-                    child: Align(alignment: Alignment.centerRight, child: _buildZone3(item, seekSz)),
-                  ),
+                  BrutalistPlayerBtn(icon: LucideIcons.skipBack, size: 24, onTap: _vm.prev),
+                  const SizedBox(width: 20),
+                  _buildCenterBtn(item, 28), // Slightly smaller main button
+                  const SizedBox(width: 20),
+                  BrutalistPlayerBtn(icon: LucideIcons.skipForward, size: 24, onTap: _vm.next),
                 ],
+              ),
+              Expanded(
+                child: Align(alignment: Alignment.centerRight, child: _buildZone3(item, 20)),
               ),
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -695,7 +408,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (item?.isImage == true) {
       return Text(
         'FILE ${_vm.currentIndex + 1} OF ${_vm.playlist.length}',
-        style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: _isTV ? 14 : 10, color: Colors.white70),
+        style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1),
       );
     }
     return const SizedBox.shrink();
@@ -734,32 +447,267 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return const SizedBox.shrink();
   }
 
-  static const _typeLabels = {'video': 'VID', 'audio': 'AUD', 'image': 'IMG'};
-  String _typeLabel(MediaItem? item) => _typeLabels[item?.type] ?? 'SYS';
+  // ── Tools Sidebar (Compact Brutalist) ─────────────────────────────────────
 
-  void _showSyncModal() {
+  Widget _buildToolsSidebar() {
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      right: _showSidebar ? 0 : -240,
+      top: 0,
+      bottom: 0,
+      width: 240,
+      child: Container(
+        decoration: BoxDecoration(
+          color: kWebSurface,
+          border: Border(left: BorderSide(color: kWebBorder)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+              child: Row(
+                children: [
+                  const Icon(LucideIcons.settings2, color: kWebWhite, size: 16),
+                  const SizedBox(width: 12),
+                  Text('SYS TOOLS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  const Spacer(),
+                  BrutalistPlayerBtn(icon: LucideIcons.x, size: 16, onTap: () => setState(() => _showSidebar = false)),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _VlcSidebarItem(icon: LucideIcons.subtitles, label: 'SUBTITLES', onTap: () => _showTrackModal('subtitles')),
+                  _VlcSidebarItem(icon: LucideIcons.activity, label: 'AUDIO TRACK', onTap: () => _showTrackModal('audio')),
+                  _VlcSidebarItem(icon: LucideIcons.layers, label: 'SYNC DELAY', onTap: _showSyncModal),
+                  _VlcSidebarItem(icon: LucideIcons.gauge, label: 'PLAYBACK SPEED', onTap: _showSpeedModal),
+                  _VlcSidebarItem(icon: LucideIcons.minimize, label: 'VIDEO FIT', onTap: _showFitModal),
+                  _VlcSidebarItem(icon: LucideIcons.clock, label: _vm.sleepMinutesRemaining > 0 ? '${_vm.sleepMinutesRemaining}M REMAINING' : 'SLEEP TIMER', onTap: _showSleepModal),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Modals (Compact Brutalist) ────────────────────────────────────────────
+
+  void _showTrackModal(String type) {
+    final tracks = type == 'audio' ? _vm.player.state.tracks.audio : _vm.player.state.tracks.subtitle;
+    final current = type == 'audio' ? _vm.player.state.track.audio : _vm.player.state.track.subtitle;
+
     showGeneralDialog(
       context: context,
-      barrierColor: Colors.black87,
+      barrierColor: kWebBlack.withValues(alpha: 0.9),
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
         child: Material(
           color: Colors.transparent,
           child: Container(
-            width: 300,
+            width: 320,
             decoration: BoxDecoration(
-              color: DS.surface1,
-              border: Border.all(color: DS.borderDefault),
+              color: kWebSurface,
+              border: Border.all(color: kWebWhite, width: 2),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(DS.s24),
-                  color: DS.surface2,
-                  child: Text('SYNC DELAY', style: AppTheme.theme.textTheme.titleMedium),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+                  child: Text('${type.toUpperCase()} TRACKS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                ),
+                if (type == 'subtitles')
+                  _TrackTile(
+                    label: 'DISABLE SUBTITLES',
+                    isActive: current.id == 'no',
+                    onTap: () {
+                      _vm.setSubtitleTrack(SubtitleTrack.no());
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                ...tracks.map(
+                      (t) => _TrackTile(
+                    label: (t.title ?? t.language ?? t.id).toUpperCase(),
+                    isActive: t.id == current.id,
+                    onTap: () {
+                      type == 'audio' ? _vm.setAudioTrack(t as AudioTrack) : _vm.setSubtitleTrack(t as SubtitleTrack);
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSpeedModal() {
+    final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+    final current = _vm.player.state.rate;
+
+    showGeneralDialog(
+      context: context,
+      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierDismissible: true,
+      barrierLabel: 'Close',
+      pageBuilder: (ctx, anim1, anim2) => Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 320,
+            decoration: BoxDecoration(
+              color: kWebSurface,
+              border: Border.all(color: kWebWhite, width: 2),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+                  child: Text('PLAYBACK SPEED', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                ),
+                ...speeds.map(
+                      (s) => _TrackTile(
+                    label: '${s}X',
+                    isActive: (s - current).abs() < 0.01,
+                    onTap: () {
+                      _vm.setRate(s);
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showFitModal() {
+    final fits = {BoxFit.contain: 'FIT (CONTAIN)', BoxFit.cover: 'FILL (COVER)', BoxFit.fill: 'STRETCH (FILL)'};
+
+    showGeneralDialog(
+      context: context,
+      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierDismissible: true,
+      barrierLabel: 'Close',
+      pageBuilder: (ctx, anim1, anim2) => Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 320,
+            decoration: BoxDecoration(
+              color: kWebSurface,
+              border: Border.all(color: kWebWhite, width: 2),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+                  child: Text('VIDEO FIT', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                ),
+                ...fits.entries.map(
+                      (e) => _TrackTile(
+                    label: e.value,
+                    isActive: _vm.videoFit == e.key,
+                    onTap: () {
+                      _vm.setVideoFit(e.key);
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSleepModal() {
+    final options = [0, 5, 15, 30, 60, 120];
+
+    showGeneralDialog(
+      context: context,
+      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierDismissible: true,
+      barrierLabel: 'Close',
+      pageBuilder: (ctx, anim1, anim2) => Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 320,
+            decoration: BoxDecoration(
+              color: kWebSurface,
+              border: Border.all(color: kWebWhite, width: 2),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+                  child: Text('SLEEP TIMER', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                ),
+                ...options.map(
+                      (m) => _TrackTile(
+                    label: m == 0 ? 'OFF' : '$m MINUTES',
+                    isActive: _vm.sleepMinutesRemaining == m,
+                    onTap: () {
+                      _vm.setSleepTimer(m);
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSyncModal() {
+    showGeneralDialog(
+      context: context,
+      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierDismissible: true,
+      barrierLabel: 'Close',
+      pageBuilder: (ctx, anim1, anim2) => Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 320,
+            decoration: BoxDecoration(
+              color: kWebSurface,
+              border: Border.all(color: kWebWhite, width: 2),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+                  child: Text('SYNC DELAY', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 ),
                 ListenableBuilder(
                   listenable: _vm,
@@ -791,20 +739,20 @@ class _SyncTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: DS.borderDefault)),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: kWebBorder)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: AppTheme.theme.textTheme.labelSmall),
+          Text(label, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
           const SizedBox(height: 12),
           Row(
             children: [
               BrutalistPlayerBtn(icon: LucideIcons.minus, size: 16, onTap: () => onChanged(value - 0.1)),
               Expanded(
-                child: Center(child: Text('${value.toStringAsFixed(1)}S', style: AppTheme.theme.textTheme.titleMedium)),
+                child: Center(child: Text('${value.toStringAsFixed(1)}S', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 16, fontWeight: FontWeight.bold))),
               ),
               BrutalistPlayerBtn(icon: LucideIcons.plus, size: 16, onTap: () => onChanged(value + 0.1)),
             ],
@@ -828,6 +776,7 @@ class _VlcSidebarItem extends StatefulWidget {
 
 class _VlcSidebarItemState extends State<_VlcSidebarItem> {
   bool _focused = false;
+
   @override
   Widget build(BuildContext context) {
     return Focus(
@@ -835,24 +784,28 @@ class _VlcSidebarItemState extends State<_VlcSidebarItem> {
       onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          margin: const EdgeInsets.only(bottom: 8),
+        child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: _focused ? DS.accent : DS.surface2,
-            border: Border.all(color: _focused ? DS.accent : DS.borderDefault),
+            color: _focused ? kWebWhite : Colors.transparent,
+            border: Border(bottom: BorderSide(color: kWebBorder)),
           ),
           child: Row(
             children: [
-              Icon(widget.icon, size: 18, color: _focused ? Colors.black : DS.textPrimary),
+              Icon(widget.icon, size: 16, color: _focused ? kWebBlack : kWebTextMuted),
               const SizedBox(width: 12),
-              Text(
-                widget.label,
-                style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: _focused ? Colors.black : DS.textSecondary),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: GoogleFonts.dmMono(
+                    fontSize: 12,
+                    fontWeight: _focused ? FontWeight.bold : FontWeight.normal,
+                    color: _focused ? kWebBlack : kWebText,
+                    letterSpacing: 1,
+                  ),
+                ),
               ),
-              const Spacer(),
-              Icon(LucideIcons.chevronRight, size: 14, color: _focused ? Colors.black : Colors.white24),
+              Icon(LucideIcons.chevronRight, size: 14, color: _focused ? kWebBlack : kWebTextMuted),
             ],
           ),
         ),
@@ -874,6 +827,7 @@ class _TrackTile extends StatefulWidget {
 
 class _TrackTileState extends State<_TrackTile> {
   bool _focused = false;
+
   @override
   Widget build(BuildContext context) {
     return Focus(
@@ -881,18 +835,26 @@ class _TrackTileState extends State<_TrackTile> {
       onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           decoration: BoxDecoration(
-            color: _focused ? DS.accent : (widget.isActive ? DS.surface3 : Colors.transparent),
-            border: Border(bottom: BorderSide(color: DS.borderDefault)),
+            color: _focused ? kWebWhite : (widget.isActive ? kWebWhite.withValues(alpha:0.05) : Colors.transparent),
+            border: Border(bottom: BorderSide(color: kWebBorder)),
           ),
           child: Row(
             children: [
-              Text(widget.label, style: AppTheme.theme.textTheme.labelMedium?.copyWith(color: _focused ? Colors.black : Colors.white)),
-              const Spacer(),
-              if (widget.isActive) Icon(LucideIcons.checkCircle, size: 20, color: _focused ? Colors.black : DS.accent),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: GoogleFonts.dmMono(
+                    fontSize: 12,
+                    fontWeight: _focused || widget.isActive ? FontWeight.bold : FontWeight.normal,
+                    color: _focused ? kWebBlack : (widget.isActive ? kWebWhite : kWebText),
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+              if (widget.isActive) Icon(LucideIcons.check, size: 16, color: _focused ? kWebBlack : kWebWhite),
             ],
           ),
         ),

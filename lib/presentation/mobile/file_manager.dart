@@ -70,6 +70,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
 
   List<SFileItem> _items = [];
   List<SFileItem> _allItems = [];
+  List<Map<String, dynamic>> _stations = [];
   bool _isLoading = true;
   String? _error;
 
@@ -121,7 +122,9 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
       _error = null;
       _activeCategory = null;
     });
-    final media = _vm.remoteMedia;
+    final vm = context.read<ClientViewModel>();
+    final media = vm.remoteMedia;
+    _stations = vm.stations;
     _allItems = media.map((m) => SFileItem(name: m.title, path: m.id, isDirectory: false, size: 0, type: _parseType(m.type), isPathBased: false)).toList();
     await _loadPath('');
   }
@@ -183,7 +186,11 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
       _activeCategory = cat.id;
       _activeCategoryLabel = cat.label;
       _isLoading = false;
-      _items = cat.id == 'recent' ? _sort(_allItems.take(50).toList()) : (cat.filterType != null ? _sort(_allItems.where((i) => i.type == cat.filterType).toList()) : []);
+      if (cat.id == 'live') {
+        _items = []; // Stations are handled separately in _buildBodySlivers
+      } else {
+        _items = cat.id == 'recent' ? _sort(_allItems.take(50).toList()) : (cat.filterType != null ? _sort(_allItems.where((i) => i.type == cat.filterType).toList()) : []);
+      }
     });
   }
 
@@ -214,8 +221,11 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     if (_navStack.length > 1) {
       _navStack.removeLast();
       final prev = _navStack.last;
-      if (prev == null) _loadHome();
-      else _loadPath(prev);
+      if (prev == null) {
+        _loadHome();
+      } else {
+        _loadPath(prev);
+      }
       return true;
     }
     return false;
@@ -242,6 +252,26 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
         ),
       ),
     );
+  }
+
+  void _tuneIn(Map<String, dynamic> station) async {
+    final res = await _vm.joinStation(station['id']);
+    if (res != null && mounted) {
+      final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
+      final startIndex = res['itemIndex'] as int? ?? 0;
+      final offsetMs = res['positionMs'] as int;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PlayerScreen(
+            items: items,
+            startIndex: startIndex,
+            isPathBased: false,
+            startOffset: Duration(milliseconds: offsetMs),
+          ),
+        ),
+      );
+    }
   }
 
   void _triggerDownload(SFileItem item) {
@@ -371,14 +401,21 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
       )
           : Padding(
         padding: EdgeInsets.only(left: showNav ? 0 : _textPad),
-        child: Text(
-          _title.toUpperCase(),
-          style: GoogleFonts.barlowCondensed(
-              color: kWebWhite,
-              fontSize: isMobile ? 20 : 24,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 4
-          ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                _title.toUpperCase(),
+                style: GoogleFonts.barlowCondensed(
+                    color: kWebWhite,
+                    fontSize: isMobile ? 20 : 24,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 4
+                ),
+              ),
+            ),
+
+          ],
         ),
       ),
       actions: [
@@ -487,6 +524,31 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     if (_isLoading) return _buildSkeletonSlivers(isMobile);
     if (_error != null) return _buildErrorSlivers(isMobile);
 
+    if (_activeCategory == 'live') {
+      if (_stations.isEmpty) return _buildEmptySlivers(isMobile);
+      return [
+        SliverToBoxAdapter(child: SizedBox(height: isMobile ? 16 : 24)),
+        SliverToBoxAdapter(
+          child: Container(
+            decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
+            child: GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 1,
+                childAspectRatio: 3.5,
+                crossAxisSpacing: 1,
+                mainAxisSpacing: 1,
+              ),
+              itemCount: _stations.length,
+              itemBuilder: (_, i) => _MobileStationCard(station: _stations[i], onTap: () => _tuneIn(_stations[i])),
+            ),
+          ),
+        ),
+      ];
+    }
+
     final items = _displayItems;
     if (items.isEmpty) return _buildEmptySlivers(isMobile);
 
@@ -512,33 +574,45 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
       SliverToBoxAdapter(
         child: Container(
           decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
-          child: GridView.builder(
+          child: GridView.count(
+            crossAxisCount: 3,
             shrinkWrap: true,
             padding: EdgeInsets.zero,
             physics: const NeverScrollableScrollPhysics(),
-            // Requested 3 crossAxisCount
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                childAspectRatio: 1.0,
-                crossAxisSpacing: 1,
-                mainAxisSpacing: 1
-            ),
-            itemCount: _kCategories.length,
-            itemBuilder: (_, i) => _BrutalistInteractiveCard(
-              onTap: () => _openCategory(_kCategories[i]),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(_kCategories[i].icon, color: kWebWhite, size: isMobile ? 22 : 26),
-                  SizedBox(height: isMobile ? 7 : 10),
-                  Text(
-                    _kCategories[i].label,
-                    style: GoogleFonts.dmMono(color: kWebText, fontSize: isMobile ? 9 : 10, letterSpacing: 1),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+            mainAxisSpacing: 1,
+            crossAxisSpacing: 1,
+            children: [
+              ..._kCategories.map((cat) => _BrutalistInteractiveCard(
+                onTap: () => _openCategory(cat),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(cat.icon, color: kWebWhite, size: isMobile ? 22 : 26),
+                    SizedBox(height: isMobile ? 7 : 10),
+                    Text(
+                      cat.label,
+                      style: GoogleFonts.dmMono(color: kWebText, fontSize: isMobile ? 9 : 10, letterSpacing: 1),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              )),
+              _BrutalistInteractiveCard(
+                onTap: () => _openCategory(const _Category(id: 'live', label: 'LIVE', icon: LucideIcons.radio)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(LucideIcons.radio, color: _stations.isNotEmpty ? DS.accent : kWebWhite, size: isMobile ? 22 : 26),
+                    SizedBox(height: isMobile ? 7 : 10),
+                    Text(
+                      'LIVE',
+                      style: GoogleFonts.dmMono(color: _stations.isNotEmpty ? DS.accent : kWebText, fontSize: isMobile ? 9 : 10, letterSpacing: 1),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -788,9 +862,9 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     final dirs = items.where((i) => i.isDirectory).toList();
     final files = items.where((i) => !i.isDirectory).toList();
 
-    // Exact match: 3 crossAxisCount brutalist layout
+    // Exact match: 2 crossAxisCount brutalist layout
     const gridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: 3,
+      crossAxisCount: 2,
       childAspectRatio: 1.0,
       crossAxisSpacing: 1,
       mainAxisSpacing: 1,
@@ -876,7 +950,7 @@ class _BrutalistInteractiveCardState extends State<_BrutalistInteractiveCard> {
       onTapCancel: () => setState(() => _isFocused = false),
       child: Container(
         decoration: BoxDecoration(
-          color: _isFocused ? kWebWhite.withOpacity(0.1) : kWebSurface2,
+          color: _isFocused ? kWebWhite.withValues(alpha: 0.1) : kWebSurface2,
         ),
         child: widget.child,
       ),
@@ -927,7 +1001,7 @@ class _FileListTileState extends State<_FileListTile> {
       onTapCancel: () => setState(() => _isFocused = false),
       child: Container(
         decoration: BoxDecoration(
-          color: _isFocused ? kWebWhite.withOpacity(0.1) : kWebSurface,
+          color: _isFocused ? kWebWhite.withValues(alpha:0.1) : kWebSurface,
           border: Border(bottom: BorderSide(color: kWebBorder), top: widget.isFirst ? BorderSide(color: kWebBorder) : BorderSide.none),
         ),
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: isMobile ? 8 : 11),
@@ -1146,6 +1220,73 @@ class _FileGridCardState extends State<_FileGridCard> {
                   ),
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MOBILE STATION CARD
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MobileStationCard extends StatefulWidget {
+  final Map<String, dynamic> station;
+  final VoidCallback onTap;
+
+  const _MobileStationCard({required this.station, required this.onTap});
+
+  @override
+  State<_MobileStationCard> createState() => _MobileStationCardState();
+}
+
+class _MobileStationCardState extends State<_MobileStationCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final nowPlaying = widget.station['nowPlaying'];
+    final title = widget.station['name'].toString().toUpperCase();
+    final itemTitle = nowPlaying != null ? nowPlaying['item']['title'].toString().toUpperCase() : 'AWAITING SIGNAL';
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _pressed ? kWebWhite.withValues(alpha: 0.1) : kWebSurface,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(title, style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1), maxLines: 1),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(border: Border.all(color: kWebWhite)),
+                  child: Text('LIVE', style: GoogleFonts.dmMono(fontSize: 9, fontWeight: FontWeight.bold, color: kWebWhite)),
+                ),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('STATUS // NOW PLAYING', style: GoogleFonts.dmMono(fontSize: 8, color: kWebTextMuted, letterSpacing: 1)),
+                const SizedBox(height: 4),
+                Text(itemTitle, style: GoogleFonts.dmMono(fontSize: 10, color: kWebText), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
             ),
           ],
         ),

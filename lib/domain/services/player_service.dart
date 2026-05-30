@@ -106,10 +106,12 @@ class PlayerService extends ChangeNotifier {
     if (item == null) return;
     
     final targetV = version ?? _loadVersion;
+    final url = mediaUrl;
 
     if (!item.isImage) {
+      debugPrint('[PlayerService] Opening: $url at ${startOffset?.inSeconds}s');
       // open() is async and can take time.
-      await player.open(Media(mediaUrl), play: false);
+      await player.open(Media(url), play: false);
       if (targetV != _loadVersion) return;
 
       if (startOffset != null) {

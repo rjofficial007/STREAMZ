@@ -1,6 +1,6 @@
-// data/network/web_html.dart
+// data/network/modern_web_html.dart
 // ============================================================================
-// STREAMZ — Built-in Web Interface HTML (Refined Studio Edition)
+// STREAMZ — Built-in Web Interface HTML (Modern Studio Edition)
 // ============================================================================
 
 const String kModernWebInterfaceHtml = r"""
@@ -72,6 +72,17 @@ const String kModernWebInterfaceHtml = r"""
     color: var(--white);
     text-transform: uppercase;
   }
+  .status-badge {
+    background: var(--white);
+    color: var(--black);
+    padding: 4px 10px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin-left: 16px;
+    white-space: nowrap;
+  }
   .nav-switches { display: flex; flex-grow: 1; }
   .nav-btn {
     flex: 1;
@@ -112,35 +123,10 @@ const String kModernWebInterfaceHtml = r"""
   .workspace { display: flex; flex-grow: 1; overflow: hidden; position: relative; }
   .content-area {
     flex-grow: 1;
-    padding: 40px;
+    padding: 0; /* Edge to edge */
     overflow-y: auto;
     position: relative;
     scroll-behavior: smooth;
-  }
-  .page-header { 
-    margin-bottom: 64px; 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: flex-end; 
-    border-bottom: 1px solid var(--white-border); 
-    padding-bottom: 24px;
-  }
-  .page-title {
-    font-family: var(--font-display);
-    font-size: clamp(32px, 6vw, 96px);
-    font-weight: 900;
-    letter-spacing: -1px;
-    line-height: 0.85;
-    text-transform: uppercase;
-  }
-  .page-meta {
-    font-family: var(--font-mono);
-    color: var(--white-muted);
-    font-size: 11px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    text-align: right;
-    padding-bottom: 8px;
   }
 
   .grid-container {
@@ -149,6 +135,8 @@ const String kModernWebInterfaceHtml = r"""
     gap: 1px;
     background: var(--white-border);
     border: 1px solid var(--white-border);
+    border-left: none;
+    border-right: none;
   }
   .card {
     background: var(--surface-2);
@@ -374,9 +362,7 @@ const String kModernWebInterfaceHtml = r"""
   
   /* Tablet / Smaller Desktop */
   @media (max-width: 1024px) {
-    .content-area { padding: 30px; }
-    .page-header { flex-direction: column; align-items: flex-start; gap: 12px; }
-    .page-meta { text-align: left; padding-bottom: 0; }
+    .content-area { padding: 0; }
   }
 
   /* Mobile Device */
@@ -391,8 +377,7 @@ const String kModernWebInterfaceHtml = r"""
     .bottom-navbar { display: flex; }
     
     /* Workspace adjustments */
-    .content-area { padding: 16px; }
-    .page-header { margin-bottom: 24px; padding-bottom: 16px; }
+    .content-area { padding: 0; }
     
     /* Request: 4 Grid Items on Mobile */
     .grid-container { grid-template-columns: repeat(4, 1fr); gap: 1px; }
@@ -439,7 +424,10 @@ const String kModernWebInterfaceHtml = r"""
 <body>
 
 <div class="top-dashboard">
-  <div class="branding"><div class="brand-title">STREAMZ</div></div>
+  <div class="branding">
+    <div class="brand-title">STREAMZ</div>
+    <div class="status-badge">LIVE BROADCAST STATION</div>
+  </div>
   <div class="nav-switches">
     <button class="nav-btn active" id="nav-video" onclick="switchTab('video')">VIDEOS</button>
     <button class="nav-btn" id="nav-audio" onclick="switchTab('audio')">AUDIO</button>
@@ -453,10 +441,6 @@ const String kModernWebInterfaceHtml = r"""
 
 <div class="workspace">
   <div class="content-area">
-    <div class="page-header">
-      <div class="page-title" id="page-title">VIDEO ARCHIVE</div>
-      <div class="page-meta" id="page-subtitle">PATH // ROOT/MEDIA</div>
-    </div>
     <div id="content-area"></div>
   </div>
 </div>
@@ -579,7 +563,8 @@ const String kModernWebInterfaceHtml = r"""
   function handleRemoteMedia(action, value) {
     const vid = document.getElementById('videoPlayer');
     const aud = document.getElementById('audioPlayer');
-    const active = vid.style.display === 'block' ? vid : (aud.src ? aud : null);
+    const isFS = document.getElementById('fsOverlay').classList.contains('active');
+    const active = isFS ? vid : (aud.src ? aud : null);
     if (!active) return;
     
     if (action === 'play' || action === 'pause' || action === 'toggle_play') { 
@@ -647,11 +632,6 @@ const String kModernWebInterfaceHtml = r"""
     // Sync Bottom Nav
     const navBottom = document.getElementById('m-nav-' + type);
     if (navBottom) navBottom.classList.add('active');
-    
-    document.getElementById('page-title').innerText    = tabMeta[type].title;
-    document.getElementById('page-subtitle').innerText = currentBrowsePath
-        ? 'PATH // ' + currentBrowsePath.toUpperCase()
-        : tabMeta[type].sub;
   }
 
   function switchTab(type) {
@@ -701,9 +681,6 @@ const String kModernWebInterfaceHtml = r"""
     const container = document.getElementById('content-area');
     container.className = 'list-container';
     container.innerHTML = '<div class="empty-state">SCANNING NETWORK...</div>';
-    document.getElementById('page-subtitle').innerText = currentBrowsePath
-        ? 'PATH // ' + currentBrowsePath.toUpperCase()
-        : 'PATH // ROOT/FS';
     try {
       const res   = await fetch('/api/browse?path=' + encodeURIComponent(currentBrowsePath));
       const items = await res.json();
@@ -840,6 +817,7 @@ const String kModernWebInterfaceHtml = r"""
     document.getElementById('fsOverlay').classList.remove('active');
     sendTelemetry(true, null);
     vid.pause(); vid.src = '';
+    vid.style.display = 'none'; // Ensure it's hidden so it doesn't block audio in toggleMedia
     if (!aud.paused) {
       aud.pause(); aud.src = '';
       document.getElementById('lcd-status-label').innerText = 'STATUS // IDLE';
@@ -849,7 +827,8 @@ const String kModernWebInterfaceHtml = r"""
   }
 
   function toggleMedia() {
-    const active = vid.style.display === 'block' ? vid : aud;
+    const isFS = document.getElementById('fsOverlay').classList.contains('active');
+    const active = isFS ? vid : aud;
     if (!active.src) return;
     if (active.paused) { active.play(); updatePlayBtn(false); }
     else               { active.pause(); updatePlayBtn(true); }
@@ -861,7 +840,8 @@ const String kModernWebInterfaceHtml = r"""
   }
 
   function seekGlobal(s) {
-    const active = vid.style.display === 'block' ? vid : aud;
+    const isFS = document.getElementById('fsOverlay').classList.contains('active');
+    const active = isFS ? vid : aud;
     if (active.src) active.currentTime += s;
   }
 

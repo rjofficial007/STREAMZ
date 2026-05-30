@@ -12,7 +12,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
 import '../client/client_viewmodel.dart';
 import '../player/player_screen.dart';
@@ -197,11 +196,11 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
     Navigator.push(
       context,
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => ChangeNotifierProvider.value(
+        pageBuilder: (_, _, _) => ChangeNotifierProvider.value(
           value: context.read<ClientViewModel>(),
           child: _MobileSearchScreen(allMedia: allMedia),
         ),
-        transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
+        transitionsBuilder: (_, a, _, c) => FadeTransition(opacity: a, child: c),
       ),
     );
   }
@@ -595,7 +594,7 @@ class _StationCardState extends State<_StationCard> {
       final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
       final startIndex = res['itemIndex'] as int? ?? 0;
       final offsetMs = res['positionMs'] as int;
-      Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(items: items, startIndex: startIndex, isPathBased: true, startOffset: Duration(milliseconds: offsetMs))));
+      Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(items: items, startIndex: startIndex, isPathBased: false, startOffset: Duration(milliseconds: offsetMs))));
     }
   }
 
@@ -637,7 +636,7 @@ class _StationCardState extends State<_StationCard> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('STATUS // NOW PLAYING', style: GoogleFonts.dmMono(fontSize: 8, color: _focused ? kWebBlack.withOpacity(0.5) : kWebTextMuted, letterSpacing: 1)),
+                  Text('STATUS // NOW PLAYING', style: GoogleFonts.dmMono(fontSize: 8, color: _focused ? kWebBlack.withValues(alpha:0.5) : kWebTextMuted, letterSpacing: 1)),
                   const SizedBox(height: 4),
                   Text(itemTitle, style: GoogleFonts.dmMono(fontSize: 10, color: _focused ? kWebBlack : kWebText), maxLines: 1, overflow: TextOverflow.ellipsis),
                 ],

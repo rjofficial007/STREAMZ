@@ -18,6 +18,9 @@ class MobileSelectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<ClientViewModel>();
+    final hasLive = vm.stations.isNotEmpty;
+
     return AppScaffold(
       appBar: AppBar(
         backgroundColor: DS.bg,
@@ -63,6 +66,7 @@ class MobileSelectionScreen extends StatelessWidget {
                       title: 'MODERN UI',
                       subtitle: 'NETFLIX-STYLE RAILS',
                       icon: LucideIcons.tv,
+                      isLive: hasLive,
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -71,23 +75,7 @@ class MobileSelectionScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: DS.s24),
-                  Expanded(
-                    child: _MobileSelectionCard(
-                      title: 'LIVE STATIONS',
-                      subtitle: 'LINEAR BROADCASTS',
-                      icon: LucideIcons.radio,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ChangeNotifierProvider.value(
-                            value: context.read<ClientViewModel>(),
-                            child: const ModernMobileUIScreen(), // We'll jump to the station section inside ModernMobileUIScreen or similar
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+
                   const SizedBox(height: DS.s24),
                   Expanded(
                     child: _MobileSelectionCard(
@@ -117,8 +105,9 @@ class _MobileSelectionCard extends StatefulWidget {
   final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
+  final bool isLive;
 
-  const _MobileSelectionCard({required this.title, required this.subtitle, required this.icon, required this.onTap});
+  const _MobileSelectionCard({required this.title, required this.subtitle, required this.icon, required this.onTap, this.isLive = false});
 
   @override
   State<_MobileSelectionCard> createState() => _MobileSelectionCardState();

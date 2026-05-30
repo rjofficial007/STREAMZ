@@ -12,6 +12,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/design_tokens.dart';
 import '../mobile/mobile_selection_screen.dart';
 import '../tv/tv_selection_screen.dart';
+import '../player/player_screen.dart';
+import '../../domain/models/media_item.dart';
 import 'client_viewmodel.dart';
 
 class InterfaceSelectionScreen extends StatelessWidget {
@@ -19,6 +21,9 @@ class InterfaceSelectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<ClientViewModel>();
+    final stations = vm.stations;
+
     return AppScaffold(
       appBar: AppBar(
         backgroundColor: DS.bg,
@@ -82,6 +87,31 @@ class InterfaceSelectionScreen extends StatelessWidget {
                           style: AppTheme.theme.textTheme.displayMedium?.copyWith(fontSize: titleSize, height: 1.1),
                           textAlign: TextAlign.center,
                         ),
+                        if (stations.isNotEmpty) ...[
+                          const SizedBox(height: 32),
+                          _JoinLiveBanner(
+                            stations: stations,
+                            onJoin: (station) async {
+                              final res = await vm.joinStation(station['id']);
+                              if (res != null && context.mounted) {
+                                final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
+                                final startIndex = res['itemIndex'] as int? ?? 0;
+                                final offsetMs = res['positionMs'] as int;
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => PlayerScreen(
+                                      items: items,
+                                      startIndex: startIndex,
+                                      isPathBased: false,
+                                      startOffset: Duration(milliseconds: offsetMs),
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ],
                         SizedBox(height: isMobile ? 48 : 80),
 
                         // Wrapped in FocusTraversalGroup to protect TV D-Pad logic
@@ -179,8 +209,72 @@ class InterfaceSelectionScreen extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DEVICE SELECTION CARD
+// JOIN LIVE BANNER
 // ─────────────────────────────────────────────────────────────────────────────
+
+class _JoinLiveBanner extends StatefulWidget {
+  final List<Map<String, dynamic>> stations;
+  final Function(Map<String, dynamic>) onJoin;
+
+  const _JoinLiveBanner({required this.stations, required this.onJoin});
+
+  @override
+  State<_JoinLiveBanner> createState() => _JoinLiveBannerState();
+}
+
+class _JoinLiveBannerState extends State<_JoinLiveBanner> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final station = widget.stations.first;
+    final title = station['name'].toString().toUpperCase();
+
+    return Actions(
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onJoin(station);
+            return null;
+          },
+        ),
+      },
+      child: Focus(
+        onFocusChange: (v) => setState(() => _focused = v),
+        onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => widget.onJoin(station)),
+        child: GestureDetector(
+          onTap: () => widget.onJoin(station),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: BoxDecoration(
+              color: _focused ? DS.accent : DS.surface2,
+              border: Border.all(color: _focused ? DS.accent : DS.borderDefault, width: 2),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(LucideIcons.radio, color: _focused ? DS.bg : DS.accent, size: 20),
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('LIVE BROADCAST ACTIVE', style: GoogleFonts.dmMono(fontSize: 10, color: _focused ? DS.bg : DS.textMuted, letterSpacing: 2, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 2),
+                    Text('JOIN $title', style: AppTheme.theme.textTheme.labelMedium?.copyWith(color: _focused ? DS.bg : DS.textPrimary, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(width: 24),
+                Icon(LucideIcons.chevronRight, color: _focused ? DS.bg : DS.textMuted, size: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _DeviceCard extends StatefulWidget {
   final String title;

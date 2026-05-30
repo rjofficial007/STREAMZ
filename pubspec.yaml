@@ -24,9 +24,9 @@ dependencies:
 
   # Media & Storage
   photo_manager: ^3.9.0
-  permission_handler: ^12.0.1
+  permission_handler: ^12.0.2
   on_audio_query: ^2.9.0
-  video_thumbnail: ^0.5.6
+  get_thumbnail_video: ^0.7.3
 
   # UI
   google_fonts: ^8.1.0
@@ -66,24 +66,4 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/arrow_left_icon.png
-    - assets/images/audio_icon.png
-    - assets/images/download_icon.png
-    - assets/images/fast_forward_icon.png
-    - assets/images/file_icon.png
-    - assets/images/folder_icon.png
-    - assets/images/gear_icon.png
-    - assets/images/image_icon.png
-    - assets/images/pause_icon.png
-    - assets/images/play_icon.png
-    - assets/images/rewind_icon.png
-    - assets/images/speaker_high.png
-    - assets/images/video_icon.png
-    - assets/images/x_icon.png
-    - assets/images/audio_thumbnail.png
-    - assets/images/photo_thumbnail.png
-    - assets/images/video_thumbnail.png
-    - assets/images/web_app_bg_1.jpg
-    - assets/images/web_app_bg_2.jpg
-    - assets/images/web_app_bg_3.jpg
-    - assets/images/web_app_bg_4.jpg
+    - assets/images/

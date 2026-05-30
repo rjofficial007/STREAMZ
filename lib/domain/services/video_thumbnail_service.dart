@@ -8,8 +8,9 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:get_thumbnail_video/index.dart';
+import 'package:get_thumbnail_video/video_thumbnail.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:video_thumbnail/video_thumbnail.dart' as vt;
 
 class VideoThumbnailService {
   // Headless player used for frame extraction on platforms without robust native support (Windows).
@@ -27,10 +28,15 @@ class VideoThumbnailService {
     }
 
     return _lock.synchronized(() async {
-      if (defaultTargetPlatform == TargetPlatform.windows) {
-        return _extractMpv(path);
-      } else {
-        return _extractNative(path, quality: quality, maxWidth: maxWidth);
+      try {
+        if (defaultTargetPlatform == TargetPlatform.windows) {
+          return _extractMpv(path);
+        } else {
+          return _extractNative(path, quality: quality, maxWidth: maxWidth);
+        }
+      } catch (e) {
+        debugPrint('[ThumbService] Unhandled error during generation for $path: $e');
+        return null;
       }
     });
   }
@@ -38,13 +44,31 @@ class VideoThumbnailService {
   /// Mobile extraction using platform-native MediaMetadataRetriever (fast).
   Future<Uint8List?> _extractNative(String path, {required int quality, required int maxWidth}) async {
     try {
-      // Seek to 5 seconds to avoid black/blank frames common at the start.
-      final data = await vt.VideoThumbnail.thumbnailData(video: path, imageFormat: vt.ImageFormat.JPEG, maxWidth: maxWidth, quality: quality, timeMs: 5000);
+      debugPrint('[ThumbService] Starting native extraction for $path');
 
-      if (data != null && data.length > 1000) return data;
+      final data = await VideoThumbnail.thumbnailData(
+        video: path,
+        imageFormat: ImageFormat.JPEG,
+        maxWidth: maxWidth,
+        quality: quality,
+        timeMs: 5000,
+      );
+
+      if (data.length > 1000) return data;
 
       // Fallback: If 5s returned nothing or too small (e.g. video shorter than 5s), try 0s.
-      return await vt.VideoThumbnail.thumbnailData(video: path, imageFormat: vt.ImageFormat.JPEG, maxWidth: maxWidth, quality: quality, timeMs: 0);
+      debugPrint('[ThumbService] 5s seek failed or empty, trying 0s for $path');
+      final fallbackData = await VideoThumbnail.thumbnailData(
+        video: path,
+        imageFormat: ImageFormat.JPEG,
+        maxWidth: maxWidth,
+        quality: quality,
+        timeMs: 0,
+      );
+
+      if (fallbackData.length > 100) return fallbackData;
+
+      throw Exception('Native extraction returned no data');
     } catch (e) {
       debugPrint('[ThumbService] Native extraction failed for $path: $e');
       // Final fallback to MPV if native fails on mobile (e.g. unsupported container).
@@ -61,8 +85,11 @@ class VideoThumbnailService {
       await _player.open(Media(path), play: false);
 
       // 2. Wait for duration metadata to decide where to seek
-      if (_player.state.duration == Duration.zero) {
+      // We wait up to 2 seconds for metadata to load
+      int waitCount = 0;
+      while (_player.state.duration == Duration.zero && waitCount < 4) {
         await Future.delayed(const Duration(milliseconds: 500));
+        waitCount++;
       }
 
       final duration = _player.state.duration;
@@ -73,6 +100,9 @@ class VideoThumbnailService {
       if (seekTarget > Duration.zero) {
         await _player.seek(seekTarget);
         // Small delay for the decoder to push the frame
+        await Future.delayed(const Duration(milliseconds: 500));
+      } else {
+        // Even for 0s, wait a bit for the first frame
         await Future.delayed(const Duration(milliseconds: 300));
       }
 
@@ -80,9 +110,17 @@ class VideoThumbnailService {
       final bytes = await _player.screenshot();
 
       await _player.stop();
+
+      if (bytes == null || bytes.isEmpty) {
+        debugPrint('[ThumbService] MPV extraction returned empty/null for $path');
+      }
+
       return bytes;
     } catch (e) {
       debugPrint('[ThumbService] MPV extraction failed for $path: $e');
+      try {
+        await _player.stop();
+      } catch (_) {}
       return null;
     }
   }

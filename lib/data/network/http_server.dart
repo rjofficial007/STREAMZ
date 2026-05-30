@@ -151,7 +151,13 @@ class HttpServerService {
       final svc = sl<StationService>();
       final state = svc.getPlaybackState(station);
       if (state == null) return shelf.Response.notFound('No active content');
-      return shelf.Response.ok(jsonEncode(state.toJson()), headers: {'content-type': 'application/json'});
+      
+      final Map<String, dynamic> response = {
+        ...state.toJson(),
+        'playlist': station.playlist.map((e) => e.toJson()).toList(),
+      };
+      
+      return shelf.Response.ok(jsonEncode(response), headers: {'content-type': 'application/json'});
     });
 
     // Directory browse
