@@ -433,6 +433,7 @@ const String kModernWebInterfaceHtml = r"""
     <button class="nav-btn" id="nav-audio" onclick="switchTab('audio')">AUDIO</button>
     <button class="nav-btn" id="nav-image" onclick="switchTab('image')">PHOTOS</button>
     <button class="nav-btn" id="nav-folder" onclick="switchTab('folder')">NETWORK</button>
+    <button class="nav-btn" id="nav-station" onclick="switchTab('station')">STATIONS</button>
   </div>
   <div class="search-container">
     <input type="text" class="search-box" id="searchInput" placeholder="SEARCH QUERY..." oninput="handleSearch()">
@@ -470,6 +471,7 @@ const String kModernWebInterfaceHtml = r"""
   <button class="nav-btn" id="m-nav-audio" onclick="switchTab('audio')">AUDIO</button>
   <button class="nav-btn" id="m-nav-image" onclick="switchTab('image')">PHOTOS</button>
   <button class="nav-btn" id="m-nav-folder" onclick="switchTab('folder')">SYSTEM</button>
+  <button class="nav-btn" id="m-nav-station" onclick="switchTab('station')">LIVE</button>
 </div>
 
 <div class="fs-overlay" id="fsOverlay">
@@ -515,6 +517,7 @@ const String kModernWebInterfaceHtml = r"""
     audio:  { title: 'AUDIO MATRIX',  sub: 'PATH // ROOT/AUDIO' },
     image:  { title: 'PHOTO DB',      sub: 'PATH // ROOT/IMAGE' },
     folder: { title: 'NETWORK SYS',   sub: 'PATH // ROOT/FS'   },
+    station: { title: 'LIVE STATIONS', sub: 'PATH // ROOT/STATIONS' },
   };
 
   function connectWS() {
@@ -565,6 +568,20 @@ const String kModernWebInterfaceHtml = r"""
     const aud = document.getElementById('audioPlayer');
     const isFS = document.getElementById('fsOverlay').classList.contains('active');
     const active = isFS ? vid : (aud.src ? aud : null);
+    
+    if (action === 'station_pause') {
+      if (active) { active.pause(); updatePlayBtn(true); }
+      return;
+    }
+    if (action === 'station_resume') {
+      if (active) { active.play(); updatePlayBtn(false); }
+      return;
+    }
+    if (action === 'station_stop') {
+      closePlayer();
+      return;
+    }
+
     if (!active) return;
     
     if (action === 'play' || action === 'pause' || action === 'toggle_play') { 
@@ -651,6 +668,7 @@ const String kModernWebInterfaceHtml = r"""
 
   function buildUI(type) {
     if (type === 'folder') buildFolderView();
+    else if (type === 'station') buildStationView();
     else renderGrid(allMedia.filter(m => m.type === type));
   }
 
@@ -737,6 +755,50 @@ const String kModernWebInterfaceHtml = r"""
     }
   }
 
+  async function buildStationView() {
+    const container = document.getElementById('content-area');
+    container.className = 'list-container';
+    container.innerHTML = '<div class="empty-state">TUNING SIGNALS...</div>';
+    try {
+      const res = await fetch('/api/stations');
+      const items = await res.json();
+      container.innerHTML = items.length === 0 ? '<div class="empty-state">0 BROADCASTS FOUND.</div>' : '';
+      
+      items.forEach(station => {
+        const row = document.createElement('div');
+        row.className = 'list-item';
+        row.setAttribute('tabindex', '0');
+        const np = station.nowPlaying;
+        const sub = np ? `PLAYING: ${np.item.title}` : 'IDLE';
+        const thumb = np ? '/api/thumbnail/' + np.item.id : fallbacks.video;
+        
+        row.innerHTML = `
+          <div class="list-index">[LIVE]</div>
+          <img class="list-art" src="${thumb}" onerror="this.src='${fallbacks.video}';this.onerror=null;">
+          <div class="lcd-data" style="flex-grow:1;overflow:hidden;">
+            <div class="lcd-label">${station.name}</div>
+            <div class="list-title" style="font-size:16px;">${sub}</div>
+          </div>
+          <button class="list-download-icon" style="background:transparent;cursor:crosshair;">JOIN</button>`;
+        
+        row.onclick = async () => {
+          try {
+            const joinRes = await fetch('/api/stations/join/' + station.id);
+            const data = await joinRes.json();
+            if (data && data.item) {
+              openPlayer(data.item, false, data.isPaused);
+              const player = data.item.type === 'audio' ? aud : vid;
+              player.currentTime = data.positionMs / 1000;
+            }
+          } catch(e) { console.error('Join failed', e); }
+        };
+        container.appendChild(row);
+      });
+    } catch(_) {
+      container.innerHTML = '<div class="empty-state">ERR: STATION OFFLINE.</div>';
+    }
+  }
+
   const aud = document.getElementById('audioPlayer');
   const vid = document.getElementById('videoPlayer');
 
@@ -765,7 +827,7 @@ const String kModernWebInterfaceHtml = r"""
 
   window.addEventListener('beforeunload', () => sendTelemetry(true, null));
 
-  function openPlayer(item, isPath = false) {
+  function openPlayer(item, isPath = false, startPaused = false) {
     if (currentSessionId) sendTelemetry(true, null);
     currentSessionId  = 'SESSION_' + Date.now();
     currentMediaTitle = item.title;
@@ -774,17 +836,21 @@ const String kModernWebInterfaceHtml = r"""
 
     if (item.type === 'audio') {
       aud.src = url;
-      aud.play();
-      document.getElementById('lcd-status-label').innerText = 'STATUS // BROADCASTING';
+      if (!startPaused) aud.play();
+      document.getElementById('lcd-status-label').innerText = item.isBroadcast ? 'STATUS // LIVE' : 'STATUS // BROADCASTING';
       document.getElementById('np-title').innerText     = item.title;
       document.getElementById('np-progress').style.display = 'block';
+      // Restrict progress interaction for broadcasts
+      document.getElementById('np-progress').style.pointerEvents = item.isBroadcast ? 'none' : 'auto';
+      document.getElementById('np-progress-bar').style.background = item.isBroadcast ? 'orange' : 'var(--white)';
+      
       const art = document.getElementById('np-art-img');
       art.style.display = 'block';
       art.src = isPath
           ? '/api/thumbnail/' + encodeURIComponent(item.id)
           : '/api/thumbnail/' + item.id;
       art.onerror = () => { art.src = fallbacks.audio; art.onerror = null; };
-      updatePlayBtn(false);
+      updatePlayBtn(startPaused);
       return;
     }
 
@@ -801,8 +867,14 @@ const String kModernWebInterfaceHtml = r"""
       vid.src = url;
       vid.style.display   = 'block';
       ctrls.style.display = 'flex';
-      vid.play();
-      updatePlayBtn(false);
+      
+      // Restrict progress interaction for broadcasts
+      document.getElementById('vid-progress').style.pointerEvents = item.isBroadcast ? 'none' : 'auto';
+      document.getElementById('vid-progress-bar').style.background = item.isBroadcast ? 'orange' : 'var(--white)';
+      document.getElementById('vid-time').innerText = item.isBroadcast ? 'LIVE BROADCAST' : '00:00 / 00:00';
+
+      if (!startPaused) vid.play();
+      updatePlayBtn(startPaused);
     } else if (item.type === 'image') {
       img.src = url;
       img.style.display = 'block';
@@ -818,7 +890,7 @@ const String kModernWebInterfaceHtml = r"""
     sendTelemetry(true, null);
     vid.pause(); vid.src = '';
     vid.style.display = 'none'; // Ensure it's hidden so it doesn't block audio in toggleMedia
-    if (!aud.paused) {
+    if (aud.src) {
       aud.pause(); aud.src = '';
       document.getElementById('lcd-status-label').innerText = 'STATUS // IDLE';
       document.getElementById('np-title').innerText  = 'AWAITING SIGNAL...';
@@ -827,6 +899,7 @@ const String kModernWebInterfaceHtml = r"""
   }
 
   function toggleMedia() {
+    if (currentMediaType && allMedia.find(m => m.title === currentMediaTitle)?.isBroadcast) return;
     const isFS = document.getElementById('fsOverlay').classList.contains('active');
     const active = isFS ? vid : aud;
     if (!active.src) return;
@@ -837,9 +910,24 @@ const String kModernWebInterfaceHtml = r"""
   function updatePlayBtn(isPaused) {
     document.getElementById('globalPlayPause').innerText = isPaused ? 'PLAY' : 'PAUSE';
     document.getElementById('vidPlayBtn').innerText      = isPaused ? 'PLAY' : 'PAUSE';
+    
+    // Disable local play/pause for broadcasts
+    const isBroadcast = currentMediaTitle && (vid.src || aud.src) && (
+      (vid.src && document.getElementById('vid-progress').style.pointerEvents === 'none') ||
+      (aud.src && document.getElementById('np-progress').style.pointerEvents === 'none')
+    );
+    
+    document.getElementById('globalPlayPause').disabled = isBroadcast;
+    document.getElementById('vidPlayBtn').disabled      = isBroadcast;
+    document.getElementById('globalPlayPause').style.opacity = isBroadcast ? '0.5' : '1';
+    document.getElementById('vidPlayBtn').style.opacity      = isBroadcast ? '0.5' : '1';
   }
 
   function seekGlobal(s) {
+    const isBroadcast = (vid.src && document.getElementById('vid-progress').style.pointerEvents === 'none') ||
+                        (aud.src && document.getElementById('np-progress').style.pointerEvents === 'none');
+    if (isBroadcast) return;
+
     const isFS = document.getElementById('fsOverlay').classList.contains('active');
     const active = isFS ? vid : aud;
     if (active.src) active.currentTime += s;

@@ -51,6 +51,7 @@ class PlayerService extends ChangeNotifier {
   List<MediaItem> get playlist => List.unmodifiable(_playlist);
   int get currentIndex => _currentIndex;
   bool get isPathBased => _isPathBased;
+  bool get isStopped => _isStopped;
   bool get hasNext => _currentIndex < _playlist.length - 1;
 
   // FIX: hasPrev must also check playlist is non-empty.
@@ -75,7 +76,7 @@ class PlayerService extends ChangeNotifier {
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
-  Future<void> load({required List<MediaItem> items, required int startIndex, bool isPathBased = false, Duration? startOffset}) async {
+  Future<void> load({required List<MediaItem> items, required int startIndex, bool isPathBased = false, Duration? startOffset, bool autoPlay = true}) async {
     _loadVersion++;
     final currentV = _loadVersion;
 
@@ -91,7 +92,7 @@ class PlayerService extends ChangeNotifier {
     _isStopped = false;
     _sessionId = 'SESSION_${DateTime.now().millisecondsSinceEpoch}';
 
-    await _openCurrent(startOffset: startOffset, version: currentV);
+    await _openCurrent(startOffset: startOffset, version: currentV, autoPlay: autoPlay);
 
     // If a newer load arrived while we were awaiting, abort this lifecycle.
     if (currentV != _loadVersion) return;
@@ -101,7 +102,7 @@ class PlayerService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _openCurrent({Duration? startOffset, int? version}) async {
+  Future<void> _openCurrent({Duration? startOffset, int? version, bool autoPlay = true}) async {
     final item = current;
     if (item == null) return;
     
@@ -130,7 +131,9 @@ class PlayerService extends ChangeNotifier {
       }
       
       if (targetV != _loadVersion) return;
-      await player.play();
+      if (autoPlay) {
+        await player.play();
+      }
     } else {
       await player.stop();
     }
@@ -140,7 +143,7 @@ class PlayerService extends ChangeNotifier {
   // ── Playback Controls ─────────────────────────────────────────────────────
 
   Future<void> next() async {
-    if (!hasNext) return;
+    if (!hasNext || current?.isBroadcast == true) return;
     _saveCurrentProgress();
     _currentIndex++;
     await _openCurrent();
@@ -149,7 +152,7 @@ class PlayerService extends ChangeNotifier {
   Future<void> prev() async {
     // FIX: Guard null — current can be null when playlist is empty.
     final item = current;
-    if (item == null) return;
+    if (item == null || item.isBroadcast) return;
 
     final pos = player.state.position.inSeconds;
     // If past the 5 s threshold, seek to start instead of going to prev track.
@@ -164,7 +167,7 @@ class PlayerService extends ChangeNotifier {
   }
 
   Future<void> seekRelative(Duration delta) async {
-    if (current?.isImage == true) return;
+    if (current?.isImage == true || current?.isBroadcast == true) return;
     var target = player.state.position + delta;
     final max = player.state.duration;
     if (target < Duration.zero) target = Duration.zero;
@@ -211,15 +214,18 @@ class PlayerService extends ChangeNotifier {
       if (cmd.type != 'media') return;
       switch (cmd.action) {
         case 'play':
+        case 'station_resume':
           player.play();
           break;
         case 'pause':
+        case 'station_pause':
           player.pause();
           break;
         case 'toggle_play':
           player.playOrPause();
           break;
         case 'stop':
+        case 'station_stop':
           stop();
           break;
         case 'seek':

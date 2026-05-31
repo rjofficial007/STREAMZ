@@ -489,12 +489,12 @@ class GridPainter extends CustomPainter {
 class BrutalistPlayerBtn extends StatefulWidget {
   final IconData icon;
   final double size;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final FocusNode? focusNode;
   final bool autoFocus;
   final bool isPrimary;
 
-  const BrutalistPlayerBtn({super.key, required this.icon, required this.size, required this.onTap, this.focusNode, this.autoFocus = false, this.isPrimary = false});
+  const BrutalistPlayerBtn({super.key, required this.icon, required this.size, this.onTap, this.focusNode, this.autoFocus = false, this.isPrimary = false});
 
   @override
   State<BrutalistPlayerBtn> createState() => _BrutalistPlayerBtnState();
@@ -510,12 +510,13 @@ class _BrutalistPlayerBtnState extends State<BrutalistPlayerBtn> {
     final fg = _isFocused ? DS.bg : (widget.isPrimary ? DS.bg : DS.textPrimary);
     final borderColor = _isFocused ? DS.accent : DS.borderDefault;
     final shadowOffset = isMobile ? const Offset(4, 4) : const Offset(6, 6);
+    final boxSize = (Responsive.isTV(context) || Responsive.isDesktop(context)) ? widget.size * 1.6 : widget.size * 2.0;
 
     return Actions(
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
           onInvoke: (_) {
-            widget.onTap();
+            widget.onTap?.call();
             return null;
           },
         ),
@@ -532,8 +533,8 @@ class _BrutalistPlayerBtnState extends State<BrutalistPlayerBtn> {
             duration: const Duration(milliseconds: 150),
             child: Container(
               margin: EdgeInsets.only(right: _isFocused ? shadowOffset.dx : 0, bottom: _isFocused ? shadowOffset.dy : 0),
-              width: widget.size * 2,
-              height: widget.size * 2,
+              width: boxSize,
+              height: boxSize,
               decoration: BoxDecoration(
                 color: bg,
                 border: Border.all(color: borderColor, width: _isFocused ? (isMobile ? 2 : 4) : (isMobile ? 1 : 2)),
@@ -551,8 +552,9 @@ class _BrutalistPlayerBtnState extends State<BrutalistPlayerBtn> {
 class BrutalistProgressBar extends StatelessWidget {
   final Player player;
   final bool compact;
+  final bool isReadOnly;
 
-  const BrutalistProgressBar({super.key, required this.player, this.compact = false});
+  const BrutalistProgressBar({super.key, required this.player, this.compact = false, this.isReadOnly = false});
 
   String _fmt(int seconds) {
     final d = Duration(seconds: seconds);
@@ -588,18 +590,18 @@ class BrutalistProgressBar extends StatelessWidget {
               child: SliderTheme(
                 data: SliderThemeData(
                   trackHeight: compact ? 4 : 8,
-                  activeTrackColor: DS.accent,
+                  activeTrackColor: isReadOnly ? Colors.orangeAccent : DS.accent,
                   inactiveTrackColor: DS.surface3,
-                  thumbColor: DS.accent,
+                  thumbColor: isReadOnly ? Colors.transparent : DS.accent,
                   overlayShape: SliderComponentShape.noOverlay,
                   trackShape: const RectangularSliderTrackShape(),
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 0),
+                  thumbShape: RoundSliderThumbShape(enabledThumbRadius: isReadOnly ? 0 : 6),
                 ),
                 child: Slider(
                   value: curVal,
                   min: 0,
                   max: maxVal,
-                  onChanged: (v) => player.seek(Duration(milliseconds: v.toInt())),
+                  onChanged: isReadOnly ? null : (v) => player.seek(Duration(milliseconds: v.toInt())),
                 ),
               ),
             ),

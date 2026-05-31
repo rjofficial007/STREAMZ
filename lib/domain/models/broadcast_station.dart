@@ -10,17 +10,63 @@ class BroadcastStation {
   final String name;
   final List<MediaItem> playlist;
   final DateTime startTime;
+  final bool isPaused;
+  final DateTime? pausedAt;
+  final bool isActive;
 
-  BroadcastStation({required this.id, required this.name, required this.playlist, required this.startTime});
+  BroadcastStation({
+    required this.id,
+    required this.name,
+    required this.playlist,
+    required this.startTime,
+    this.isPaused = false,
+    this.pausedAt,
+    this.isActive = true,
+  });
 
   Duration get totalDuration {
     return playlist.fold<Duration>(Duration.zero, (total, item) => total + Duration(seconds: item.duration));
   }
 
-  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'playlist': playlist.map((e) => e.toJson()).toList(), 'startTime': startTime.toIso8601String()};
+  BroadcastStation copyWith({
+    String? id,
+    String? name,
+    List<MediaItem>? playlist,
+    DateTime? startTime,
+    bool? isPaused,
+    DateTime? pausedAt,
+    bool? isActive,
+  }) {
+    return BroadcastStation(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      playlist: playlist ?? this.playlist,
+      startTime: startTime ?? this.startTime,
+      isPaused: isPaused ?? this.isPaused,
+      pausedAt: pausedAt ?? this.pausedAt,
+      isActive: isActive ?? this.isActive,
+    );
+  }
 
-  factory BroadcastStation.fromJson(Map<String, dynamic> json) =>
-      BroadcastStation(id: json['id'], name: json['name'], playlist: (json['playlist'] as List).map((e) => MediaItem.fromJson(e)).toList(), startTime: DateTime.parse(json['startTime']));
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'playlist': playlist.map((e) => e.toJson()).toList(),
+        'startTime': startTime.toIso8601String(),
+        'isPaused': isPaused,
+        'pausedAt': pausedAt?.toIso8601String(),
+        'isActive': isActive,
+      };
+
+  factory BroadcastStation.fromJson(Map<String, dynamic> json) => BroadcastStation(
+        id: json['id'],
+        name: json['name'],
+        playlist: (json['playlist'] as List).map((e) => MediaItem.fromJson(e)).toList(),
+        startTime: DateTime.parse(json['startTime']),
+        isPaused: json['isPaused'] ?? false,
+        pausedAt: json['pausedAt'] != null ? DateTime.parse(json['pausedAt']) : null,
+        isActive: json['isActive'] ?? true,
+      );
 }
 
 class StationPlaybackState {

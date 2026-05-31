@@ -87,31 +87,31 @@ class InterfaceSelectionScreen extends StatelessWidget {
                           style: AppTheme.theme.textTheme.displayMedium?.copyWith(fontSize: titleSize, height: 1.1),
                           textAlign: TextAlign.center,
                         ),
-                        if (stations.isNotEmpty) ...[
-                          const SizedBox(height: 32),
-                          _JoinLiveBanner(
-                            stations: stations,
-                            onJoin: (station) async {
-                              final res = await vm.joinStation(station['id']);
-                              if (res != null && context.mounted) {
-                                final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
-                                final startIndex = res['itemIndex'] as int? ?? 0;
-                                final offsetMs = res['positionMs'] as int;
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => PlayerScreen(
-                                      items: items,
-                                      startIndex: startIndex,
-                                      isPathBased: false,
-                                      startOffset: Duration(milliseconds: offsetMs),
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
-                          ),
-                        ],
+                        // if (stations.isNotEmpty) ...[
+                        //   const SizedBox(height: 32),
+                        //   _JoinLiveBanner(
+                        //     stations: stations,
+                        //     onJoin: (station) async {
+                        //       final res = await vm.joinStation(station['id']);
+                        //       if (res != null && context.mounted) {
+                        //         final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
+                        //         final startIndex = res['itemIndex'] as int? ?? 0;
+                        //         final offsetMs = res['positionMs'] as int;
+                        //         Navigator.push(
+                        //           context,
+                        //           MaterialPageRoute(
+                        //             builder: (_) => PlayerScreen(
+                        //               items: items,
+                        //               startIndex: startIndex,
+                        //               isPathBased: false,
+                        //               startOffset: Duration(milliseconds: offsetMs),
+                        //             ),
+                        //           ),
+                        //         );
+                        //       }
+                        //     },
+                        //   ),
+                        // ],
                         SizedBox(height: isMobile ? 48 : 80),
 
                         // Wrapped in FocusTraversalGroup to protect TV D-Pad logic

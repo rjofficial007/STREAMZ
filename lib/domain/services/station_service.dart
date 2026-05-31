@@ -7,12 +7,12 @@ import '../models/broadcast_station.dart';
 
 class StationService {
   StationPlaybackState? getPlaybackState(BroadcastStation station) {
-    if (station.playlist.isEmpty) return null;
+    if (!station.isActive || station.playlist.isEmpty) return null;
 
     final totalDuration = station.totalDuration;
     if (totalDuration == Duration.zero) return null;
 
-    final now = DateTime.now();
+    final now = station.isPaused ? (station.pausedAt ?? DateTime.now()) : DateTime.now();
     final elapsed = now.difference(station.startTime);
     final totalMs = totalDuration.inMilliseconds;
 

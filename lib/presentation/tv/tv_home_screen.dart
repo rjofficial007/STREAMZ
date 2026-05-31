@@ -78,9 +78,10 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
     final audio = vm.audio;
     final images = vm.images;
 
-    // Dynamic TV Scaling constraints (Adapts to 720p, 1080p, 4K)
+    // Dynamic TV Scaling constraints
     final size = MediaQuery.sizeOf(context);
-    final safePad = (size.width * 0.04).clamp(32.0, 80.0); // Safe area for TV overscan
+    const double safePad = 0; // Removed for edge-to-edge look
+    const double sidePadding = 24.0; // Minimal padding for functional items (icons/text)
     final vSpacing = (size.height * 0.04).clamp(24.0, 48.0);
 
     // Grab up to 5 items to feature in the Hero Slider
@@ -107,9 +108,9 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
               elevation: 0,
               pinned: true,
               toolbarHeight: (size.height * 0.1).clamp(60.0, 100.0),
-              leadingWidth: safePad + 48,
+              leadingWidth: sidePadding + 48,
               leading: Padding(
-                padding: EdgeInsets.only(left: safePad),
+                padding: const EdgeInsets.only(left: sidePadding),
                 child: Actions(
                   actions: {
                     ActivateIntent: CallbackAction<ActivateIntent>(
@@ -157,7 +158,7 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
                   ),
                 ),
                 Padding(
-                  padding: EdgeInsets.only(right: safePad),
+                  padding: const EdgeInsets.only(right: sidePadding),
                   child: Actions(
                     actions: {
                       ActivateIntent: CallbackAction<ActivateIntent>(
@@ -412,7 +413,7 @@ class _HeroSectionState extends State<_HeroSection> {
                     // Brutalist Bottom Bar
                     Container(
                       height: (size.height * 0.2).clamp(100.0, 180.0),
-                      padding: EdgeInsets.symmetric(horizontal: (size.width * 0.04).clamp(32.0, 80.0)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
                       decoration: BoxDecoration(
                         color: kWebSurface,
                         border: Border(top: BorderSide(color: kWebBorder)),
@@ -607,14 +608,14 @@ class _TVContentRailState extends State<_TVContentRail> {
   final ScrollController _scrollCtrl = ScrollController();
   int _focusedCard = -1;
 
-  void _onCardFocus(int index, double cardW) {
+  void _onCardFocus(int index, double cardW, double sidePadding) {
     setState(() => _focusedCard = index);
     widget.onRailFocus(widget.railIndex);
 
     Scrollable.ensureVisible(context, alignment: 0.5, duration: const Duration(milliseconds: 250));
 
     // Calculate offset considering zero margin between cards in the brutalist strip
-    final offset = index * cardW - widget.safePad;
+    final offset = index * cardW - sidePadding;
     if (_scrollCtrl.hasClients) {
       _scrollCtrl.animateTo(offset.clamp(0.0, _scrollCtrl.position.maxScrollExtent), duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
     }
@@ -639,6 +640,7 @@ class _TVContentRailState extends State<_TVContentRail> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    const double sidePadding = 24.0;
 
     // Dynamic Rail Dimensions
     final double cardW = widget.isSquare ? (size.width * 0.12).clamp(160.0, 320.0) : (size.width * 0.16).clamp(240.0, 480.0);
@@ -648,7 +650,7 @@ class _TVContentRailState extends State<_TVContentRail> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(widget.safePad, 0, widget.safePad, 12),
+          padding: const EdgeInsets.fromLTRB(sidePadding, 0, sidePadding, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -674,7 +676,7 @@ class _TVContentRailState extends State<_TVContentRail> {
             controller: _scrollCtrl,
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            padding: EdgeInsets.symmetric(horizontal: widget.safePad), // Overscan protection
+            padding: EdgeInsets.zero,
             itemCount: widget.items.length,
             clipBehavior: Clip.none, // Allow cards to scale outside bounds on TV
             itemBuilder: (_, i) => _TVRailCard(
@@ -684,7 +686,7 @@ class _TVContentRailState extends State<_TVContentRail> {
               showProgress: widget.showProgress,
               isFocused: _focusedCard == i && widget.focusedRail == widget.railIndex,
               vm: widget.vm,
-              onFocus: (cardCtx) => _onCardFocus(i, cardW),
+              onFocus: (cardCtx) => _onCardFocus(i, cardW, sidePadding),
               onTap: () => _play(widget.items[i]),
             ),
           ),
@@ -870,11 +872,11 @@ class _TVStationRailState extends State<_TVStationRail> {
   final ScrollController _scrollCtrl = ScrollController();
   int _focusedCard = -1;
 
-  void _onCardFocus(int index, double cardW) {
+  void _onCardFocus(int index, double cardW, double sidePadding) {
     setState(() => _focusedCard = index);
     widget.onRailFocus(widget.railIndex);
     Scrollable.ensureVisible(context, alignment: 0.5, duration: const Duration(milliseconds: 250));
-    final offset = index * cardW - widget.safePad;
+    final offset = index * cardW - sidePadding;
     if (_scrollCtrl.hasClients) {
       _scrollCtrl.animateTo(offset.clamp(0.0, _scrollCtrl.position.maxScrollExtent), duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
     }
@@ -889,6 +891,7 @@ class _TVStationRailState extends State<_TVStationRail> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    const double sidePadding = 24.0;
     final double cardW = (size.width * 0.16).clamp(240.0, 400.0);
     final double cardH = (size.height * 0.15).clamp(100.0, 160.0);
 
@@ -896,7 +899,7 @@ class _TVStationRailState extends State<_TVStationRail> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(widget.safePad, 0, widget.safePad, 12),
+          padding: const EdgeInsets.fromLTRB(sidePadding, 0, sidePadding, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -916,7 +919,7 @@ class _TVStationRailState extends State<_TVStationRail> {
             controller: _scrollCtrl,
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            padding: EdgeInsets.symmetric(horizontal: widget.safePad),
+            padding: EdgeInsets.zero,
             itemCount: widget.stations.length,
             clipBehavior: Clip.none,
             itemBuilder: (_, i) => _TVStationCard(
@@ -925,7 +928,7 @@ class _TVStationRailState extends State<_TVStationRail> {
               height: cardH,
               isFocused: _focusedCard == i && widget.focusedRail == widget.railIndex,
               vm: widget.vm,
-              onFocus: () => _onCardFocus(i, cardW),
+              onFocus: () => _onCardFocus(i, cardW, sidePadding),
             ),
           ),
         ),
@@ -977,6 +980,7 @@ class _TVStationCardState extends State<_TVStationCard> with SingleTickerProvide
       final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
       final startIndex = res['itemIndex'] as int? ?? 0;
       final offsetMs = res['positionMs'] as int;
+      final isPaused = res['isPaused'] as bool? ?? false;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -985,6 +989,7 @@ class _TVStationCardState extends State<_TVStationCard> with SingleTickerProvide
             startIndex: startIndex,
             isPathBased: false,
             startOffset: Duration(milliseconds: offsetMs),
+            autoPlay: !isPaused,
           ),
         ),
       );
@@ -1107,7 +1112,7 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
     final vm = context.read<ClientViewModel>();
     final results = _results;
     final size = MediaQuery.sizeOf(context);
-    final safePad = (size.width * 0.04).clamp(32.0, 80.0);
+    const double sidePadding = 24.0;
 
     return Scaffold(
       backgroundColor: kWebBlack,
@@ -1124,7 +1129,7 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
               ),
               child: Row(
                 children: [
-                  SizedBox(width: safePad),
+                  const SizedBox(width: sidePadding),
                   Actions(
                     actions: {
                       ActivateIntent: CallbackAction<ActivateIntent>(
@@ -1170,7 +1175,7 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
                   if (_query.isNotEmpty) ...[
                     const SizedBox(width: 16),
                     Text('${results.length} SIGNALS FOUND', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 16, letterSpacing: 2)),
-                    SizedBox(width: safePad),
+                    const SizedBox(width: sidePadding),
                   ],
                 ],
               ),
@@ -1197,7 +1202,7 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
                   : Container(
                 decoration: BoxDecoration(color: kWebBorder),
                 child: GridView.builder(
-                  padding: EdgeInsets.symmetric(horizontal: safePad, vertical: safePad),
+                  padding: const EdgeInsets.symmetric(horizontal: sidePadding, vertical: sidePadding),
                   // 5 columns for TV layout
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 5,

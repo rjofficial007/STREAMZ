@@ -594,7 +594,17 @@ class _StationCardState extends State<_StationCard> {
       final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
       final startIndex = res['itemIndex'] as int? ?? 0;
       final offsetMs = res['positionMs'] as int;
-      Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(items: items, startIndex: startIndex, isPathBased: false, startOffset: Duration(milliseconds: offsetMs))));
+      final isPaused = res['isPaused'] as bool? ?? false;
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => PlayerScreen(
+                    items: items,
+                    startIndex: startIndex,
+                    isPathBased: false,
+                    startOffset: Duration(milliseconds: offsetMs),
+                    autoPlay: !isPaused,
+                  )));
     }
   }
 

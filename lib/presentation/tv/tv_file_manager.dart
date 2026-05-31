@@ -315,10 +315,9 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
       },
       child: Scaffold(
         backgroundColor: kWebBlack,
-        body: SafeArea(
-          child: LayoutBuilder(
-            builder: (ctx, constraints) {
-              final sidebarW = (constraints.maxWidth * 0.14).clamp(180.0, 260.0);
+        body: LayoutBuilder(
+          builder: (ctx, constraints) {
+            final sidebarW = (constraints.maxWidth * 0.14).clamp(180.0, 260.0);
 
               return Stack(
                 children: [
@@ -354,9 +353,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
               );
             },
           ),
-        ),
-      ),
-    );
+        ),);
   }
 
   // ── Sidebar ───────────────────────────────────────────────────────────────
@@ -554,7 +551,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
         controller: _scrollCtrl,
         padding: const EdgeInsets.only(bottom: 100),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 4,
+          crossAxisCount: 6,
           childAspectRatio: 1.0,
           crossAxisSpacing: 1,
           mainAxisSpacing: 1,

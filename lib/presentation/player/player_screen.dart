@@ -37,8 +37,9 @@ class PlayerScreen extends StatefulWidget {
   final int startIndex;
   final bool isPathBased;
   final Duration? startOffset;
+  final bool autoPlay;
 
-  const PlayerScreen({super.key, required this.items, required this.startIndex, this.isPathBased = false, this.startOffset});
+  const PlayerScreen({super.key, required this.items, required this.startIndex, this.isPathBased = false, this.startOffset, this.autoPlay = true});
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -57,7 +58,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void initState() {
     super.initState();
     _vm = PlayerViewModel();
-    _vm.load(items: widget.items, startIndex: widget.startIndex, isPathBased: widget.isPathBased, startOffset: widget.startOffset).then((_) {
+    _vm.load(items: widget.items, startIndex: widget.startIndex, isPathBased: widget.isPathBased, startOffset: widget.startOffset, autoPlay: widget.autoPlay).then((_) {
       _primaryFocusNode.requestFocus();
     });
     _wasOSDVisible = _vm.showOSD;
@@ -66,6 +67,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _onVMChange() {
     if (mounted) {
+      if (_vm.isStopped) {
+        Navigator.pop(context);
+        return;
+      }
       if (_vm.showOSD && !_wasOSDVisible) {
         _primaryFocusNode.requestFocus();
       }
@@ -106,26 +111,36 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     // 2. Hardware Media Keys
     if (key == LogicalKeyboardKey.mediaPlayPause || key == LogicalKeyboardKey.space) {
-      _vm.player.playOrPause();
+      if (item?.isBroadcast != true) {
+        _vm.player.playOrPause();
+      }
       _vm.wakeOSD();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaFastForward) {
-      _vm.seekRelative(const Duration(seconds: 10));
+      if (item?.isBroadcast != true) {
+        _vm.seekRelative(const Duration(seconds: 10));
+      }
       _vm.wakeOSD();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaRewind) {
-      _vm.seekRelative(const Duration(seconds: -10));
+      if (item?.isBroadcast != true) {
+        _vm.seekRelative(const Duration(seconds: -10));
+      }
       _vm.wakeOSD();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaTrackNext) {
-      _vm.next();
+      if (item?.isBroadcast != true) {
+        _vm.next();
+      }
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaTrackPrevious) {
-      _vm.prev();
+      if (item?.isBroadcast != true) {
+        _vm.prev();
+      }
       return KeyEventResult.handled;
     }
 
@@ -133,7 +148,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (!_vm.showOSD) {
       _vm.wakeOSD();
 
-      if (item?.isVideo == true) {
+      if (item?.isVideo == true && item?.isBroadcast != true) {
         if (key == LogicalKeyboardKey.arrowRight) {
           _vm.seekRelative(const Duration(seconds: 10));
           return KeyEventResult.handled;
@@ -191,12 +206,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
               _vm.toggleOSD();
             },
             onDoubleTapDown: (d) {
+              if (item?.isBroadcast == true) return;
               final half = MediaQuery.sizeOf(context).width / 2;
               _vm.seekRelative(Duration(seconds: d.globalPosition.dx < half ? -10 : 10));
             },
             onHorizontalDragUpdate: (d) {
               final dur = _vm.player.state.duration.inSeconds;
-              if (item?.isImage == true || dur <= 0) return;
+              if (item?.isImage == true || item?.isBroadcast == true || dur <= 0) return;
               final factor = d.primaryDelta! / MediaQuery.sizeOf(context).width;
               final scrubSec = (factor * dur).toInt();
               if (scrubSec != 0) {
@@ -289,23 +305,31 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // ── Gesture feedback ──────────────────────────────────────────────────────
 
-  Widget _buildGestureFeedback() => Center(
-    child: AnimatedOpacity(
-      opacity: _vm.gestureOpacity,
-      duration: const Duration(milliseconds: 100),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        decoration: BoxDecoration(
-          color: kWebSurface.withValues(alpha: 0.9),
-          border: Border.all(color: kWebBorder, width: 1),
-        ),
-        child: Text(
-          _vm.gestureTxt,
-          style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2),
+  Widget _buildGestureFeedback() {
+    final isCompact = Responsive.isTV(context) || Responsive.isDesktop(context);
+    return Center(
+      child: AnimatedOpacity(
+        opacity: _vm.gestureOpacity,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 24, vertical: isCompact ? 10 : 16),
+          decoration: BoxDecoration(
+            color: kWebSurface.withValues(alpha: 0.9),
+            border: Border.all(color: kWebBorder, width: 1),
+          ),
+          child: Text(
+            _vm.gestureTxt,
+            style: GoogleFonts.dmMono(
+              color: kWebWhite,
+              fontSize: isCompact ? 14 : 16,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 2,
+            ),
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 
   // ── OSD ───────────────────────────────────────────────────────────────────
 
@@ -323,9 +347,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Widget _buildTopBar() {
     final item = _vm.current;
+    final isCompact = Responsive.isTV(context) || Responsive.isDesktop(context);
+    final hPad = isCompact ? DS.s16 : DS.s24;
+    final vPad = isCompact ? DS.s8 : DS.s12;
+
     return Container(
-      // Minimal safe area padding to keep it extremely compact
-      padding: EdgeInsets.fromLTRB(24, MediaQuery.paddingOf(context).top + 12, 24, 12),
+      padding: EdgeInsets.fromLTRB(hPad, MediaQuery.paddingOf(context).top + vPad, hPad, vPad),
       decoration: BoxDecoration(
         color: kWebSurface.withValues(alpha: 0.95),
         border: Border(bottom: BorderSide(color: kWebBorder)),
@@ -333,25 +360,31 @@ class _PlayerScreenState extends State<PlayerScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          BrutalistPlayerBtn(icon: LucideIcons.x, size: 20, onTap: () => Navigator.pop(context)),
-          const SizedBox(width: 24),
+          BrutalistPlayerBtn(icon: LucideIcons.x, size: 18, onTap: () => Navigator.pop(context)),
+          const SizedBox(width: DS.s16),
           Expanded(
             child: Text(
               (item?.title ?? '').toUpperCase(),
-              style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 24, fontWeight: FontWeight.w900, height: 1.0, letterSpacing: 1),
+              style: GoogleFonts.barlowCondensed(
+                color: kWebWhite,
+                fontSize: isCompact ? 20 : 24,
+                fontWeight: FontWeight.w900,
+                height: 1.0,
+                letterSpacing: 1,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: DS.s12),
           Text(
             'CMD // ${_vm.currentIndex + 1}/${_vm.playlist.length}',
-            style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 12, letterSpacing: 2),
+            style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 11, letterSpacing: 1),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: DS.s12),
           BrutalistPlayerBtn(
             icon: LucideIcons.settings2,
-            size: 20,
+            size: 18,
             onTap: () => setState(() => _showSidebar = true),
           ),
         ],
@@ -361,9 +394,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Widget _buildBottomBar() {
     final item = _vm.current;
+    final isCompact = Responsive.isTV(context) || Responsive.isDesktop(context);
+    final hPad = isCompact ? DS.s16 : DS.s24;
+    final vPad = isCompact ? DS.s8 : DS.s12;
+
+    final isBroadcast = item?.isBroadcast ?? false;
+
     return Container(
-      // Squeezed padding against the bottom safe area
-      padding: EdgeInsets.fromLTRB(24, 12, 24, MediaQuery.paddingOf(context).bottom + 12),
+      padding: EdgeInsets.fromLTRB(hPad, vPad, hPad, MediaQuery.paddingOf(context).bottom + vPad),
       decoration: BoxDecoration(
         color: kWebSurface.withValues(alpha: 0.95),
         border: Border(top: BorderSide(color: kWebBorder)),
@@ -372,27 +410,31 @@ class _PlayerScreenState extends State<PlayerScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (item?.isImage == false) ...[
-            BrutalistProgressBar(player: _vm.player, compact: true), // Forced compact
-            const SizedBox(height: 12)
+            BrutalistProgressBar(player: _vm.player, compact: true, isReadOnly: isBroadcast),
+            const SizedBox(height: DS.s8)
           ],
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: Align(alignment: Alignment.centerLeft, child: _buildZone1(item, 20)),
+                child: Align(alignment: Alignment.centerLeft, child: _buildZone1(item, 18)),
               ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  BrutalistPlayerBtn(icon: LucideIcons.skipBack, size: 24, onTap: _vm.prev),
-                  const SizedBox(width: 20),
-                  _buildCenterBtn(item, 28), // Slightly smaller main button
-                  const SizedBox(width: 20),
-                  BrutalistPlayerBtn(icon: LucideIcons.skipForward, size: 24, onTap: _vm.next),
+                  if (!isBroadcast) ...[
+                    BrutalistPlayerBtn(icon: LucideIcons.skipBack, size: 22, onTap: _vm.prev),
+                    const SizedBox(width: DS.s16),
+                  ],
+                  _buildCenterBtn(item, 26),
+                  if (!isBroadcast) ...[
+                    const SizedBox(width: DS.s16),
+                    BrutalistPlayerBtn(icon: LucideIcons.skipForward, size: 22, onTap: _vm.next),
+                  ],
                 ],
               ),
               Expanded(
-                child: Align(alignment: Alignment.centerRight, child: _buildZone3(item, 20)),
+                child: Align(alignment: Alignment.centerRight, child: _buildZone3(item, 18)),
               ),
             ],
           ),
@@ -402,8 +444,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   Widget _buildZone1(MediaItem? item, double sz) {
-    if (item?.isVideo == true) {
+    if (item?.isVideo == true && item?.isBroadcast != true) {
       return BrutalistPlayerBtn(icon: LucideIcons.rewind, size: sz, onTap: () => _vm.seekRelative(const Duration(seconds: -10)));
+    }
+    if (item?.isBroadcast == true) {
+      return Text(
+        'LIVE BROADCAST',
+        style: GoogleFonts.dmMono(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2),
+      );
     }
     if (item?.isImage == true) {
       return Text(
@@ -418,6 +466,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (item?.isImage == true) {
       return BrutalistPlayerBtn(focusNode: _primaryFocusNode, autoFocus: true, isPrimary: true, icon: LucideIcons.squareDashedTopSolid, size: sz, onTap: () => Navigator.pop(context));
     }
+    final isBroadcast = item?.isBroadcast ?? false;
     return StreamBuilder<bool>(
       stream: _vm.player.stream.playing,
       builder: (_, s) {
@@ -428,17 +477,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
           isPrimary: true,
           icon: playing ? LucideIcons.pause : LucideIcons.play,
           size: sz,
-          onTap: () {
-            _vm.player.playOrPause();
-            _vm.wakeOSD();
-          },
+          onTap: isBroadcast
+              ? null
+              : () {
+                  _vm.player.playOrPause();
+                  _vm.wakeOSD();
+                },
         );
       },
     );
   }
 
   Widget _buildZone3(MediaItem? item, double sz) {
-    if (item?.isVideo == true) {
+    if (item?.isVideo == true && item?.isBroadcast != true) {
       return BrutalistPlayerBtn(icon: LucideIcons.fastForward, size: sz, onTap: () => _vm.seekRelative(const Duration(seconds: 10)));
     }
     if (item?.isAudio == true) {
@@ -450,6 +501,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // ── Tools Sidebar (Compact Brutalist) ─────────────────────────────────────
 
   Widget _buildToolsSidebar() {
+    final item = _vm.current;
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOutCubic,
@@ -484,7 +536,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   _VlcSidebarItem(icon: LucideIcons.subtitles, label: 'SUBTITLES', onTap: () => _showTrackModal('subtitles')),
                   _VlcSidebarItem(icon: LucideIcons.activity, label: 'AUDIO TRACK', onTap: () => _showTrackModal('audio')),
                   _VlcSidebarItem(icon: LucideIcons.layers, label: 'SYNC DELAY', onTap: _showSyncModal),
-                  _VlcSidebarItem(icon: LucideIcons.gauge, label: 'PLAYBACK SPEED', onTap: _showSpeedModal),
+                  if (item?.isBroadcast != true) _VlcSidebarItem(icon: LucideIcons.gauge, label: 'PLAYBACK SPEED', onTap: _showSpeedModal),
                   _VlcSidebarItem(icon: LucideIcons.minimize, label: 'VIDEO FIT', onTap: _showFitModal),
                   _VlcSidebarItem(icon: LucideIcons.clock, label: _vm.sleepMinutesRemaining > 0 ? '${_vm.sleepMinutesRemaining}M REMAINING' : 'SLEEP TIMER', onTap: _showSleepModal),
                 ],

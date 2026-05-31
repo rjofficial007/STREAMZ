@@ -55,6 +55,7 @@ class PlayerViewModel extends ChangeNotifier {
   double get audioDelay => _audioDelay;
   double get subDelay => _subDelay;
   bool get isLocked => _isLocked;
+  bool get isStopped => _playerService.isStopped;
 
   Player get player => _playerService.player;
   MediaItem? get current => _playerService.current;
@@ -75,8 +76,8 @@ class PlayerViewModel extends ChangeNotifier {
     });
   }
 
-  Future<void> load({required List<MediaItem> items, required int startIndex, bool isPathBased = false, Duration? startOffset}) async {
-    await _playerService.load(items: items, startIndex: startIndex, isPathBased: isPathBased, startOffset: startOffset);
+  Future<void> load({required List<MediaItem> items, required int startIndex, bool isPathBased = false, Duration? startOffset, bool autoPlay = true}) async {
+    await _playerService.load(items: items, startIndex: startIndex, isPathBased: isPathBased, startOffset: startOffset, autoPlay: autoPlay);
     if (!_isDisposed) {
       wakeOSD();
       notifyListeners();

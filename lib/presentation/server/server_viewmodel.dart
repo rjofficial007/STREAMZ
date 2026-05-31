@@ -17,6 +17,7 @@
 // ============================================================================
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 
@@ -374,8 +375,58 @@ class ServerViewModel extends ChangeNotifier {
 
   void createStation(String name, List<MediaItem> items) {
     if (items.isEmpty) return;
-    final station = BroadcastStation(id: 'STN_${DateTime.now().millisecondsSinceEpoch}', name: name, playlist: items, startTime: DateTime.now());
+    final station = BroadcastStation(
+      id: 'STN_${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+      playlist: items,
+      startTime: DateTime.now(),
+      isActive: true,
+      isPaused: false,
+    );
     _stations.add(station);
+    _httpServer.stations = _stations;
+    _saveStations();
+    notifyListeners();
+  }
+
+  void toggleStationPlayback(String stationId) {
+    final idx = _stations.indexWhere((s) => s.id == stationId);
+    if (idx < 0) return;
+
+    final station = _stations[idx];
+    final now = DateTime.now();
+
+    if (station.isPaused) {
+      // Resuming: Adjust startTime so that (now - newStartTime) == (pausedAt - oldStartTime)
+      final pausedElapsed = station.pausedAt!.difference(station.startTime);
+      final newStartTime = now.subtract(pausedElapsed);
+      _stations[idx] = station.copyWith(isPaused: false, pausedAt: null, startTime: newStartTime);
+      _httpServer.broadcast(jsonEncode({'type': 'media', 'action': 'station_resume'}));
+    } else {
+      // Pausing: Store current time as pausedAt
+      _stations[idx] = station.copyWith(isPaused: true, pausedAt: now);
+      _httpServer.broadcast(jsonEncode({'type': 'media', 'action': 'station_pause'}));
+    }
+
+    _httpServer.stations = _stations;
+    _saveStations();
+    notifyListeners();
+  }
+
+  void toggleStationActive(String stationId) {
+    final idx = _stations.indexWhere((s) => s.id == stationId);
+    if (idx < 0) return;
+
+    final station = _stations[idx];
+    if (station.isActive) {
+      // Deactivating (Stop)
+      _stations[idx] = station.copyWith(isActive: false, isPaused: false, pausedAt: null);
+      _httpServer.broadcast(jsonEncode({'type': 'media', 'action': 'station_stop'}));
+    } else {
+      // Activating (Start) - Reset startTime to now to start from beginning
+      _stations[idx] = station.copyWith(isActive: true, isPaused: false, pausedAt: null, startTime: DateTime.now());
+    }
+
     _httpServer.stations = _stations;
     _saveStations();
     notifyListeners();
