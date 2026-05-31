@@ -15,6 +15,7 @@ import '../player/player_screen.dart';
 import '../../domain/models/media_item.dart';
 import 'tv_file_manager.dart';
 import 'tv_home_screen.dart';
+import 'tv_selection_screen_tv.dart';
 
 // --- Web UI Color Palette & Styles (Synced with System Dashboards) ---
 const Color kWebBlack = Color(0xFF000000);
@@ -30,6 +31,10 @@ class TVSelectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (DS.isTV(context)) {
+      return const TVSelectionScreenTV();
+    }
+
     final vm = context.watch<ClientViewModel>();
     final isMobile = DS.isMobile(context);
 

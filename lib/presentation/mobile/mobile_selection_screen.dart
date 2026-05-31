@@ -14,6 +14,7 @@ import '../client/client_viewmodel.dart';
 import '../player/player_screen.dart';
 import '../../domain/models/media_item.dart';
 import 'file_manager.dart';
+import 'mobile_selection_screen_tv.dart';
 import 'modern_mobile_ui.dart';
 
 // --- Web UI Color Palette & Styles (Synced with System Dashboards) ---
@@ -30,6 +31,10 @@ class MobileSelectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (DS.isTV(context)) {
+      return const MobileSelectionScreenTV();
+    }
+
     final vm = context.watch<ClientViewModel>();
     final isMobile = DS.isMobile(context);
 

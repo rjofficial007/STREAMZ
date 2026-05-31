@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/design_tokens.dart';
 import 'client_viewmodel.dart';
+import 'client_connect_screen_tv.dart';
 import 'interface_selection_screen.dart';
 import 'qr_scanner_screen.dart';
 
@@ -79,6 +80,10 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (DS.isTV(context)) {
+      return const ClientConnectScreenTV();
+    }
+
     final vm = context.watch<ClientViewModel>();
     final isMobile = DS.isMobile(context);
 

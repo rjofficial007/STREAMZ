@@ -16,6 +16,7 @@ import '../client/client_connect_screen.dart';
 import '../client/client_viewmodel.dart';
 import '../server/server_dashboard.dart';
 import 'permission_screen.dart';
+import 'role_selection_screen_tv.dart';
 
 // --- Web UI Color Palette & Styles (Synced with System Dashboards) ---
 const Color kWebBlack = Color(0xFF000000);
@@ -76,6 +77,10 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (DS.isTV(context)) {
+      return const RoleSelectionScreenTV();
+    }
+
     final isMobile = DS.isMobile(context);
 
     return Scaffold(

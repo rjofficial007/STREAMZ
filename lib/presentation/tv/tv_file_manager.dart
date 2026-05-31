@@ -352,6 +352,31 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
         children: [
           if (!isMobile) ...[
             Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(border: Border(right: BorderSide(color: kWebBorder))),
+              child: Actions(
+                actions: {
+                  ActivateIntent: CallbackAction<ActivateIntent>(
+                    onInvoke: (_) {
+                      if (!_goBack()) Navigator.pop(context);
+                      return null;
+                    },
+                  ),
+                },
+                child: Focus(
+                  onKeyEvent: (_, ev) => handleTVSelectKey(ev, () {
+                    if (!_goBack()) Navigator.pop(context);
+                  }),
+                  child: IconButton(
+                    icon: const Icon(LucideIcons.chevronLeft, color: kWebWhite, size: 24),
+                    onPressed: () {
+                      if (!_goBack()) Navigator.pop(context);
+                    },
+                  ),
+                ),
+              ),
+            ),
+            Container(
               padding: const EdgeInsets.symmetric(horizontal: 30),
               decoration: BoxDecoration(border: Border(right: BorderSide(color: kWebBorder))),
               child: Row(

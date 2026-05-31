@@ -426,7 +426,6 @@ const String kModernWebInterfaceHtml = r"""
 <div class="top-dashboard">
   <div class="branding">
     <div class="brand-title">STREAMZ</div>
-    <div class="status-badge">LIVE BROADCAST STATION</div>
   </div>
   <div class="nav-switches">
     <button class="nav-btn active" id="nav-video" onclick="switchTab('video')">VIDEOS</button>

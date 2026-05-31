@@ -15,6 +15,7 @@ import '../tv/tv_selection_screen.dart';
 import '../player/player_screen.dart';
 import '../../domain/models/media_item.dart';
 import 'client_viewmodel.dart';
+import 'interface_selection_screen_tv.dart';
 
 // --- Web UI Color Palette & Styles (Synced with Server/Client Dashboard) ---
 const Color kWebBlack = Color(0xFF000000);
@@ -30,6 +31,10 @@ class InterfaceSelectionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (DS.isTV(context)) {
+      return const InterfaceSelectionScreenTV();
+    }
+
     final vm = context.watch<ClientViewModel>();
     final isMobile = DS.isMobile(context);
 
