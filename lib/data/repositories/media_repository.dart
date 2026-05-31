@@ -1,5 +1,7 @@
 // data/repositories/media_repository.dart
 
+import 'package:flutter/foundation.dart';
+
 import '../../domain/models/media_item.dart';
 import '../local/media_scanner.dart';
 import '../local/progress_store.dart';
@@ -20,7 +22,31 @@ class MediaRepository {
   Future<List<MediaItem>> fetchRemoteMedia() async {
     if (_client == null) throw StateError('No client connected');
     final items = await _client!.fetchMedia();
-    return items.map((item) => item.copyWith(lastPosition: _progress.getProgress(item.id), lastPlayedTimestamp: _progress.getTimestamp(item.id))).toList();
+    
+    // Fetch progress data from local store
+    final Map<String, int> positions = {};
+    final Map<String, int> timestamps = {};
+    for (final item in items) {
+      positions[item.id] = _progress.getProgress(item.id);
+      timestamps[item.id] = _progress.getTimestamp(item.id);
+    }
+
+    return compute(_updateMediaItemsProgress, {
+      'items': items,
+      'positions': positions,
+      'timestamps': timestamps,
+    });
+  }
+
+  static List<MediaItem> _updateMediaItemsProgress(Map<String, dynamic> data) {
+    final List<MediaItem> items = data['items'];
+    final Map<String, int> positions = data['positions'];
+    final Map<String, int> timestamps = data['timestamps'];
+
+    return items.map((item) => item.copyWith(
+      lastPosition: positions[item.id] ?? 0,
+      lastPlayedTimestamp: timestamps[item.id] ?? 0,
+    )).toList();
   }
 
   Future<List<Map<String, dynamic>>> browseRemote(String path) async {

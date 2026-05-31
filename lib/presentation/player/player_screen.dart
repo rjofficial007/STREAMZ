@@ -1,6 +1,6 @@
 // presentation/player/player_screen.dart
 // ============================================================================
-// STREAMZ — Universal Media Player Screen (Brutalist Web Studio Edition)
+// STREAMZ — Universal Media Player Screen (VLC-Inspired Brutalist Edition)
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -12,11 +12,11 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
+import '../client/client_viewmodel.dart';
 import 'player_viewmodel.dart';
 
-// --- Web UI Color Palette & Styles ---
+// --- UI Color Palette & Styles (Sync with TVPlayerScreen) ---
 const Color kWebBlack = Color(0xFF000000);
 const Color kWebSurface = Color(0xFF0A0A0A);
 const Color kWebSurface2 = Color(0xFF111111);
@@ -39,7 +39,14 @@ class PlayerScreen extends StatefulWidget {
   final Duration? startOffset;
   final bool autoPlay;
 
-  const PlayerScreen({super.key, required this.items, required this.startIndex, this.isPathBased = false, this.startOffset, this.autoPlay = true});
+  const PlayerScreen({
+    super.key,
+    required this.items,
+    required this.startIndex,
+    this.isPathBased = false,
+    this.startOffset,
+    this.autoPlay = true,
+  });
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -58,7 +65,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void initState() {
     super.initState();
     _vm = PlayerViewModel();
-    _vm.load(items: widget.items, startIndex: widget.startIndex, isPathBased: widget.isPathBased, startOffset: widget.startOffset, autoPlay: widget.autoPlay).then((_) {
+    _vm.load(
+      items: widget.items,
+      startIndex: widget.startIndex,
+      isPathBased: widget.isPathBased,
+      startOffset: widget.startOffset,
+      autoPlay: widget.autoPlay,
+    ).then((_) {
       _primaryFocusNode.requestFocus();
     });
     _wasOSDVisible = _vm.showOSD;
@@ -92,62 +105,30 @@ class _PlayerScreenState extends State<PlayerScreen> {
     super.dispose();
   }
 
-  // ── Key handling (D-Pad & Keyboard) ───────────────────────────────────────
+  // ── Key handling (Keyboard & Remote) ──────────────────────────────────────
 
   KeyEventResult _onKey(FocusNode _, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
     final item = _vm.current;
 
-    // 1. Global Exits
     if (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.browserBack || key == LogicalKeyboardKey.goBack) {
       if (_showSidebar) {
         setState(() => _showSidebar = false);
+        return KeyEventResult.handled;
+      }
+      if (_vm.showOSD) {
+        _vm.hideOSD();
         return KeyEventResult.handled;
       }
       Navigator.pop(context);
       return KeyEventResult.handled;
     }
 
-    // 2. Hardware Media Keys
-    if (key == LogicalKeyboardKey.mediaPlayPause || key == LogicalKeyboardKey.space) {
-      if (item?.isBroadcast != true) {
-        _vm.player.playOrPause();
-      }
-      _vm.wakeOSD();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.mediaFastForward) {
-      if (item?.isBroadcast != true) {
-        _vm.seekRelative(const Duration(seconds: 10));
-      }
-      _vm.wakeOSD();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.mediaRewind) {
-      if (item?.isBroadcast != true) {
-        _vm.seekRelative(const Duration(seconds: -10));
-      }
-      _vm.wakeOSD();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.mediaTrackNext) {
-      if (item?.isBroadcast != true) {
-        _vm.next();
-      }
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.mediaTrackPrevious) {
-      if (item?.isBroadcast != true) {
-        _vm.prev();
-      }
-      return KeyEventResult.handled;
-    }
+    // Universal Wake
+    _vm.wakeOSD();
 
-    // 3. OSD Hidden State
     if (!_vm.showOSD) {
-      _vm.wakeOSD();
-
       if (item?.isVideo == true && item?.isBroadcast != true) {
         if (key == LogicalKeyboardKey.arrowRight) {
           _vm.seekRelative(const Duration(seconds: 10));
@@ -157,30 +138,78 @@ class _PlayerScreenState extends State<PlayerScreen> {
           _vm.seekRelative(const Duration(seconds: -10));
           return KeyEventResult.handled;
         }
-        if (key == LogicalKeyboardKey.arrowUp) {
-          _vm.seekRelative(const Duration(minutes: 1));
-          return KeyEventResult.handled;
-        }
-        if (key == LogicalKeyboardKey.arrowDown) {
-          _vm.seekRelative(const Duration(seconds: -30));
-          return KeyEventResult.handled;
-        }
-      } else if (item?.isImage == true) {
-        if (key == LogicalKeyboardKey.arrowRight) {
-          _vm.next();
-          return KeyEventResult.handled;
-        }
-        if (key == LogicalKeyboardKey.arrowLeft) {
-          _vm.prev();
-          return KeyEventResult.handled;
-        }
       }
-      return KeyEventResult.handled;
     }
 
-    // 4. OSD Visible State
-    _vm.wakeOSD();
     return KeyEventResult.ignored;
+  }
+
+  // ── Station Switching ─────────────────────────────────────────────────────
+
+  void _switchStation(Map<String, dynamic> station) async {
+    final clientVM = context.read<ClientViewModel>();
+    final res = await clientVM.joinStation(station['id']);
+    if (res != null && mounted) {
+      final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
+      final startIndex = res['itemIndex'] as int? ?? 0;
+      final offsetMs = res['positionMs'] as int;
+      final isPaused = res['isPaused'] as bool? ?? false;
+
+      _vm.load(
+        items: items,
+        startIndex: startIndex,
+        isPathBased: false,
+        startOffset: Duration(milliseconds: offsetMs),
+        autoPlay: !isPaused,
+      );
+    }
+  }
+
+  void _showStationModal() {
+    final clientVM = context.read<ClientViewModel>();
+    final stations = clientVM.stations;
+
+    showGeneralDialog(
+      context: context,
+      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierDismissible: true,
+      barrierLabel: 'Close',
+      pageBuilder: (ctx, anim1, anim2) => Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: MediaQuery.sizeOf(context).width * 0.85,
+            constraints: const BoxConstraints(maxWidth: 500),
+            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+                  child: Text('LIVE STATIONS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                ),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    children: stations.map((s) => _MobileTrackTile(
+                      label: s['name'].toString().toUpperCase(),
+                      isActive: _vm.current?.folder == s['id'],
+                      onTap: () {
+                        _switchStation(s);
+                        Navigator.pop(ctx);
+                      },
+                    )).toList(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -198,50 +227,41 @@ class _PlayerScreenState extends State<PlayerScreen> {
       value: _vm,
       child: Scaffold(
         backgroundColor: kWebBlack,
-        body: FocusScope(
-          node: _osdFocusScope,
-          onKeyEvent: _onKey,
-          child: GestureDetector(
-            onTap: () {
-              _vm.toggleOSD();
-            },
-            onDoubleTapDown: (d) {
-              if (item?.isBroadcast == true) return;
-              final half = MediaQuery.sizeOf(context).width / 2;
-              _vm.seekRelative(Duration(seconds: d.globalPosition.dx < half ? -10 : 10));
-            },
-            onHorizontalDragUpdate: (d) {
-              final dur = _vm.player.state.duration.inSeconds;
-              if (item?.isImage == true || item?.isBroadcast == true || dur <= 0) return;
-              final factor = d.primaryDelta! / MediaQuery.sizeOf(context).width;
-              final scrubSec = (factor * dur).toInt();
-              if (scrubSec != 0) {
-                _vm.player.seek(_vm.player.state.position + Duration(seconds: scrubSec));
-              }
-            },
-            onVerticalDragUpdate: (d) {
-              if (item?.isVideo != true) return;
-              final half = MediaQuery.sizeOf(context).width / 2;
-              final delta = -d.primaryDelta! / MediaQuery.sizeOf(context).height * 100;
-              if (d.globalPosition.dx < half) {
-                _vm.adjustVolume(delta); // Simulating brightness via volume for demo
-              } else {
-                _vm.adjustVolume(delta);
-              }
-            },
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _buildMediaLayer(),
-                _buildGestureFeedback(),
-                _buildOSD(),
-                if (_showSidebar)
-                  GestureDetector(
-                    onTap: () => setState(() => _showSidebar = false),
-                    child: Container(color: kWebBlack.withValues(alpha: 0.6)),
-                  ),
-                _buildToolsSidebar(),
-              ],
+        body: MouseRegion(
+          onHover: (_) => _vm.wakeOSD(),
+          child: FocusScope(
+            node: _osdFocusScope,
+            onKeyEvent: _onKey,
+            child: GestureDetector(
+              onTap: () => _vm.toggleOSD(),
+              onDoubleTapDown: (d) {
+                if (item?.isBroadcast == true) return;
+                final half = MediaQuery.sizeOf(context).width / 2;
+                _vm.seekRelative(Duration(seconds: d.globalPosition.dx < half ? -10 : 10));
+              },
+              onHorizontalDragUpdate: (d) {
+                final dur = _vm.player.state.duration.inSeconds;
+                if (item?.isImage == true || item?.isBroadcast == true || dur <= 0) return;
+                final factor = d.primaryDelta! / MediaQuery.sizeOf(context).width;
+                final scrubSec = (factor * dur).toInt();
+                if (scrubSec != 0) {
+                  _vm.player.seek(_vm.player.state.position + Duration(seconds: scrubSec));
+                }
+              },
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _buildMediaLayer(),
+                  _buildGestureFeedback(),
+                  _buildOSD(),
+                  if (_showSidebar)
+                    GestureDetector(
+                      onTap: () => setState(() => _showSidebar = false),
+                      child: Container(color: kWebBlack.withValues(alpha: 0.6)),
+                    ),
+                  _buildToolsSidebar(),
+                ],
+              ),
             ),
           ),
         ),
@@ -249,193 +269,213 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  // ── Media layer ───────────────────────────────────────────────────────────
+  // ── Media Layers ──────────────────────────────────────────────────────────
 
   Widget _buildMediaLayer() {
     final item = _vm.current;
-    if (item == null) return const SizedBox.shrink();
+    if (item == null) return const Center(child: CircularProgressIndicator(color: kWebWhite));
 
-    if (item.isImage) {
-      return Container(
-        color: kWebBlack,
-        child: Center(
-          child: Image.network(
-            _vm.mediaUrl,
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => Icon(LucideIcons.image, color: kWebTextMuted, size: 64),
-          ),
-        ),
-      );
-    }
+    if (item.isImage) return _buildImageLayout(item);
+    if (item.isAudio) return _buildAudioLayout(item);
+    return _buildVideoLayout(item);
+  }
 
-    if (item.isAudio) {
-      return LayoutBuilder(
-        builder: (_, c) {
-          final sz = (c.maxHeight * 0.4).clamp(180.0, 500.0);
-          return Container(
-            color: kWebBlack,
-            child: Center(
-              child: Padding(
-                padding: EdgeInsets.only(bottom: c.maxHeight * 0.15),
-                child: Container(
-                  width: sz,
-                  height: sz,
-                  decoration: BoxDecoration(
-                    color: kWebSurface,
-                    border: Border.all(color: kWebWhite, width: 2), // Brutalist sharp border
-                  ),
-                  child: ColorFiltered(
-                    colorFilter: kGreyscale, // Brutalist industrial styling
-                    child: NetworkImageFade(url: _vm.thumbUrl, fit: BoxFit.cover, fallbackIcon: LucideIcons.music),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      );
-    }
-
-    // Video
+  Widget _buildVideoLayout(MediaItem item) {
     return Container(
       color: kWebBlack,
-      child: Video(controller: _vm.videoController, controls: NoVideoControls, fit: _vm.videoFit),
+      child: Video(
+        controller: _vm.videoController,
+        controls: NoVideoControls,
+        fit: _vm.videoFit,
+      ),
     );
   }
 
-  // ── Gesture feedback ──────────────────────────────────────────────────────
+  Widget _buildAudioLayout(MediaItem item) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final isLandscape = constraints.maxWidth > constraints.maxHeight;
+      final sz = (isLandscape ? constraints.maxHeight * 0.4 : constraints.maxWidth * 0.5).clamp(120.0, 300.0);
 
-  Widget _buildGestureFeedback() {
-    final isCompact = Responsive.isTV(context) || Responsive.isDesktop(context);
-    return Center(
-      child: AnimatedOpacity(
-        opacity: _vm.gestureOpacity,
-        duration: const Duration(milliseconds: 100),
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 24, vertical: isCompact ? 10 : 16),
-          decoration: BoxDecoration(
-            color: kWebSurface.withValues(alpha: 0.9),
-            border: Border.all(color: kWebBorder, width: 1),
+      return Container(
+        color: kWebBlack,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: sz,
+                height: sz,
+                decoration: BoxDecoration(
+                  color: kWebSurface,
+                  border: Border.all(color: kWebWhite, width: 1),
+                  boxShadow: [
+                    BoxShadow(color: kWebWhite.withValues(alpha: 0.1), offset: const Offset(4, 4)),
+                  ],
+                ),
+                child: ColorFiltered(
+                  colorFilter: kGreyscale,
+                  child: NetworkImageFade(
+                    url: _vm.thumbUrl,
+                    fit: BoxFit.cover,
+                    fallbackIcon: LucideIcons.music,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  item.title.toUpperCase(),
+                  style: GoogleFonts.barlowCondensed(
+                    color: kWebWhite,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'SIGNAL_TYPE // AUDIO_STREAM',
+                style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 8, letterSpacing: 2),
+              ),
+            ],
           ),
-          child: Text(
-            _vm.gestureTxt,
-            style: GoogleFonts.dmMono(
-              color: kWebWhite,
-              fontSize: isCompact ? 14 : 16,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-            ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildImageLayout(MediaItem item) {
+    return Container(
+      color: kWebBlack,
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: Container(
+          decoration: BoxDecoration(border: Border.all(color: kWebBorder, width: 1)),
+          child: Image.network(
+            _vm.mediaUrl,
+            fit: BoxFit.contain,
+            errorBuilder: (_, error, stack) => Icon(LucideIcons.image, color: kWebTextMuted, size: 64),
           ),
         ),
       ),
     );
   }
 
-  // ── OSD ───────────────────────────────────────────────────────────────────
+  // ── OSD (Mobile VLC Style) ────────────────────────────────────────────────
 
   Widget _buildOSD() => AnimatedOpacity(
     opacity: _vm.showOSD ? 1.0 : 0.0,
-    duration: const Duration(milliseconds: 150),
+    duration: const Duration(milliseconds: 250),
     child: ExcludeFocus(
       excluding: !_vm.showOSD,
-      child: IgnorePointer(
-        ignoring: !_vm.showOSD,
-        child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [_buildTopBar(), const Spacer(), _buildBottomBar()]),
+      child: Stack(
+        children: [
+          _buildTopBar(),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _buildVlcBottomControls(),
+            ],
+          ),
+        ],
       ),
     ),
   );
 
   Widget _buildTopBar() {
     final item = _vm.current;
-    final isCompact = Responsive.isTV(context) || Responsive.isDesktop(context);
-    final hPad = isCompact ? DS.s16 : DS.s24;
-    final vPad = isCompact ? DS.s8 : DS.s12;
-
-    return Container(
-      padding: EdgeInsets.fromLTRB(hPad, MediaQuery.paddingOf(context).top + vPad, hPad, vPad),
-      decoration: BoxDecoration(
-        color: kWebSurface.withValues(alpha: 0.95),
-        border: Border(bottom: BorderSide(color: kWebBorder)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          BrutalistPlayerBtn(icon: LucideIcons.x, size: 18, onTap: () => Navigator.pop(context)),
-          const SizedBox(width: DS.s16),
-          Expanded(
-            child: Text(
-              (item?.title ?? '').toUpperCase(),
-              style: GoogleFonts.barlowCondensed(
-                color: kWebWhite,
-                fontSize: isCompact ? 20 : 24,
-                fontWeight: FontWeight.w900,
-                height: 1.0,
-                letterSpacing: 1,
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: EdgeInsets.fromLTRB(12, MediaQuery.paddingOf(context).top + 4, 12, 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [kWebBlack.withValues(alpha: 0.8), Colors.transparent],
+          ),
+        ),
+        child: Row(
+          children: [
+            _MobileIconBtn(icon: LucideIcons.chevronLeft, size: 32, onTap: () => Navigator.pop(context)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    (item?.title ?? '').toUpperCase(),
+                    style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'CMD // ${_vm.currentIndex + 1} OF ${_vm.playlist.length}',
+                    style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 8, letterSpacing: 1),
+                  ),
+                ],
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          const SizedBox(width: DS.s12),
-          Text(
-            'CMD // ${_vm.currentIndex + 1}/${_vm.playlist.length}',
-            style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 11, letterSpacing: 1),
-          ),
-          const SizedBox(width: DS.s12),
-          BrutalistPlayerBtn(
-            icon: LucideIcons.settings2,
-            size: 18,
-            onTap: () => setState(() => _showSidebar = true),
-          ),
-        ],
+            _MobileIconBtn(icon: LucideIcons.settings2, size: 32, onTap: () => setState(() => _showSidebar = true)),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildVlcBottomControls() {
     final item = _vm.current;
-    final isCompact = Responsive.isTV(context) || Responsive.isDesktop(context);
-    final hPad = isCompact ? DS.s16 : DS.s24;
-    final vPad = isCompact ? DS.s8 : DS.s12;
-
     final isBroadcast = item?.isBroadcast ?? false;
 
     return Container(
-      padding: EdgeInsets.fromLTRB(hPad, vPad, hPad, MediaQuery.paddingOf(context).bottom + vPad),
+      padding: EdgeInsets.fromLTRB(12, 12, 12, MediaQuery.paddingOf(context).bottom + 12),
       decoration: BoxDecoration(
-        color: kWebSurface.withValues(alpha: 0.95),
-        border: Border(top: BorderSide(color: kWebBorder)),
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [kWebBlack.withValues(alpha: 0.9), Colors.transparent],
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (item?.isImage == false) ...[
             BrutalistProgressBar(player: _vm.player, compact: true, isReadOnly: isBroadcast),
-            const SizedBox(height: DS.s8)
+            const SizedBox(height: 12),
           ],
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
-                child: Align(alignment: Alignment.centerLeft, child: _buildZone1(item, 18)),
-              ),
+              _MobileIconBtn(icon: LucideIcons.subtitles, size: 28, onTap: () => _showTrackModal('subtitles')),
+              const SizedBox(width: 4),
+              if (isBroadcast)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  color: Colors.redAccent,
+                  child: Text('LIVE', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 8, fontWeight: FontWeight.bold)),
+                ),
+
+              const Spacer(),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (!isBroadcast) ...[
-                    BrutalistPlayerBtn(icon: LucideIcons.skipBack, size: 22, onTap: _vm.prev),
-                    const SizedBox(width: DS.s16),
-                  ],
-                  _buildCenterBtn(item, 26),
-                  if (!isBroadcast) ...[
-                    const SizedBox(width: DS.s16),
-                    BrutalistPlayerBtn(icon: LucideIcons.skipForward, size: 22, onTap: _vm.next),
-                  ],
+                  _MobileIconBtn(icon: LucideIcons.skipBack, size: 28, onTap: _vm.prev),
+                  const SizedBox(width: 16),
+                  _buildPlayPauseBtn(),
+                  const SizedBox(width: 16),
+                  _MobileIconBtn(icon: LucideIcons.skipForward, size: 28, onTap: _vm.next),
                 ],
               ),
-              Expanded(
-                child: Align(alignment: Alignment.centerRight, child: _buildZone3(item, 18)),
-              ),
+              const Spacer(),
+
+              _MobileIconBtn(icon: LucideIcons.activity, size: 28, onTap: () => _showTrackModal('audio')),
             ],
           ),
         ],
@@ -443,112 +483,98 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  Widget _buildZone1(MediaItem? item, double sz) {
-    if (item?.isVideo == true && item?.isBroadcast != true) {
-      return BrutalistPlayerBtn(icon: LucideIcons.rewind, size: sz, onTap: () => _vm.seekRelative(const Duration(seconds: -10)));
-    }
-    if (item?.isBroadcast == true) {
-      return Text(
-        'LIVE BROADCAST',
-        style: GoogleFonts.dmMono(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2),
-      );
-    }
-    if (item?.isImage == true) {
-      return Text(
-        'FILE ${_vm.currentIndex + 1} OF ${_vm.playlist.length}',
-        style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1),
-      );
-    }
-    return const SizedBox.shrink();
-  }
+  Widget _buildPlayPauseBtn() {
+    final item = _vm.current;
+    if (item?.isImage == true) return const SizedBox.shrink();
 
-  Widget _buildCenterBtn(MediaItem? item, double sz) {
-    if (item?.isImage == true) {
-      return BrutalistPlayerBtn(focusNode: _primaryFocusNode, autoFocus: true, isPrimary: true, icon: LucideIcons.squareDashedTopSolid, size: sz, onTap: () => Navigator.pop(context));
-    }
-    final isBroadcast = item?.isBroadcast ?? false;
     return StreamBuilder<bool>(
       stream: _vm.player.stream.playing,
-      builder: (_, s) {
-        final playing = s.data ?? false;
-        return BrutalistPlayerBtn(
-          focusNode: _primaryFocusNode,
-          autoFocus: true,
-          isPrimary: true,
+      builder: (_, snap) {
+        final playing = snap.data ?? false;
+        return _MobileIconBtn(
           icon: playing ? LucideIcons.pause : LucideIcons.play,
-          size: sz,
-          onTap: isBroadcast
-              ? null
-              : () {
-                  _vm.player.playOrPause();
-                  _vm.wakeOSD();
-                },
+          size: 44,
+          isPrimary: true,
+          onTap: () {
+            _vm.player.playOrPause();
+            _vm.wakeOSD();
+          },
         );
       },
     );
   }
 
-  Widget _buildZone3(MediaItem? item, double sz) {
-    if (item?.isVideo == true && item?.isBroadcast != true) {
-      return BrutalistPlayerBtn(icon: LucideIcons.fastForward, size: sz, onTap: () => _vm.seekRelative(const Duration(seconds: 10)));
-    }
-    if (item?.isAudio == true) {
-      return BrutalistPlayerBtn(icon: LucideIcons.squareDashedTopSolid, size: sz, onTap: () => Navigator.pop(context));
-    }
-    return const SizedBox.shrink();
-  }
-
-  // ── Tools Sidebar (Compact Brutalist) ─────────────────────────────────────
+  // ── Sidebar & Feedbacks ───────────────────────────────────────────────────
 
   Widget _buildToolsSidebar() {
-    final item = _vm.current;
     return AnimatedPositioned(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutCubic,
-      right: _showSidebar ? 0 : -240,
+      right: _showSidebar ? 0 : -220,
       top: 0,
       bottom: 0,
-      width: 240,
+      width: 220,
       child: Container(
         decoration: BoxDecoration(
           color: kWebSurface,
-          border: Border(left: BorderSide(color: kWebBorder)),
+          border: Border(left: BorderSide(color: kWebWhite, width: 1)),
+          boxShadow: [BoxShadow(color: kWebBlack, blurRadius: 20)],
         ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
-              child: Row(
-                children: [
-                  const Icon(LucideIcons.settings2, color: kWebWhite, size: 16),
-                  const SizedBox(width: 12),
-                  Text('SYS TOOLS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                  const Spacer(),
-                  BrutalistPlayerBtn(icon: LucideIcons.x, size: 16, onTap: () => setState(() => _showSidebar = false)),
-                ],
+        child: SafeArea(
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+                child: Row(
+                  children: [
+                    const Icon(LucideIcons.settings2, color: kWebWhite, size: 16),
+                    const SizedBox(width: 8),
+                    Text('TOOLS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  ],
+                ),
               ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _VlcSidebarItem(icon: LucideIcons.subtitles, label: 'SUBTITLES', onTap: () => _showTrackModal('subtitles')),
-                  _VlcSidebarItem(icon: LucideIcons.activity, label: 'AUDIO TRACK', onTap: () => _showTrackModal('audio')),
-                  _VlcSidebarItem(icon: LucideIcons.layers, label: 'SYNC DELAY', onTap: _showSyncModal),
-                  if (item?.isBroadcast != true) _VlcSidebarItem(icon: LucideIcons.gauge, label: 'PLAYBACK SPEED', onTap: _showSpeedModal),
-                  _VlcSidebarItem(icon: LucideIcons.minimize, label: 'VIDEO FIT', onTap: _showFitModal),
-                  _VlcSidebarItem(icon: LucideIcons.clock, label: _vm.sleepMinutesRemaining > 0 ? '${_vm.sleepMinutesRemaining}M REMAINING' : 'SLEEP TIMER', onTap: _showSleepModal),
-                ],
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _MobileSidebarItem(label: 'STATION LIST', icon: LucideIcons.radio, onTap: _showStationModal),
+                    _MobileSidebarItem(label: 'SUBTITLES', icon: LucideIcons.subtitles, onTap: () => _showTrackModal('subtitles')),
+                    _MobileSidebarItem(label: 'AUDIO TRACKS', icon: LucideIcons.activity, onTap: () => _showTrackModal('audio')),
+                    if (!(_vm.current?.isBroadcast ?? false))
+                      _MobileSidebarItem(label: 'SPEED', icon: LucideIcons.gauge, onTap: _showSpeedModal),
+                    _MobileSidebarItem(label: 'ASPECT', icon: LucideIcons.minimize, onTap: _showFitModal),
+                    _MobileSidebarItem(label: 'SLEEP TIMER', icon: LucideIcons.clock, onTap: _showSleepModal),
+                    _MobileSidebarItem(label: 'SYNC ADJUST', icon: LucideIcons.layers, onTap: _showSyncModal),
+                  ],
+                ),
               ),
-            ),
-          ],
+              _MobileSidebarItem(label: 'CLOSE', icon: LucideIcons.chevronRight, isDestructive: true, onTap: () => setState(() => _showSidebar = false)),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ── Modals (Compact Brutalist) ────────────────────────────────────────────
+  Widget _buildGestureFeedback() {
+    return Center(
+      child: AnimatedOpacity(
+        opacity: _vm.gestureOpacity,
+        duration: const Duration(milliseconds: 150),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(color: kWebWhite, border: Border.all(color: kWebBlack, width: 1)),
+          child: Text(
+            _vm.gestureTxt.toUpperCase(),
+            style: GoogleFonts.dmMono(color: kWebBlack, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Modals ────────────────────────────────────────────────────────────────
 
   void _showTrackModal(String type) {
     final tracks = type == 'audio' ? _vm.player.state.tracks.audio : _vm.player.state.tracks.subtitle;
@@ -563,11 +589,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: Material(
           color: Colors.transparent,
           child: Container(
-            width: 320,
-            decoration: BoxDecoration(
-              color: kWebSurface,
-              border: Border.all(color: kWebWhite, width: 2),
-            ),
+            width: MediaQuery.sizeOf(context).width * 0.85,
+            constraints: const BoxConstraints(maxWidth: 400),
+            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -575,27 +599,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
-                  child: Text('${type.toUpperCase()} TRACKS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  child: Text(type.toUpperCase(), style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2)),
                 ),
                 if (type == 'subtitles')
-                  _TrackTile(
-                    label: 'DISABLE SUBTITLES',
-                    isActive: current.id == 'no',
-                    onTap: () {
-                      _vm.setSubtitleTrack(SubtitleTrack.no());
-                      Navigator.pop(ctx);
-                    },
-                  ),
-                ...tracks.map(
-                      (t) => _TrackTile(
-                    label: (t.title ?? t.language ?? t.id).toUpperCase(),
-                    isActive: t.id == current.id,
-                    onTap: () {
-                      type == 'audio' ? _vm.setAudioTrack(t as AudioTrack) : _vm.setSubtitleTrack(t as SubtitleTrack);
-                      Navigator.pop(ctx);
-                    },
-                  ),
-                ),
+                  _MobileTrackTile(label: 'DISABLED', isActive: current.id == 'no', onTap: () { _vm.setSubtitleTrack(SubtitleTrack.no()); Navigator.pop(ctx); }),
+                ...tracks.map((t) => _MobileTrackTile(
+                  label: (t.title ?? t.language ?? t.id).toUpperCase(),
+                  isActive: t.id == current.id,
+                  onTap: () {
+                    type == 'audio' ? _vm.setAudioTrack(t as AudioTrack) : _vm.setSubtitleTrack(t as SubtitleTrack);
+                    Navigator.pop(ctx);
+                  },
+                )),
               ],
             ),
           ),
@@ -617,31 +632,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: Material(
           color: Colors.transparent,
           child: Container(
-            width: 320,
-            decoration: BoxDecoration(
-              color: kWebSurface,
-              border: Border.all(color: kWebWhite, width: 2),
-            ),
+            width: MediaQuery.sizeOf(context).width * 0.8,
+            constraints: const BoxConstraints(maxWidth: 320),
+            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
-                  child: Text('PLAYBACK SPEED', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                ),
-                ...speeds.map(
-                      (s) => _TrackTile(
-                    label: '${s}X',
-                    isActive: (s - current).abs() < 0.01,
-                    onTap: () {
-                      _vm.setRate(s);
-                      Navigator.pop(ctx);
-                    },
-                  ),
-                ),
-              ],
+              children: speeds.map((s) => _MobileTrackTile(
+                label: '${s}X SPEED',
+                isActive: (s - current).abs() < 0.01,
+                onTap: () { _vm.setRate(s); Navigator.pop(ctx); },
+              )).toList(),
             ),
           ),
         ),
@@ -650,8 +650,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _showFitModal() {
-    final fits = {BoxFit.contain: 'FIT (CONTAIN)', BoxFit.cover: 'FILL (COVER)', BoxFit.fill: 'STRETCH (FILL)'};
-
+    final fits = {BoxFit.contain: 'CONTAIN', BoxFit.cover: 'COVER', BoxFit.fill: 'STRETCH'};
     showGeneralDialog(
       context: context,
       barrierColor: kWebBlack.withValues(alpha: 0.9),
@@ -661,31 +660,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: Material(
           color: Colors.transparent,
           child: Container(
-            width: 320,
-            decoration: BoxDecoration(
-              color: kWebSurface,
-              border: Border.all(color: kWebWhite, width: 2),
-            ),
+            width: MediaQuery.sizeOf(context).width * 0.8,
+            constraints: const BoxConstraints(maxWidth: 320),
+            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
-                  child: Text('VIDEO FIT', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                ),
-                ...fits.entries.map(
-                      (e) => _TrackTile(
-                    label: e.value,
-                    isActive: _vm.videoFit == e.key,
-                    onTap: () {
-                      _vm.setVideoFit(e.key);
-                      Navigator.pop(ctx);
-                    },
-                  ),
-                ),
-              ],
+              children: fits.entries.map((e) => _MobileTrackTile(
+                label: e.value,
+                isActive: _vm.videoFit == e.key,
+                onTap: () { _vm.setVideoFit(e.key); Navigator.pop(ctx); },
+              )).toList(),
             ),
           ),
         ),
@@ -695,7 +679,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   void _showSleepModal() {
     final options = [0, 5, 15, 30, 60, 120];
-
     showGeneralDialog(
       context: context,
       barrierColor: kWebBlack.withValues(alpha: 0.9),
@@ -705,31 +688,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: Material(
           color: Colors.transparent,
           child: Container(
-            width: 320,
-            decoration: BoxDecoration(
-              color: kWebSurface,
-              border: Border.all(color: kWebWhite, width: 2),
-            ),
+            width: MediaQuery.sizeOf(context).width * 0.8,
+            constraints: const BoxConstraints(maxWidth: 320),
+            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
-                  child: Text('SLEEP TIMER', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                ),
-                ...options.map(
-                      (m) => _TrackTile(
-                    label: m == 0 ? 'OFF' : '$m MINUTES',
-                    isActive: _vm.sleepMinutesRemaining == m,
-                    onTap: () {
-                      _vm.setSleepTimer(m);
-                      Navigator.pop(ctx);
-                    },
-                  ),
-                ),
-              ],
+              children: options.map((m) => _MobileTrackTile(
+                label: m == 0 ? 'OFF' : '$m MINUTES',
+                isActive: _vm.sleepMinutesRemaining == m,
+                onTap: () { _vm.setSleepTimer(m); Navigator.pop(ctx); },
+              )).toList(),
             ),
           ),
         ),
@@ -747,32 +715,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: Material(
           color: Colors.transparent,
           child: Container(
-            width: 320,
-            decoration: BoxDecoration(
-              color: kWebSurface,
-              border: Border.all(color: kWebWhite, width: 2),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
-                  child: Text('SYNC DELAY', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                ),
-                ListenableBuilder(
-                  listenable: _vm,
-                  builder: (context, _) {
-                    return Column(
-                      children: [
-                        _SyncTile(label: 'AUDIO DELAY', value: _vm.audioDelay, onChanged: (v) => _vm.setAudioDelay(v)),
-                        _SyncTile(label: 'SUBTITLE DELAY', value: _vm.subDelay, onChanged: (v) => _vm.setSubtitleDelay(v)),
-                      ],
-                    );
-                  },
-                ),
-              ],
+            width: MediaQuery.sizeOf(context).width * 0.9,
+            constraints: const BoxConstraints(maxWidth: 400),
+            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
+            child: ListenableBuilder(
+              listenable: _vm,
+              builder: (_, child) => Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _MobileSyncTile(label: 'AUDIO OFFSET', value: _vm.audioDelay, onChanged: _vm.setAudioDelay),
+                  _MobileSyncTile(label: 'SUBTITLE OFFSET', value: _vm.subDelay, onChanged: _vm.setSubtitleDelay),
+                ],
+              ),
             ),
           ),
         ),
@@ -781,135 +735,117 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 }
 
-class _SyncTile extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+// MOBILE UI SUB-COMPONENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MobileIconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final double size;
+  final bool isPrimary;
+  final bool isDestructive;
+
+  const _MobileIconBtn({required this.icon, required this.onTap, this.size = 44, this.isPrimary = false, this.isDestructive = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: isPrimary ? kWebWhite : Colors.transparent,
+          border: Border.all(color: isDestructive ? Colors.redAccent : kWebBorder),
+        ),
+        child: Icon(icon, color: isPrimary ? kWebBlack : (isDestructive ? Colors.redAccent : kWebWhite), size: size * 0.5),
+      ),
+    );
+  }
+}
+
+class _MobileSidebarItem extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  const _MobileSidebarItem({required this.label, required this.icon, required this.onTap, this.isDestructive = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isDestructive ? Colors.redAccent : kWebWhite;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 14),
+            const SizedBox(width: 12),
+            Text(label, style: GoogleFonts.dmMono(color: color, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileTrackTile extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _MobileTrackTile({required this.label, required this.isActive, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: isActive ? kWebWhite.withValues(alpha: 0.05) : Colors.transparent,
+          border: Border(bottom: BorderSide(color: kWebBorder)),
+        ),
+        child: Row(
+          children: [
+            Expanded(child: Text(label, style: GoogleFonts.dmMono(color: isActive ? kWebWhite : kWebText, fontSize: 11, fontWeight: isActive ? FontWeight.bold : FontWeight.normal))),
+            if (isActive) const Icon(LucideIcons.check, color: kWebWhite, size: 12),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileSyncTile extends StatelessWidget {
   final String label;
   final double value;
   final Function(double) onChanged;
 
-  const _SyncTile({required this.label, required this.value, required this.onChanged});
+  const _MobileSyncTile({required this.label, required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: kWebBorder)),
-      ),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+          Text(label, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 8, letterSpacing: 2)),
           const SizedBox(height: 12),
           Row(
             children: [
-              BrutalistPlayerBtn(icon: LucideIcons.minus, size: 16, onTap: () => onChanged(value - 0.1)),
-              Expanded(
-                child: Center(child: Text('${value.toStringAsFixed(1)}S', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 16, fontWeight: FontWeight.bold))),
-              ),
-              BrutalistPlayerBtn(icon: LucideIcons.plus, size: 16, onTap: () => onChanged(value + 0.1)),
+              _MobileIconBtn(icon: LucideIcons.minus, size: 32, onTap: () => onChanged(value - 0.1)),
+              Expanded(child: Center(child: Text('${value.toStringAsFixed(1)}S', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 16, fontWeight: FontWeight.bold)))),
+              _MobileIconBtn(icon: LucideIcons.plus, size: 32, onTap: () => onChanged(value + 0.1)),
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _VlcSidebarItem extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _VlcSidebarItem({required this.icon, required this.label, required this.onTap});
-
-  @override
-  State<_VlcSidebarItem> createState() => _VlcSidebarItemState();
-}
-
-class _VlcSidebarItemState extends State<_VlcSidebarItem> {
-  bool _focused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Focus(
-      onFocusChange: (v) => setState(() => _focused = v),
-      onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: _focused ? kWebWhite : Colors.transparent,
-            border: Border(bottom: BorderSide(color: kWebBorder)),
-          ),
-          child: Row(
-            children: [
-              Icon(widget.icon, size: 16, color: _focused ? kWebBlack : kWebTextMuted),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  widget.label,
-                  style: GoogleFonts.dmMono(
-                    fontSize: 12,
-                    fontWeight: _focused ? FontWeight.bold : FontWeight.normal,
-                    color: _focused ? kWebBlack : kWebText,
-                    letterSpacing: 1,
-                  ),
-                ),
-              ),
-              Icon(LucideIcons.chevronRight, size: 14, color: _focused ? kWebBlack : kWebTextMuted),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TrackTile extends StatefulWidget {
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _TrackTile({required this.label, required this.isActive, required this.onTap});
-
-  @override
-  State<_TrackTile> createState() => _TrackTileState();
-}
-
-class _TrackTileState extends State<_TrackTile> {
-  bool _focused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Focus(
-      onFocusChange: (v) => setState(() => _focused = v),
-      onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: BoxDecoration(
-            color: _focused ? kWebWhite : (widget.isActive ? kWebWhite.withValues(alpha:0.05) : Colors.transparent),
-            border: Border(bottom: BorderSide(color: kWebBorder)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  widget.label,
-                  style: GoogleFonts.dmMono(
-                    fontSize: 12,
-                    fontWeight: _focused || widget.isActive ? FontWeight.bold : FontWeight.normal,
-                    color: _focused ? kWebBlack : (widget.isActive ? kWebWhite : kWebText),
-                    letterSpacing: 1,
-                  ),
-                ),
-              ),
-              if (widget.isActive) Icon(LucideIcons.check, size: 16, color: _focused ? kWebBlack : kWebWhite),
-            ],
-          ),
-        ),
       ),
     );
   }

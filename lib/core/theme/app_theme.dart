@@ -609,9 +609,13 @@ class BrutalistProgressBar extends StatelessWidget {
             SizedBox(
               width: compact ? 56 : 80,
               child: Text(
-                _fmt(dur.inSeconds),
+                isReadOnly ? 'LIVE' : _fmt(dur.inSeconds),
                 textAlign: TextAlign.right,
-                style: AppTheme.theme.textTheme.labelMedium?.copyWith(color: DS.textMuted, fontSize: compact ? 12 : 16),
+                style: AppTheme.theme.textTheme.labelMedium?.copyWith(
+                  color: isReadOnly ? Colors.orangeAccent : DS.textMuted,
+                  fontSize: compact ? 12 : 16,
+                  fontWeight: isReadOnly ? FontWeight.bold : FontWeight.normal,
+                ),
               ),
             ),
           ],

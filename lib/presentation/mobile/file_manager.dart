@@ -559,17 +559,8 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
 
   List<Widget> _buildHomeSlivers(bool isMobile) {
     return [
-      SliverToBoxAdapter(child: SizedBox(height: isMobile ? 24 : 32)),
-
-      // Quick Access Header
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: _textPad),
-          child: Text('QUICK ACCESS', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)),
-        ),
-      ),
-      SliverToBoxAdapter(child: SizedBox(height: isMobile ? 12 : 16)),
-
+      // Storage Analysis Card
+      SliverToBoxAdapter(child: _buildStorageCard(isMobile)),
       // Categories Grid (3 Columns)
       SliverToBoxAdapter(
         child: Container(
@@ -616,26 +607,8 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
           ),
         ),
       ),
-
-      SliverToBoxAdapter(child: SizedBox(height: isMobile ? 24 : 36)),
-
-      // Sys Storage Header
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: _textPad),
-          child: Text('SYS STORAGE', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)),
-        ),
-      ),
-      SliverToBoxAdapter(child: SizedBox(height: isMobile ? 12 : 16)),
-
-      // Storage Analysis Card
-      SliverToBoxAdapter(child: _buildStorageCard(isMobile)),
-
-      SliverToBoxAdapter(child: SizedBox(height: isMobile ? 12 : 16)),
-
       // Root Directory Button
       SliverToBoxAdapter(child: _buildRootButton(isMobile)),
-
       SliverToBoxAdapter(child: const SizedBox(height: 100)),
     ];
   }
@@ -874,22 +847,13 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
       SliverToBoxAdapter(child: SizedBox(height: isMobile ? 16 : 24)),
 
       if (dirs.isNotEmpty) ...[
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(_textPad, 0, _textPad, 8),
-            child: Text('DIRECTORIES', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Container(
-            decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
-            child: GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              gridDelegate: gridDelegate,
-              itemCount: dirs.length,
-              itemBuilder: (_, i) => _FileGridCard(item: dirs[i], vm: _vm, onTap: () => _openItem(dirs[i]), onDownload: () => _triggerDownload(dirs[i])),
+        SliverPadding(
+          padding: EdgeInsets.zero,
+          sliver: SliverGrid(
+            gridDelegate: gridDelegate,
+            delegate: SliverChildBuilderDelegate(
+              (_, i) => _FileGridCard(item: dirs[i], vm: _vm, onTap: () => _openItem(dirs[i]), onDownload: () => _triggerDownload(dirs[i])),
+              childCount: dirs.length,
             ),
           ),
         ),
@@ -897,23 +861,14 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
       ],
 
       if (files.isNotEmpty) ...[
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(_textPad, 0, _textPad, 8),
-            child: Text('FILES', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 100),
-            decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
-            child: GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              gridDelegate: gridDelegate,
-              itemCount: files.length,
-              itemBuilder: (_, i) => _FileGridCard(item: files[i], vm: _vm, onTap: () => _openItem(files[i]), onDownload: () => _triggerDownload(files[i])),
+
+        SliverPadding(
+          padding: const EdgeInsets.only(bottom: 100),
+          sliver: SliverGrid(
+            gridDelegate: gridDelegate,
+            delegate: SliverChildBuilderDelegate(
+              (_, i) => _FileGridCard(item: files[i], vm: _vm, onTap: () => _openItem(files[i]), onDownload: () => _triggerDownload(files[i])),
+              childCount: files.length,
             ),
           ),
         ),
@@ -1153,19 +1108,6 @@ class _FileGridCardState extends State<_FileGridCard> {
                       ),
                     ),
 
-                  // Top-Left Badge
-                  Positioned(
-                    top: 4,
-                    left: 4,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      decoration: BoxDecoration(border: Border.all(color: kWebBorder), color: kWebBlack),
-                      child: Text(
-                        isDir ? '${widget.item.itemCount} ITEMS' : widget.item.typeLabel,
-                        style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1),
-                      ),
-                    ),
-                  ),
 
                   // Bottom-Right Download Button (Files Only)
                   if (!isDir)

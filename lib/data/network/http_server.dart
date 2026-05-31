@@ -131,22 +131,24 @@ class HttpServerService {
     });
 
     // Media list
-    router.get('/api/media', (_) {
+    router.get('/api/media', (_) async {
       final items = getMediaItems();
-      return shelf.Response.ok(jsonEncode(items.map((e) => e.toJson()).toList()), headers: {'content-type': 'application/json'});
+      final body = await compute(_jsonEncode, items.map((e) => e.toJson()).toList());
+      return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
     });
 
     // Stations
-    router.get('/api/stations', (_) {
+    router.get('/api/stations', (_) async {
       final svc = sl<StationService>();
       final results = stations.map((s) {
         final state = svc.getPlaybackState(s);
         return {...s.toJson(), 'nowPlaying': state?.toJson()};
       }).toList();
-      return shelf.Response.ok(jsonEncode(results), headers: {'content-type': 'application/json'});
+      final body = await compute(_jsonEncode, results);
+      return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
     });
 
-    router.get('/api/stations/join/<id>', (shelf.Request r, String id) {
+    router.get('/api/stations/join/<id>', (shelf.Request r, String id) async {
       final station = stations.firstWhere((s) => s.id == id, orElse: () => throw Exception('Station not found'));
       final svc = sl<StationService>();
       final state = svc.getPlaybackState(station);
@@ -158,7 +160,8 @@ class HttpServerService {
         'playlist': station.playlist.map((e) => e.copyWith(isBroadcast: true).toJson()).toList(),
       };
 
-      return shelf.Response.ok(jsonEncode(response), headers: {'content-type': 'application/json'});
+      final body = await compute(_jsonEncode, response);
+      return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
     });
 
     // Directory browse
@@ -168,13 +171,10 @@ class HttpServerService {
       if (rawPath.isEmpty) {
         // Return shared folder roots.
         final roots = sharedFolders.map((f) {
-          int count = 0;
-          try {
-            count = Directory(f).listSync(followLinks: false).length;
-          } catch (_) {}
-          return {'name': f, 'path': f, 'isDirectory': true, 'itemCount': count};
+          return {'name': f, 'path': f, 'isDirectory': true, 'itemCount': 0};
         }).toList();
-        return shelf.Response.ok(jsonEncode(roots), headers: {'content-type': 'application/json'});
+        final body = await compute(_jsonEncode, roots);
+        return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
       }
 
       if (!_isPathAllowed(rawPath, sharedFolders)) {
@@ -188,20 +188,15 @@ class HttpServerService {
         }
 
         // FIX: Timeout on directory listing to prevent hung handlers.
+        // OPTIMIZED: Removed synchronous itemCount calculation for subdirectories.
         final entries = <Map<String, dynamic>>[];
         await dir
             .list(followLinks: false)
             .handleError((_) {})
             .asyncMap((entity) async {
               final stat = await entity.stat();
-              int count = 0;
-              if (entity is Directory) {
-                try {
-                  count = entity.listSync(followLinks: false).length;
-                } catch (_) {}
-              }
               final name = entity.uri.pathSegments.lastWhere((s) => s.isNotEmpty, orElse: () => entity.path);
-              return {'name': name, 'path': entity.path, 'isDirectory': entity is Directory, 'size': stat.size, 'itemCount': count};
+              return {'name': name, 'path': entity.path, 'isDirectory': entity is Directory, 'size': stat.size, 'itemCount': 0};
             })
             .timeout(const Duration(seconds: 10), onTimeout: (sink) => sink.close())
             .forEach(entries.add);
@@ -212,7 +207,8 @@ class HttpServerService {
           return (a['name'] as String).toLowerCase().compareTo((b['name'] as String).toLowerCase());
         });
 
-        return shelf.Response.ok(jsonEncode(entries), headers: {'content-type': 'application/json'});
+        final body = await compute(_jsonEncode, entries);
+        return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
       } catch (e) {
         return shelf.Response.internalServerError(body: e.toString());
       }
@@ -398,6 +394,8 @@ class HttpServerService {
       yield chunk;
     }
   }
+
+  static String _jsonEncode(dynamic data) => jsonEncode(data);
 
   // ── Thumbnail Serving ──────────────────────────────────────────────────────
 

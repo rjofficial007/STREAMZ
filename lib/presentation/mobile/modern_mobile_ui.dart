@@ -767,23 +767,28 @@ class _MobileSearchScreenState extends State<_MobileSearchScreen> {
               )
                   : Container(
                 decoration: BoxDecoration(color: kWebBorder),
-                child: GridView.builder(
-                  padding: EdgeInsets.zero, // Outer padding removed
+                child: CustomScrollView(
                   physics: const BouncingScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    childAspectRatio: 1.0,
-                    crossAxisSpacing: 1,
-                    mainAxisSpacing: 1,
-                  ),
-                  itemCount: results.length,
-                  itemBuilder: (_, i) => _MobileRailCard(
-                    item: results[i],
-                    size: double.infinity,
-                    showProgress: true,
-                    vm: vm,
-                    onTap: () => _play(results[i]),
-                  ),
+                  slivers: [
+                    SliverGrid(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        childAspectRatio: 1.0,
+                        crossAxisSpacing: 1,
+                        mainAxisSpacing: 1,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (_, i) => _MobileRailCard(
+                          item: results[i],
+                          size: double.infinity,
+                          showProgress: true,
+                          vm: vm,
+                          onTap: () => _play(results[i]),
+                        ),
+                        childCount: results.length,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

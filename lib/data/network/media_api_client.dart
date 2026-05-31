@@ -14,6 +14,7 @@
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../domain/models/media_item.dart';
@@ -33,7 +34,11 @@ class MediaApiClient {
     if (res.statusCode != 200) {
       throw Exception('fetchMedia failed: HTTP ${res.statusCode}');
     }
-    final raw = jsonDecode(res.body) as List;
+    return compute(_parseMediaItems, res.body);
+  }
+
+  static List<MediaItem> _parseMediaItems(String body) {
+    final raw = jsonDecode(body) as List;
     return raw.map((e) => MediaItem.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -43,7 +48,11 @@ class MediaApiClient {
     if (res.statusCode != 200) {
       throw Exception('browse failed: HTTP ${res.statusCode}');
     }
-    return (jsonDecode(res.body) as List).cast<Map<String, dynamic>>();
+    return compute(_parseBrowseItems, res.body);
+  }
+
+  static List<Map<String, dynamic>> _parseBrowseItems(String body) {
+    return (jsonDecode(body) as List).cast<Map<String, dynamic>>();
   }
 
   Future<List<Map<String, dynamic>>> fetchStations() async {

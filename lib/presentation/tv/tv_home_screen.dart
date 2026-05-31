@@ -15,7 +15,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
 import '../client/client_viewmodel.dart';
-import '../player/player_screen.dart';
+import 'tv_player_screen.dart';
 
 // --- Web UI Color Palette & Styles ---
 const Color kWebBlack = Color(0xFF000000);
@@ -372,7 +372,7 @@ class _HeroSectionState extends State<_HeroSection> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PlayerScreen(items: widget.allItems, startIndex: idx >= 0 ? idx : 0),
+        builder: (_) => TVPlayerScreen(items: widget.allItems, startIndex: idx >= 0 ? idx : 0),
       ),
     );
   }
@@ -626,7 +626,7 @@ class _TVContentRailState extends State<_TVContentRail> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PlayerScreen(items: widget.items, startIndex: idx >= 0 ? idx : 0),
+        builder: (_) => TVPlayerScreen(items: widget.items, startIndex: idx >= 0 ? idx : 0),
       ),
     );
   }
@@ -984,7 +984,7 @@ class _TVStationCardState extends State<_TVStationCard> with SingleTickerProvide
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => PlayerScreen(
+          builder: (_) => TVPlayerScreen(
             items: items,
             startIndex: startIndex,
             isPathBased: false,
@@ -1104,7 +1104,7 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
   }
 
   void _play(MediaItem item) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(items: [item], startIndex: 0)));
+    Navigator.push(context, MaterialPageRoute(builder: (_) => TVPlayerScreen(items: [item], startIndex: 0)));
   }
 
   @override

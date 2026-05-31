@@ -1,17 +1,6 @@
 // presentation/home/role_selection_screen.dart
 // ============================================================================
-// STREAMZ — Role Selection (Home) Screen (Production-Fixed)
-//
-// BUGS FIXED:
-//   1. On desktop/web, the code jumped directly to ServerDashboard without
-//      ever setting permissions_granted = true in SharedPreferences. This
-//      caused the flag to stay false forever, so the PermissionScreen kept
-//      appearing on subsequent launches even though no permissions were needed.
-//      Fixed: write permissions_granted = true before navigating on platforms
-//      that don't need runtime permissions.
-//   2. No guard against double-tap / rapid navigation — tapping SERVER twice
-//      quickly pushed two ServerDashboard routes onto the stack. Added a
-//      _navigating flag to debounce the gesture.
+// STREAMZ — Role Selection (NOC Dashboard)
 // ============================================================================
 
 import 'package:flutter/foundation.dart';
@@ -28,6 +17,15 @@ import '../client/client_viewmodel.dart';
 import '../server/server_dashboard.dart';
 import 'permission_screen.dart';
 
+// --- Web UI Color Palette & Styles (Synced with System Dashboards) ---
+const Color kWebBlack = Color(0xFF000000);
+const Color kWebSurface = Color(0xFF0A0A0A);
+const Color kWebSurface2 = Color(0xFF111111);
+const Color kWebWhite = Color(0xFFFFFFFF);
+final Color kWebBorder = Colors.white.withValues(alpha: 0.15);
+final Color kWebTextMuted = Colors.white.withValues(alpha: 0.3);
+final Color kWebText = Colors.white.withValues(alpha: 0.6);
+
 class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
 
@@ -36,18 +34,14 @@ class RoleSelectionScreen extends StatefulWidget {
 }
 
 class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
-  // FIX: Debounce flag prevents double-navigation on rapid taps.
   bool _navigating = false;
 
-  Future<void> _handleServerTap(BuildContext context) async {
+  Future<void> _handleServerTap() async {
     if (_navigating) return;
     setState(() => _navigating = true);
 
     try {
       final prefs = await SharedPreferences.getInstance();
-
-      // FIX: On platforms that need no runtime permissions, mark granted
-      // immediately so the PermissionScreen never appears.
       final isAutoGrantPlatform = kIsWeb || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.linux;
 
       if (isAutoGrantPlatform) {
@@ -55,25 +49,19 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       }
 
       final granted = prefs.getBool('permissions_granted') ?? false;
-      if (!context.mounted) return;
+      if (!mounted) return;
 
       if (granted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const ServerDashboard(),
-          ),
-        );
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const ServerDashboard()));
       } else {
         Navigator.push(context, MaterialPageRoute(builder: (_) => const PermissionScreen()));
       }
     } finally {
-      // Reset flag after navigation completes (or fails).
       if (mounted) setState(() => _navigating = false);
     }
   }
 
-  void _handleClientTap(BuildContext context) {
+  void _handleClientTap() {
     if (_navigating) return;
     setState(() => _navigating = true);
     Navigator.push(
@@ -88,199 +76,209 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Opacity(opacity: 0.12, child: const CustomPaint(painter: GridPainter())),
-          ),
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final width = constraints.maxWidth;
-                final isDesktop = width > DS.bpTablet;
-                final isMobile = width <= DS.bpMobile;
-                final hPad = DS.hPad(width);
-                final vPad = isMobile ? 32.0 : 60.0;
-                final titleSz = isDesktop ? 120.0 : (isMobile ? 56.0 : 90.0);
+    final isMobile = DS.isMobile(context);
 
-                return Center(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(height: isMobile ? 10 : 40),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            // Caps the size so it never stretches across the entire TV screen
-                            maxWidth: 700,
-                          ),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Row(
-                              // Forces the Row to only occupy the exact width of its text children
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.baseline,
-                              textBaseline: TextBaseline.alphabetic,
-                              children: [
-                                Text(
-                                  'STREAM ',
-                                  style: AppTheme.theme.textTheme.displayLarge?.copyWith(fontSize: titleSz, height: 1.0),
-                                ),
-                                Stack(
-                                  children: [
-                                    Text(
-                                      'ANYTHING',
-                                      style: GoogleFonts.barlowCondensed(
-                                        fontSize: titleSz,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: -2,
-                                        height: 1.0,
-                                        foreground: Paint()
-                                          ..style = PaintingStyle.stroke
-                                          ..strokeWidth = isMobile ? 1 : 2
-                                          ..color = DS.accent,
-                                      ),
-                                    ),
-                                    Text(
-                                      'ANYTHING',
-                                      style: GoogleFonts.barlowCondensed(
-                                        fontSize: titleSz,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: -2,
-                                        height: 1.0,
-                                        color: Colors.transparent,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: isMobile ? 24 : 40),
-                        Text(
-                          'A premium cross-platform broadcasting system. '
-                          'Any device becomes a server. Any device becomes a client. '
-                          'Zero configuration. Pure signal.',
-                          style: AppTheme.theme.textTheme.bodyLarge?.copyWith(fontSize: isMobile ? 14 : 16),
-                        ),
-                        SizedBox(height: isMobile ? 32 : 80),
-                        FocusTraversalGroup(
-                          policy: WidgetOrderTraversalPolicy(),
-                          child: isDesktop
-                              ? IntrinsicHeight(
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      Expanded(
-                                        child: _RoleCard(
-                                          roleText: 'SERVER',
-                                          subtitle:
-                                              'Host your local media library. UDP broadcasts '
-                                              'announce your presence. HTTP serves files.',
-                                          icon: LucideIcons.hardDrive,
-                                          isMobile: false,
-                                          autoFocus: true,
-                                          onTap: () => _handleServerTap(context),
-                                        ),
-                                      ),
-                                      const SizedBox(width: DS.s24),
-                                      Expanded(
-                                        child: _RoleCard(
-                                          roleText: 'CLIENT',
-                                          subtitle:
-                                              'Connect to any Streamz server via UDP '
-                                              'auto-discovery or QR scan. Browse, stream, '
-                                              'or download.',
-                                          icon: LucideIcons.wifiHigh,
-                                          isMobile: false,
-                                          onTap: () => _handleClientTap(context),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : Column(
-                                  children: [
-                                    _RoleCard(
-                                      roleText: 'SERVER',
-                                      subtitle:
-                                          'Host your local media library. UDP broadcasts '
-                                          'announce your presence. HTTP serves files.',
-                                      icon: LucideIcons.hardDrive,
-                                      isMobile: true,
-                                      autoFocus: true,
-                                      onTap: () => _handleServerTap(context),
-                                    ),
-                                    const SizedBox(height: DS.s16),
-                                    _RoleCard(
-                                      roleText: 'CLIENT',
-                                      subtitle:
-                                          'Connect to any Streamz server via UDP '
-                                          'auto-discovery or QR scan. Browse, stream, '
-                                          'or download.',
-                                      icon: LucideIcons.wifiHigh,
-                                      isMobile: true,
-                                      onTap: () => _handleClientTap(context),
-                                    ),
-                                  ],
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+    return Scaffold(
+      backgroundColor: kWebBlack,
+      body: SafeArea(
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            _buildSliverAppBar(isMobile),
+            _buildBody(isMobile),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSliverAppBar(bool isMobile) {
+    return SliverAppBar(
+      backgroundColor: kWebSurface,
+      floating: true,
+      elevation: 0,
+      pinned: true,
+      titleSpacing: 16,
+      automaticallyImplyLeading: false,
+      title: Text(
+        'STREAMZ NOC',
+        style: GoogleFonts.barlowCondensed(
+          color: kWebWhite, 
+          fontSize: isMobile ? 20 : 24, 
+          fontWeight: FontWeight.w900, 
+          letterSpacing: 4
+        ),
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(color: kWebBorder, height: 1),
+      ),
+    );
+  }
+
+  Widget _buildBody(bool isMobile) {
+    return SliverList(
+      delegate: SliverChildListDelegate([
+        _SystemStatusCard(isMobile: isMobile),
+        
+        Container(
+          decoration: BoxDecoration(
+            border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), 
+            color: kWebBorder
+          ),
+          child: GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 1,
+            crossAxisSpacing: 1,
+            children: [
+              _QuickActionCard(
+                label: 'HOST SERVER',
+                icon: LucideIcons.hardDrive,
+                onTap: _handleServerTap,
+              ),
+              _QuickActionCard(
+                label: 'JOIN NODE',
+                icon: LucideIcons.wifiHigh,
+                onTap: _handleClientTap,
+              ),
+
+            ],
+          ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+          child: Text('CORE ARCHITECTURE', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)),
+        ),
+        
+        _ArchitectureTile(
+          title: 'BROADCAST ENGINE',
+          subtitle: 'UDP DISCOVERY // HTTP DATA STREAM',
+          icon: LucideIcons.zap,
+          isFirst: true,
+        ),
+        _ArchitectureTile(
+          title: 'DISTRIBUTED NODES',
+          subtitle: 'MULTI-CLIENT SYNCHRONIZATION',
+          icon: LucideIcons.share2,
+        ),
+        _ArchitectureTile(
+          title: 'LOCAL PERSISTENCE',
+          subtitle: 'SECURE CREDENTIAL STORAGE',
+          icon: LucideIcons.lock,
+        ),
+          
+        const SizedBox(height: 100),
+      ]),
+    );
+  }
+}
+
+class _SystemStatusCard extends StatelessWidget {
+  final bool isMobile;
+  const _SystemStatusCard({required this.isMobile});
+
+  @override
+  Widget build(BuildContext context) {
+    final platform = defaultTargetPlatform.toString().split('.').last.toUpperCase();
+    
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        color: kWebSurface,
+        border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('SYSTEM ANALYSIS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              const _BlinkingDot(isOnline: true),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 24),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('PLATFORM', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+                    const SizedBox(height: 4),
+                    Text(platform, style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('STATUS', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+                    const SizedBox(height: 4),
+                    Text('READY', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 20 : 24),
+          Stack(
+            children: [
+              Container(height: 8, color: kWebSurface2),
+              FractionallySizedBox(
+                widthFactor: 1.0, 
+                child: Container(height: 8, color: kWebWhite),
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          Row(
+            children: [
+              Expanded(child: _legend('VERSION', 'v2.0.4-PROD', kWebWhite)),
+              const SizedBox(width: 16),
+              Expanded(child: _legend('ARCHITECTURE', 'BRUTALIST', Colors.white70)),
+            ],
           ),
         ],
       ),
     );
   }
+
+  Widget _legend(String label, String value, Color color) {
+    return Row(
+      children: [
+        Container(width: 8, height: 8, color: color),
+        const SizedBox(width: 8),
+        Expanded(child: Text(label, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10))),
+        Text(value, style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: kWebWhite)),
+      ],
+    );
+  }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ROLE CARD
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _RoleCard extends StatefulWidget {
-  final String roleText;
-  final String subtitle;
+class _QuickActionCard extends StatefulWidget {
+  final String label;
   final IconData icon;
-  final bool isMobile;
   final VoidCallback onTap;
-  final bool autoFocus;
 
-  const _RoleCard({required this.roleText, required this.subtitle, required this.icon, required this.isMobile, required this.onTap, this.autoFocus = false});
+  const _QuickActionCard({required this.label, required this.icon, required this.onTap});
 
   @override
-  State<_RoleCard> createState() => _RoleCardState();
+  State<_QuickActionCard> createState() => _QuickActionCardState();
 }
 
-class _RoleCardState extends State<_RoleCard> {
-  bool _isFocused = false;
+class _QuickActionCardState extends State<_QuickActionCard> {
   bool _isPressed = false;
-  late FocusNode _focusNode;
-
-  @override
-  void initState() {
-    super.initState();
-    _focusNode = FocusNode(debugLabel: widget.roleText);
-  }
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
+  bool _isFocused = false;
 
   @override
   Widget build(BuildContext context) {
-    final isActive = _isFocused || _isPressed;
-
+    final isActive = _isPressed || _isFocused;
     return Actions(
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
@@ -291,11 +289,9 @@ class _RoleCardState extends State<_RoleCard> {
         ),
       },
       child: Focus(
-        focusNode: _focusNode,
-        autofocus: widget.autoFocus,
-        onFocusChange: (val) {
-          setState(() => _isFocused = val);
-          handleTVFocusScroll(val, context);
+        onFocusChange: (v) {
+          setState(() => _isFocused = v);
+          if (v) handleTVFocusScroll(v, context);
         },
         onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
         child: GestureDetector(
@@ -305,64 +301,122 @@ class _RoleCardState extends State<_RoleCard> {
             widget.onTap();
           },
           onTapCancel: () => setState(() => _isPressed = false),
-          child: AnimatedScale(
-            scale: isActive ? (widget.isMobile ? 0.98 : 1.03) : 1.0,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOutCubic,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              decoration: BoxDecoration(
-                color: isActive ? DS.surface3 : DS.surface1,
-                border: Border.all(color: isActive ? DS.accent : DS.borderDefault, width: isActive ? 3 : 1),
-                boxShadow: isActive ? [const BoxShadow(color: DS.accent, offset: Offset(4, 4))] : [],
-              ),
-              padding: EdgeInsets.all(widget.isMobile ? 24 : 48),
+          child: Container(
+            color: isActive ? kWebWhite.withValues(alpha: 0.1) : kWebSurface2,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(widget.icon, color: isActive ? DS.accent : kWebWhite, size: 24),
+                const SizedBox(height: 8),
+                Text(
+                  widget.label,
+                  style: GoogleFonts.dmMono(color: isActive ? kWebWhite : kWebText, fontSize: 9, letterSpacing: 1),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ArchitectureTile extends StatefulWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final bool isFirst;
+
+  const _ArchitectureTile({required this.title, required this.subtitle, required this.icon, this.isFirst = false});
+
+  @override
+  State<_ArchitectureTile> createState() => _ArchitectureTileState();
+}
+
+class _ArchitectureTileState extends State<_ArchitectureTile> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      onFocusChange: (v) {
+        setState(() => _focused = v);
+        if (v) handleTVFocusScroll(v, context);
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: _focused ? kWebWhite.withValues(alpha: 0.05) : kWebSurface,
+          border: Border(
+            bottom: BorderSide(color: kWebBorder), 
+            top: widget.isFirst ? BorderSide(color: kWebBorder) : BorderSide.none
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: kWebSurface2, border: Border.all(color: _focused ? kWebWhite : kWebBorder)),
+              child: Icon(widget.icon, color: _focused ? kWebWhite : kWebText, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      widget.roleText,
-                      style: GoogleFonts.barlowCondensed(
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -1,
-                        fontSize: widget.isMobile ? 40 : 64,
-                        color: isActive ? DS.textPrimary : null,
-                        foreground: isActive
-                            ? null
-                            : (Paint()
-                                ..style = PaintingStyle.stroke
-                                ..strokeWidth = 1
-                                ..color = DS.accent),
-                      ),
-                    ),
+                  Text(
+                    widget.title.toUpperCase(),
+                    style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
                   ),
-                  SizedBox(height: widget.isMobile ? 12 : 24),
-                  Text(widget.subtitle, style: AppTheme.theme.textTheme.bodyLarge?.copyWith(fontSize: widget.isMobile ? 12 : 15)),
-                  SizedBox(height: widget.isMobile ? 24 : 40),
-                  Row(
-                    children: [
-                      Container(
-                        width: widget.isMobile ? 8 : 12,
-                        height: widget.isMobile ? 8 : 12,
-                        decoration: BoxDecoration(
-                          color: DS.accent,
-                          shape: BoxShape.circle,
-                          boxShadow: isActive ? [BoxShadow(color: DS.accent.withValues(alpha: 0.8), blurRadius: 12, spreadRadius: 6)] : [],
-                        ),
-                      ),
-                      const SizedBox(width: DS.s16),
-                      const Expanded(child: Divider(color: DS.borderDefault)),
-                      const SizedBox(width: DS.s16),
-                      Icon(widget.icon, size: widget.isMobile ? 20 : 24, color: DS.accent),
-                    ],
-                  ),
+                  const SizedBox(height: 3),
+                  Text(widget.subtitle, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 9, letterSpacing: 1)),
                 ],
               ),
             ),
-          ),
+            if (_focused) Icon(LucideIcons.chevronRight, color: kWebWhite, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BlinkingDot extends StatefulWidget {
+  final bool isOnline;
+  const _BlinkingDot({required this.isOnline});
+
+  @override
+  State<_BlinkingDot> createState() => _BlinkingDotState();
+}
+
+class _BlinkingDotState extends State<_BlinkingDot> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.isOnline) return Container(width: 8, height: 8, color: Colors.white24);
+    return FadeTransition(
+      opacity: _ctrl,
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          boxShadow: [BoxShadow(color: Colors.white, blurRadius: 4)],
         ),
       ),
     );

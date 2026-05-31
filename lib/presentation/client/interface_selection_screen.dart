@@ -1,6 +1,6 @@
 // presentation/client/interface_selection_screen.dart
 // ============================================================================
-// STREAMZ — Interface Gateway (Post-Connection)
+// STREAMZ — Interface Gateway (Samsung-Style / Brutalist Edition)
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -16,361 +16,422 @@ import '../player/player_screen.dart';
 import '../../domain/models/media_item.dart';
 import 'client_viewmodel.dart';
 
+// --- Web UI Color Palette & Styles (Synced with Server/Client Dashboard) ---
+const Color kWebBlack = Color(0xFF000000);
+const Color kWebSurface = Color(0xFF0A0A0A);
+const Color kWebSurface2 = Color(0xFF111111);
+const Color kWebWhite = Color(0xFFFFFFFF);
+final Color kWebBorder = Colors.white.withValues(alpha: 0.15);
+final Color kWebTextMuted = Colors.white.withValues(alpha: 0.3);
+final Color kWebText = Colors.white.withValues(alpha: 0.6);
+
 class InterfaceSelectionScreen extends StatelessWidget {
   const InterfaceSelectionScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<ClientViewModel>();
-    final stations = vm.stations;
+    final isMobile = DS.isMobile(context);
 
-    return AppScaffold(
-      appBar: AppBar(
-        backgroundColor: DS.bg,
-        elevation: 0,
-        leading: Actions(
-          actions: {
-            ActivateIntent: CallbackAction<ActivateIntent>(
-              onInvoke: (_) {
-                context.read<ClientViewModel>().disconnect();
-                Navigator.pop(context);
-                return null;
-              },
-            ),
-          },
-          child: Focus(
-            onKeyEvent: (_, ev) => handleTVSelectKey(ev, () {
-              context.read<ClientViewModel>().disconnect();
+    return Scaffold(
+      backgroundColor: kWebBlack,
+      body: SafeArea(
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            _buildSliverAppBar(context, isMobile, vm),
+            _buildBody(context, isMobile, vm),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSliverAppBar(BuildContext context, bool isMobile, ClientViewModel vm) {
+    return SliverAppBar(
+      backgroundColor: kWebSurface,
+      floating: true,
+      elevation: 0,
+      pinned: true,
+      titleSpacing: 0,
+      leading: Actions(
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              vm.disconnect();
               Navigator.pop(context);
-            }),
-            child: IconButton(
-              icon: const Icon(LucideIcons.arrowLeft, size: 24, color: DS.textPrimary),
-              onPressed: () {
-                // Disconnect the WebSocket if the user backs out
-                context.read<ClientViewModel>().disconnect();
-                Navigator.pop(context);
-              },
-            ),
+              return null;
+            },
+          ),
+        },
+        child: Focus(
+          onKeyEvent: (_, ev) => handleTVSelectKey(ev, () {
+            vm.disconnect();
+            Navigator.pop(context);
+          }),
+          child: IconButton(
+            icon: Icon(LucideIcons.arrowLeft, size: 20, color: kWebWhite),
+            onPressed: () {
+              vm.disconnect();
+              Navigator.pop(context);
+            },
           ),
         ),
-        title: Text('SELECT DEVICE MODE', style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 2)),
       ),
-      body: Stack(
-        children: [
-          // Background grid
-          Positioned.fill(
-            child: Opacity(opacity: 0.12, child: const CustomPaint(painter: GridPainter())),
+      title: Text(
+        'GATEWAY MODE',
+        style: GoogleFonts.barlowCondensed(
+          color: kWebWhite, 
+          fontSize: isMobile ? 20 : 24, 
+          fontWeight: FontWeight.w900, 
+          letterSpacing: 4
+        ),
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(color: kWebBorder, height: 1),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, bool isMobile, ClientViewModel vm) {
+    return SliverList(
+      delegate: SliverChildListDelegate([
+        _GatewayAnalysisCard(vm: vm, isMobile: isMobile),
+        
+        Container(
+          decoration: BoxDecoration(
+            border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), 
+            color: kWebBorder
           ),
-
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final width = constraints.maxWidth;
-                final isMobile = width <= DS.bpMobile;
-                final hPad = DS.hPad(width);
-                final vPad = isMobile ? 32.0 : 60.0;
-
-                // Dynamically scale the main title
-                final titleSize = (width * 0.07).clamp(32.0, 56.0);
-
-                return Center(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text('CONNECTION ESTABLISHED', style: AppTheme.theme.textTheme.labelSmall?.copyWith(color: DS.accent, letterSpacing: 4)),
-                        const SizedBox(height: 16),
-                        Text(
-                          'HOW ARE YOU VIEWING?',
-                          style: AppTheme.theme.textTheme.displayMedium?.copyWith(fontSize: titleSize, height: 1.1),
-                          textAlign: TextAlign.center,
-                        ),
-                        // if (stations.isNotEmpty) ...[
-                        //   const SizedBox(height: 32),
-                        //   _JoinLiveBanner(
-                        //     stations: stations,
-                        //     onJoin: (station) async {
-                        //       final res = await vm.joinStation(station['id']);
-                        //       if (res != null && context.mounted) {
-                        //         final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
-                        //         final startIndex = res['itemIndex'] as int? ?? 0;
-                        //         final offsetMs = res['positionMs'] as int;
-                        //         Navigator.push(
-                        //           context,
-                        //           MaterialPageRoute(
-                        //             builder: (_) => PlayerScreen(
-                        //               items: items,
-                        //               startIndex: startIndex,
-                        //               isPathBased: false,
-                        //               startOffset: Duration(milliseconds: offsetMs),
-                        //             ),
-                        //           ),
-                        //         );
-                        //       }
-                        //     },
-                        //   ),
-                        // ],
-                        SizedBox(height: isMobile ? 48 : 80),
-
-                        // Wrapped in FocusTraversalGroup to protect TV D-Pad logic
-                        FocusTraversalGroup(
-                          policy: WidgetOrderTraversalPolicy(),
-                          // Safe breakpoint: only switch to row when there's enough room to breathe
-                          child: width >= 650
-                              ? ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 800), // Prevent ultra-wide stretching
-                                  child: IntrinsicHeight(
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        Expanded(
-                                          child: _DeviceCard(
-                                            title: 'TV USER',
-                                            subtitle: '10-FOOT UI & D-PAD',
-                                            icon: LucideIcons.tv,
-                                            autoFocus: true, // Grabs focus for physical remotes
-                                            isMobileView: false,
-                                            onTap: () => Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => ChangeNotifierProvider.value(value: context.read<ClientViewModel>(), child: const TVSelectionScreen()),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: DS.s24),
-                                        Expanded(
-                                          child: _DeviceCard(
-                                            title: 'MOBILE USER',
-                                            subtitle: 'TOUCH-OPTIMIZED UI',
-                                            icon: LucideIcons.smartphone,
-                                            isMobileView: false,
-                                            onTap: () => Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => ChangeNotifierProvider.value(value: context.read<ClientViewModel>(), child: const MobileSelectionScreen()),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              : ConstrainedBox(
-                                  constraints: const BoxConstraints(maxWidth: 400),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      _DeviceCard(
-                                        title: 'TV USER',
-                                        subtitle: '10-FOOT UI & D-PAD',
-                                        icon: LucideIcons.tv,
-                                        autoFocus: true,
-                                        isMobileView: true,
-                                        onTap: () => Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => ChangeNotifierProvider.value(value: context.read<ClientViewModel>(), child: const TVSelectionScreen()),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: DS.s16),
-                                      _DeviceCard(
-                                        title: 'MOBILE USER',
-                                        subtitle: 'TOUCH-OPTIMIZED UI',
-                                        icon: LucideIcons.smartphone,
-                                        isMobileView: true,
-                                        onTap: () => Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => ChangeNotifierProvider.value(value: context.read<ClientViewModel>(), child: const MobileSelectionScreen()),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                        ),
-                      ],
-                    ),
+          child: GridView.count(
+            crossAxisCount: 3,
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 1,
+            crossAxisSpacing: 1,
+            children: [
+              _QuickActionCard(
+                label: 'TV USER',
+                icon: LucideIcons.tv,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChangeNotifierProvider.value(value: vm, child: const TVSelectionScreen()),
                   ),
-                );
-              },
-            ),
+                ),
+              ),
+              _QuickActionCard(
+                label: 'MOBILE USER',
+                icon: LucideIcons.smartphone,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChangeNotifierProvider.value(value: vm, child: const MobileSelectionScreen()),
+                  ),
+                ),
+              ),
+              _QuickActionCard(
+                label: 'TERMINATE',
+                icon: LucideIcons.power,
+                onTap: () {
+                  vm.disconnect();
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+          child: Text('LIVE SIGNALS', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)),
+        ),
+        
+        if (vm.stations.isEmpty)
+          _EmptySignalsPlaceholder()
+        else
+          ...vm.stations.asMap().entries.map((e) => _StationTile(
+            station: e.value, 
+            isFirst: e.key == 0, 
+            onTap: () => _tuneIn(context, vm, e.value),
+          )),
+          
+        const SizedBox(height: 100),
+      ]),
+    );
+  }
+
+  void _tuneIn(BuildContext context, ClientViewModel vm, Map<String, dynamic> station) async {
+    final res = await vm.joinStation(station['id']);
+    if (res != null && context.mounted) {
+      final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
+      final startIndex = res['itemIndex'] as int? ?? 0;
+      final offsetMs = res['positionMs'] as int;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PlayerScreen(
+            items: items,
+            startIndex: startIndex,
+            isPathBased: false,
+            startOffset: Duration(milliseconds: offsetMs),
+          ),
+        ),
+      );
+    }
+  }
+}
+
+class _GatewayAnalysisCard extends StatelessWidget {
+  final ClientViewModel vm;
+  final bool isMobile;
+  const _GatewayAnalysisCard({required this.vm, required this.isMobile});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      decoration: BoxDecoration(
+        color: kWebSurface,
+        border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('GATEWAY ANALYSIS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              _BlinkingDot(isOnline: vm.isConnected),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 24),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('LINK STATUS', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+                    const SizedBox(height: 4),
+                    Text(vm.isConnected ? 'ESTABLISHED' : 'SEVERED', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('UPSTREAM', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(vm.targetIp.toUpperCase(), style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 20 : 24),
+          Stack(
+            children: [
+              Container(height: 8, color: kWebSurface2),
+              if (vm.isConnected)
+                FractionallySizedBox(
+                  widthFactor: 1.0, // Solid bar for stable connection
+                  child: Container(height: 8, color: kWebWhite),
+                ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          Row(
+            children: [
+              Expanded(child: _legend('STATIONS', '${vm.stations.length} ACTIVE', kWebWhite)),
+              const SizedBox(width: 16),
+              Expanded(child: _legend('LATENCY', 'OPTIMAL', Colors.white70)),
+            ],
           ),
         ],
       ),
     );
   }
+
+  Widget _legend(String label, String value, Color color) {
+    return Row(
+      children: [
+        Container(width: 8, height: 8, color: color),
+        const SizedBox(width: 8),
+        Expanded(child: Text(label, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10))),
+        Text(value, style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: kWebWhite)),
+      ],
+    );
+  }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// JOIN LIVE BANNER
-// ─────────────────────────────────────────────────────────────────────────────
+class _QuickActionCard extends StatefulWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
 
-class _JoinLiveBanner extends StatefulWidget {
-  final List<Map<String, dynamic>> stations;
-  final Function(Map<String, dynamic>) onJoin;
-
-  const _JoinLiveBanner({required this.stations, required this.onJoin});
+  const _QuickActionCard({required this.label, required this.icon, required this.onTap});
 
   @override
-  State<_JoinLiveBanner> createState() => _JoinLiveBannerState();
+  State<_QuickActionCard> createState() => _QuickActionCardState();
 }
 
-class _JoinLiveBannerState extends State<_JoinLiveBanner> {
-  bool _focused = false;
+class _QuickActionCardState extends State<_QuickActionCard> {
+  bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
-    final station = widget.stations.first;
-    final title = station['name'].toString().toUpperCase();
-
-    return Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            widget.onJoin(station);
-            return null;
-          },
-        ),
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        widget.onTap();
       },
-      child: Focus(
-        onFocusChange: (v) => setState(() => _focused = v),
-        onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => widget.onJoin(station)),
-        child: GestureDetector(
-          onTap: () => widget.onJoin(station),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            decoration: BoxDecoration(
-              color: _focused ? DS.accent : DS.surface2,
-              border: Border.all(color: _focused ? DS.accent : DS.borderDefault, width: 2),
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: Container(
+        color: _isPressed ? kWebWhite.withValues(alpha: 0.1) : kWebSurface2,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(widget.icon, color: kWebWhite, size: 24),
+            const SizedBox(height: 8),
+            Text(
+              widget.label,
+              style: GoogleFonts.dmMono(color: kWebText, fontSize: 9, letterSpacing: 1),
+              textAlign: TextAlign.center,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(LucideIcons.radio, color: _focused ? DS.bg : DS.accent, size: 20),
-                const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('LIVE BROADCAST ACTIVE', style: GoogleFonts.dmMono(fontSize: 10, color: _focused ? DS.bg : DS.textMuted, letterSpacing: 2, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 2),
-                    Text('JOIN $title', style: AppTheme.theme.textTheme.labelMedium?.copyWith(color: _focused ? DS.bg : DS.textPrimary, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                const SizedBox(width: 24),
-                Icon(LucideIcons.chevronRight, color: _focused ? DS.bg : DS.textMuted, size: 16),
-              ],
-            ),
-          ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _DeviceCard extends StatefulWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
+class _StationTile extends StatefulWidget {
+  final Map<String, dynamic> station;
+  final bool isFirst;
   final VoidCallback onTap;
-  final bool autoFocus;
-  final bool isMobileView;
 
-  const _DeviceCard({required this.title, required this.subtitle, required this.icon, required this.onTap, this.autoFocus = false, required this.isMobileView});
+  const _StationTile({required this.station, required this.isFirst, required this.onTap});
 
   @override
-  State<_DeviceCard> createState() => _DeviceCardState();
+  State<_StationTile> createState() => _StationTileState();
 }
 
-class _DeviceCardState extends State<_DeviceCard> {
-  bool _isFocused = false;
-  bool _isPressed = false;
-  late FocusNode _focusNode;
+class _StationTileState extends State<_StationTile> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.station['name'].toString().toUpperCase();
+    final nowPlaying = widget.station['nowPlaying'];
+    final itemTitle = nowPlaying != null ? nowPlaying['item']['title'].toString().toUpperCase() : 'AWAITING SIGNAL';
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: Container(
+        decoration: BoxDecoration(
+          color: _pressed ? kWebWhite.withValues(alpha: 0.1) : kWebSurface,
+          border: Border(
+            bottom: BorderSide(color: kWebBorder), 
+            top: widget.isFirst ? BorderSide(color: kWebBorder) : BorderSide.none
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: kWebSurface2, border: Border.all(color: kWebBorder)),
+              child: Icon(LucideIcons.radio, color: kWebText, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+                  ),
+                  const SizedBox(height: 3),
+                  Text('LIVE: $itemTitle', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 9, letterSpacing: 1), maxLines: 1, overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+            Icon(LucideIcons.chevronRight, color: kWebTextMuted, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptySignalsPlaceholder extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(40),
+      decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder))),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(LucideIcons.radioTower, size: 40, color: kWebTextMuted),
+            const SizedBox(height: 12),
+            Text('NO LIVE BROADCASTS', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 4)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BlinkingDot extends StatefulWidget {
+  final bool isOnline;
+  const _BlinkingDot({required this.isOnline});
+
+  @override
+  State<_BlinkingDot> createState() => _BlinkingDotState();
+}
+
+class _BlinkingDotState extends State<_BlinkingDot> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _focusNode = FocusNode(debugLabel: widget.title);
+    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _focusNode.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isActive = _isFocused || _isPressed;
-    final padding = widget.isMobileView ? 32.0 : 48.0;
-    final iconSize = widget.isMobileView ? 48.0 : 64.0;
-
-    return Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            widget.onTap();
-            return null;
-          },
-        ),
-      },
-      child: Focus(
-        focusNode: _focusNode,
-        autofocus: widget.autoFocus,
-        onFocusChange: (val) {
-          setState(() => _isFocused = val);
-          if (val) handleTVFocusScroll(val, context);
-        },
-        onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-        child: GestureDetector(
-          onTapDown: (_) => setState(() => _isPressed = true),
-          onTapUp: (_) {
-            setState(() => _isPressed = false);
-            widget.onTap();
-          },
-          onTapCancel: () => setState(() => _isPressed = false),
-          child: AnimatedScale(
-            scale: isActive ? 1.03 : 1.0,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOutCubic,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              decoration: BoxDecoration(
-                color: isActive ? DS.surface3 : DS.surface1,
-                border: Border.all(color: isActive ? DS.accent : DS.borderDefault, width: isActive ? 3 : 1),
-                boxShadow: isActive ? [const BoxShadow(color: DS.accent, offset: Offset(4, 4))] : [],
-              ),
-              padding: EdgeInsets.symmetric(horizontal: DS.s24, vertical: padding),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(widget.icon, size: iconSize, color: isActive ? DS.accent : DS.textPrimary),
-                  const SizedBox(height: DS.s24),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      widget.title,
-                      style: GoogleFonts.barlowCondensed(fontWeight: FontWeight.w900, letterSpacing: -1, fontSize: 40, color: DS.textPrimary),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.subtitle,
-                    style: AppTheme.theme.textTheme.bodyLarge?.copyWith(fontSize: 12, color: DS.textMuted, letterSpacing: 2),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-          ),
+    if (!widget.isOnline) return Container(width: 8, height: 8, color: Colors.white24);
+    return FadeTransition(
+      opacity: _ctrl,
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          boxShadow: [BoxShadow(color: Colors.white, blurRadius: 4)],
         ),
       ),
     );
