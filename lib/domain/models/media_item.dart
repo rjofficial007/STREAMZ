@@ -3,22 +3,28 @@
 class MediaItem {
   final String id;
   final String title;
+  final String? artist;
+  final String? album;
   final int duration;
   final String type;
   final String folder;
   final int lastPosition;
   final int lastPlayedTimestamp;
   final bool isBroadcast;
+  final Map<String, String> metadata;
 
   const MediaItem({
     required this.id,
     required this.title,
+    this.artist,
+    this.album,
     required this.duration,
     required this.type,
     required this.folder,
     this.lastPosition = 0,
     this.lastPlayedTimestamp = 0,
     this.isBroadcast = false,
+    this.metadata = const {},
   });
 
   bool get isVideo => type == 'video';
@@ -32,41 +38,60 @@ class MediaItem {
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
+        'artist': artist,
+        'album': album,
         'duration': duration,
         'type': type,
         'folder': folder,
         'isBroadcast': isBroadcast,
+        'metadata': metadata,
       };
 
   factory MediaItem.fromJson(Map<String, dynamic> json) => MediaItem(
         id: json['id']?.toString() ?? '',
         title: json['title']?.toString() ?? 'Unknown',
+        artist: json['artist']?.toString(),
+        album: json['album']?.toString(),
         duration: (json['duration'] as num?)?.toInt() ?? 0,
         type: json['type']?.toString() ?? 'video',
         folder: json['folder']?.toString() ?? 'Unknown',
         isBroadcast: json['isBroadcast'] ?? false,
+        metadata: Map<String, String>.from(json['metadata'] ?? {}),
       );
 
   MediaItem copyWith({
+    String? title,
+    String? artist,
+    String? album,
     int? lastPosition,
     int? lastPlayedTimestamp,
     bool? isBroadcast,
+    Map<String, String>? metadata,
   }) =>
       MediaItem(
         id: id,
-        title: title,
+        title: title ?? this.title,
+        artist: artist ?? this.artist,
+        album: album ?? this.album,
         duration: duration,
         type: type,
         folder: folder,
         lastPosition: lastPosition ?? this.lastPosition,
         lastPlayedTimestamp: lastPlayedTimestamp ?? this.lastPlayedTimestamp,
         isBroadcast: isBroadcast ?? this.isBroadcast,
+        metadata: metadata ?? this.metadata,
       );
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || other is MediaItem && id == other.id;
+      identical(this, other) ||
+      other is MediaItem &&
+          id == other.id &&
+          title == other.title &&
+          artist == other.artist &&
+          album == other.album &&
+          type == other.type;
 
   @override
-  int get hashCode => id.hashCode;
+  int get hashCode => Object.hash(id, title, artist, album, type);
 }

@@ -117,6 +117,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
       floating: true,
       elevation: 0,
       pinned: true,
+      centerTitle: true,
       titleSpacing: 0,
       leading: showNav
           ? Actions(
@@ -138,17 +139,20 @@ class _ServerDashboardState extends State<ServerDashboard> {
             )
           : null,
       automaticallyImplyLeading: false,
-      title: Padding(
-        padding: EdgeInsets.only(left: showNav ? 0 : 16.0),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                _title,
-                style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: isMobile ? 20 : 24, fontWeight: FontWeight.w900, letterSpacing: 4),
+      title: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 800),
+        child: Padding(
+          padding: EdgeInsets.only(left: showNav ? 0 : 16.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _title,
+                  style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: isMobile ? 20 : 24, fontWeight: FontWeight.w900, letterSpacing: 4),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       bottom: PreferredSize(
@@ -161,72 +165,84 @@ class _ServerDashboardState extends State<ServerDashboard> {
   List<Widget> _buildBodySlivers(bool isMobile, ServerViewModel state) {
     if (_currentPath == null) {
       return [
-        SliverToBoxAdapter(child: _EngineAnalysisCard(state: state, isMobile: isMobile)),
-        
+        SliverToBoxAdapter(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: _EngineAnalysisCard(state: state, isMobile: isMobile),
+            ),
+          ),
+        ),
+
         // Primary Utility Grid (3 Columns)
         SliverToBoxAdapter(
-          child: Container(
-            decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
-            child: GridView.count(
-              crossAxisCount: 3,
-              shrinkWrap: true,
-              padding: EdgeInsets.zero,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 1,
-              crossAxisSpacing: 1,
-              children: [
-                _QuickActionCard(
-                  label: 'LOGS',
-                  icon: LucideIcons.history,
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const _ConnectionHistoryScreen())),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Container(
+                decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
+                child: GridView.count(
+                  crossAxisCount: 3,
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 1,
+                  crossAxisSpacing: 1,
+                  children: [
+                    _QuickActionCard(
+                      label: 'LOGS',
+                      icon: LucideIcons.history,
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const _ConnectionHistoryScreen())),
+                    ),
+                    _QuickActionCard(
+                      label: 'REMOTE',
+                      icon: LucideIcons.gamepad2,
+                      onTap: () => showModalBottomSheet(
+                        context: context,
+                        backgroundColor: kWebBlack,
+                        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                        isScrollControlled: true,
+                        builder: (_) => const _UniversalRemoteSheet(),
+                      ),
+                    ),
+                    _QuickActionCard(
+                      label: 'QR CODE',
+                      icon: LucideIcons.qrCode,
+                      onTap: () => _showQRSheet(context, state),
+                    ),
+                    _QuickActionCard(
+                      label: 'PREVIEW',
+                      icon: LucideIcons.monitor,
+                      onTap: () => _showPreviewSheet(context, state),
+                    ),
+                    _QuickActionCard(
+                      label: 'WEB UI',
+                      icon: LucideIcons.globe,
+                      onTap: () => launchUrl(Uri.parse('http://${state.serverIp}:8080')),
+                    ),
+                    _QuickActionCard(
+                      label: 'STATIONS',
+                      icon: LucideIcons.radio,
+                      onTap: () => _navigateTo('stations'),
+                    ),
+                    _QuickActionCard(
+                      label: 'THEME',
+                      icon: LucideIcons.layout,
+                      onTap: () => _navigateTo('web_theme'),
+                    ),
+                    _QuickActionCard(
+                      label: 'FILTERS',
+                      icon: LucideIcons.slidersHorizontal,
+                      onTap: () => _navigateTo('filters'),
+                    ),
+                    _QuickActionCard(
+                      label: 'DIRECTORIES',
+                      icon: LucideIcons.folderOpen,
+                      onTap: () => _navigateTo('directories'),
+                    ),
+                  ],
                 ),
-                _QuickActionCard(
-                  label: 'REMOTE',
-                  icon: LucideIcons.gamepad2,
-                  onTap: () => showModalBottomSheet(
-                    context: context,
-                    backgroundColor: kWebBlack,
-                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                    isScrollControlled: true,
-                    builder: (_) => const _UniversalRemoteSheet(),
-                  ),
-                ),
-                _QuickActionCard(
-                  label: 'QR CODE',
-                  icon: LucideIcons.qrCode,
-                  onTap: () => _showQRSheet(context, state),
-                ),
-                _QuickActionCard(
-                  label: 'PREVIEW',
-                  icon: LucideIcons.monitor,
-                  onTap: () => _showPreviewSheet(context, state),
-                ),
-                _QuickActionCard(
-                  label: 'WEB UI',
-                  icon: LucideIcons.globe,
-                  onTap: () => launchUrl(Uri.parse('http://${state.serverIp}:8080')),
-                ),
-                _QuickActionCard(
-                  label: 'STATIONS',
-                  icon: LucideIcons.radio,
-                  onTap: () => _navigateTo('stations'),
-                ),
-                _QuickActionCard(
-                  label: 'THEME',
-                  icon: LucideIcons.layout,
-                  onTap: () => _navigateTo('web_theme'),
-                ),
-                _QuickActionCard(
-                  label: 'FILTERS',
-                  icon: LucideIcons.slidersHorizontal,
-                  onTap: () => _navigateTo('filters'),
-                ),
-                _QuickActionCard(
-                  label: 'DIRECTORIES',
-                  icon: LucideIcons.folderOpen,
-                  onTap: () => _navigateTo('directories'),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -361,26 +377,34 @@ class _ServerDashboardState extends State<ServerDashboard> {
     final sessions = state.activeSessions;
     if (sessions.isEmpty) {
       return SliverToBoxAdapter(
-        child: Container(
-          padding: const EdgeInsets.all(40),
-          decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder))),
-          child: Center(
-            child: Column(
-              children: [
-                Icon(LucideIcons.wifiHigh, size: 40, color: kWebTextMuted),
-                const SizedBox(height: 12),
-                Text('NO SIGNAL DETECTED', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 4)),
-              ],
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Container(
+              padding: const EdgeInsets.all(40),
+              decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder))),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(LucideIcons.wifiHigh, size: 40, color: kWebTextMuted),
+                    const SizedBox(height: 12),
+                    Text('NO SIGNAL DETECTED', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 4)),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
       );
     }
 
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) => _TelemetryTile(session: sessions[index], isMobile: isMobile, isFirst: index == 0),
-        childCount: sessions.length,
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(horizontal: DS.isDesktop(context) ? (MediaQuery.sizeOf(context).width - 800) / 2 : 0),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) => _TelemetryTile(session: sessions[index], isMobile: isMobile, isFirst: index == 0),
+          childCount: sessions.length,
+        ),
       ),
     );
   }
@@ -521,15 +545,22 @@ class _MountButtonState extends State<_MountButton> {
   }
 }
 
-class _EngineAnalysisCard extends StatelessWidget {
+class _EngineAnalysisCard extends StatefulWidget {
   final ServerViewModel state;
   final bool isMobile;
   const _EngineAnalysisCard({required this.state, required this.isMobile});
 
   @override
+  State<_EngineAnalysisCard> createState() => _EngineAnalysisCardState();
+}
+
+class _EngineAnalysisCardState extends State<_EngineAnalysisCard> {
+  bool _btnFocused = false;
+
+  @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: kWebSurface,
         border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)),
@@ -541,10 +572,10 @@ class _EngineAnalysisCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('ENGINE ANALYSIS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
-              _BlinkingDot(isOnline: state.isRunning),
+              _BlinkingDot(isOnline: widget.state.isRunning),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : 24),
+          SizedBox(height: widget.isMobile ? 16 : 24),
           Row(
             children: [
               Expanded(
@@ -555,7 +586,7 @@ class _EngineAnalysisCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: Text(state.serverIp.toUpperCase(), style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                      child: Text(widget.state.serverIp.toUpperCase(), style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -572,42 +603,63 @@ class _EngineAnalysisCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: isMobile ? 20 : 24),
+          SizedBox(height: widget.isMobile ? 20 : 24),
           // Progress bar style metric
           Stack(
             children: [
               Container(height: 8, color: kWebSurface2),
-              if (state.isRunning)
+              if (widget.state.isRunning)
                 FractionallySizedBox(
                   widthFactor: 1.0, // Simulation: fully operational
                   child: Container(height: 8, color: kWebWhite),
                 ),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : 20),
+          SizedBox(height: widget.isMobile ? 16 : 20),
           Row(
             children: [
-              Expanded(child: _legend('NODES', state.connectedClients.toString(), kWebWhite)),
+              Expanded(child: _legend('NODES', widget.state.connectedClients.toString(), kWebWhite)),
               const SizedBox(width: 16),
-              Expanded(child: _legend('SPEED', '${state.currentSpeedMb.toStringAsFixed(1)} MB/S', Colors.white70)),
+              Expanded(child: _legend('SPEED', '${widget.state.currentSpeedMb.toStringAsFixed(1)} MB/S', Colors.white70)),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : 24),
+          SizedBox(height: widget.isMobile ? 16 : 24),
           Container(height: 1, color: kWebBorder),
-          SizedBox(height: isMobile ? 12 : 16),
+          SizedBox(height: widget.isMobile ? 12 : 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Expanded(
-                child: GestureDetector(
-                  onTap: state.isInitializing ? null : () => state.isRunning ? state.stopServer() : state.startServer(),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(border: Border.all(color: kWebWhite)),
-                    child: Center(
-                      child: Text(
-                        state.isInitializing ? 'INITIALIZING...' : (state.isRunning ? 'STOP ENGINE' : 'START ENGINE'),
-                        style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2),
+                child: Actions(
+                  actions: {
+                    ActivateIntent: CallbackAction<ActivateIntent>(
+                      onInvoke: (_) {
+                        if (!widget.state.isInitializing) widget.state.isRunning ? widget.state.stopServer() : widget.state.startServer();
+                        return null;
+                      },
+                    ),
+                  },
+                  child: Focus(
+                    onFocusChange: (v) {
+                      setState(() => _btnFocused = v);
+                      handleTVFocusScroll(v, context);
+                    },
+                    onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.state.isInitializing ? null : () => widget.state.isRunning ? widget.state.stopServer() : widget.state.startServer()),
+                    child: InkWell(
+                      onTap: widget.state.isInitializing ? null : () => widget.state.isRunning ? widget.state.stopServer() : widget.state.startServer(),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _btnFocused ? kWebWhite : Colors.transparent,
+                          border: Border.all(color: _btnFocused ? kWebWhite : kWebWhite),
+                        ),
+                        child: Center(
+                          child: Text(
+                            widget.state.isInitializing ? 'INITIALIZING...' : (widget.state.isRunning ? 'STOP ENGINE' : 'START ENGINE'),
+                            style: GoogleFonts.dmMono(color: _btnFocused ? kWebBlack : kWebWhite, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -644,30 +696,44 @@ class _QuickActionCard extends StatefulWidget {
 }
 
 class _QuickActionCardState extends State<_QuickActionCard> {
-  bool _isPressed = false;
+  bool _isFocused = false;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
-        widget.onTap();
+    return Actions(
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onTap();
+            return null;
+          },
+        ),
       },
-      onTapCancel: () => setState(() => _isPressed = false),
-      child: Container(
-        color: _isPressed ? kWebWhite.withValues(alpha: 0.1) : kWebSurface2,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(widget.icon, color: kWebWhite, size: 24),
-            const SizedBox(height: 8),
-            Text(
-              widget.label,
-              style: GoogleFonts.dmMono(color: kWebText, fontSize: 9, letterSpacing: 1),
-              textAlign: TextAlign.center,
+      child: Focus(
+        onFocusChange: (v) {
+          setState(() => _isFocused = v);
+          handleTVFocusScroll(v, context);
+        },
+        onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
+        child: InkWell(
+          onTap: widget.onTap,
+          onHover: (v) => setState(() => _isFocused = v),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            color: _isFocused ? kWebWhite : kWebSurface2,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(widget.icon, color: _isFocused ? kWebBlack : kWebWhite, size: 24),
+                const SizedBox(height: 8),
+                Text(
+                  widget.label,
+                  style: GoogleFonts.dmMono(color: _isFocused ? kWebBlack : kWebText, fontSize: 9, letterSpacing: 1),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -716,7 +782,7 @@ class _CategoryButtonState extends State<_CategoryButton> {
   }
 }
 
-class _TelemetryTile extends StatelessWidget {
+class _TelemetryTile extends StatefulWidget {
   final StreamSession session;
   final bool isMobile;
   final bool isFirst;
@@ -724,49 +790,66 @@ class _TelemetryTile extends StatelessWidget {
   const _TelemetryTile({required this.session, required this.isMobile, required this.isFirst});
 
   @override
-  Widget build(BuildContext context) {
-    final safeProgress = session.progress.isFinite ? session.progress.clamp(0.0, 1.0) : 0.0;
+  State<_TelemetryTile> createState() => _TelemetryTileState();
+}
 
-    return Container(
-      decoration: BoxDecoration(
-        color: kWebSurface,
-        border: Border(bottom: BorderSide(color: kWebBorder), top: isFirst ? BorderSide(color: kWebBorder) : BorderSide.none),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(color: kWebSurface2, border: Border.all(color: kWebBorder)),
-            child: Icon(session.mediaType == 'video' ? LucideIcons.film : (session.mediaType == 'audio' ? LucideIcons.activity : LucideIcons.download), color: kWebText, size: 20),
+class _TelemetryTileState extends State<_TelemetryTile> {
+  bool _isFocused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final safeProgress = widget.session.progress.isFinite ? widget.session.progress.clamp(0.0, 1.0) : 0.0;
+
+    return Focus(
+      onFocusChange: (v) {
+        setState(() => _isFocused = v);
+        handleTVFocusScroll(v, context);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: _isFocused ? kWebWhite.withValues(alpha: 0.1) : kWebSurface,
+          border: Border(
+            bottom: BorderSide(color: _isFocused ? kWebWhite : kWebBorder),
+            top: widget.isFirst ? BorderSide(color: _isFocused ? kWebWhite : kWebBorder) : BorderSide.none,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  session.title.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
-                ),
-                const SizedBox(height: 3),
-                Text('NODE: ${session.clientId.toUpperCase()}', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 9, letterSpacing: 1)),
-                if (safeProgress > 0) ...[
-                  const SizedBox(height: 6),
-                  Stack(
-                    children: [
-                      Container(height: 1, color: kWebSurface2),
-                      FractionallySizedBox(widthFactor: safeProgress, child: Container(height: 1, color: kWebWhite)),
-                    ],
-                  ),
-                ],
-              ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: kWebSurface2, border: Border.all(color: _isFocused ? kWebWhite : kWebBorder)),
+              child: Icon(widget.session.mediaType == 'video' ? LucideIcons.film : (widget.session.mediaType == 'audio' ? LucideIcons.activity : LucideIcons.download), color: kWebText, size: 20),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.session.title.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
+                  ),
+                  const SizedBox(height: 3),
+                  Text('NODE: ${widget.session.clientId.toUpperCase()}', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 9, letterSpacing: 1)),
+                  if (safeProgress > 0) ...[
+                    const SizedBox(height: 6),
+                    Stack(
+                      children: [
+                        Container(height: 1, color: kWebSurface2),
+                        FractionallySizedBox(widthFactor: safeProgress, child: Container(height: 1, color: kWebWhite)),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -889,61 +972,66 @@ class _UniversalRemoteSheet extends StatelessWidget {
         color: kWebBlack,
         border: Border(top: BorderSide(color: kWebBorder)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _RemoteAnalysisCard(),
-          
-          // Navigation Grid (3 Columns)
-          Container(
-            decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
-            child: GridView.count(
-              crossAxisCount: 3,
-              shrinkWrap: true,
-              padding: EdgeInsets.zero,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 1,
-              crossAxisSpacing: 1,
-              children: [
-                const SizedBox(), // Empty spacer
-                _QuickActionCard(label: 'UP', icon: LucideIcons.chevronUp, onTap: () => _cmd('nav', 'up')),
-                const SizedBox(), // Empty spacer
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _RemoteAnalysisCard(),
+              
+              // Navigation Grid (3 Columns)
+              Container(
+                decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
+                child: GridView.count(
+                  crossAxisCount: 3,
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 1,
+                  crossAxisSpacing: 1,
+                  children: [
+                    const SizedBox(), // Empty spacer
+                    _QuickActionCard(label: 'UP', icon: LucideIcons.chevronUp, onTap: () => _cmd('nav', 'up')),
+                    const SizedBox(), // Empty spacer
 
-                _QuickActionCard(label: 'LEFT', icon: LucideIcons.chevronLeft, onTap: () => _cmd('nav', 'left')),
-                _QuickActionCard(label: 'ENTER', icon: LucideIcons.circle, onTap: () => _cmd('nav', 'enter')),
-                _QuickActionCard(label: 'RIGHT', icon: LucideIcons.chevronRight, onTap: () => _cmd('nav', 'right')),
-                
-                const SizedBox(), // Empty spacer
-                _QuickActionCard(label: 'DOWN', icon: LucideIcons.chevronDown, onTap: () => _cmd('nav', 'down')),
-                const SizedBox(), // Empty spacer
-              ],
-            ),
-          ),
+                    _QuickActionCard(label: 'LEFT', icon: LucideIcons.chevronLeft, onTap: () => _cmd('nav', 'left')),
+                    _QuickActionCard(label: 'ENTER', icon: LucideIcons.circle, onTap: () => _cmd('nav', 'enter')),
+                    _QuickActionCard(label: 'RIGHT', icon: LucideIcons.chevronRight, onTap: () => _cmd('nav', 'right')),
+                    
+                    const SizedBox(), // Empty spacer
+                    _QuickActionCard(label: 'DOWN', icon: LucideIcons.chevronDown, onTap: () => _cmd('nav', 'down')),
+                    const SizedBox(), // Empty spacer
+                  ],
+                ),
+              ),
 
-          // Media Grid (3 Columns)
-          Container(
-            decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
-            child: GridView.count(
-              crossAxisCount: 3,
-              shrinkWrap: true,
-              padding: EdgeInsets.zero,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 1,
-              crossAxisSpacing: 1,
-              children: [
-                _QuickActionCard(label: 'PREV', icon: LucideIcons.skipBack, onTap: () => _cmd('media', 'prev')),
-                _QuickActionCard(label: 'PLAY/PAUSE', icon: LucideIcons.play, onTap: () => _cmd('media', 'toggle_play')),
-                _QuickActionCard(label: 'NEXT', icon: LucideIcons.skipForward, onTap: () => _cmd('media', 'next')),
-                
-                _QuickActionCard(label: '-10S', icon: LucideIcons.rewind, onTap: () => _cmd('media', 'seek', -10)),
-                _QuickActionCard(label: 'BACK', icon: LucideIcons.rotateCcw, onTap: () => _cmd('nav', 'back')),
-                _QuickActionCard(label: '+10S', icon: LucideIcons.fastForward, onTap: () => _cmd('media', 'seek', 10)),
-              ],
-            ),
+              // Media Grid (3 Columns)
+              Container(
+                decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
+                child: GridView.count(
+                  crossAxisCount: 3,
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 1,
+                  crossAxisSpacing: 1,
+                  children: [
+                    _QuickActionCard(label: 'PREV', icon: LucideIcons.skipBack, onTap: () => _cmd('media', 'prev')),
+                    _QuickActionCard(label: 'PLAY/PAUSE', icon: LucideIcons.play, onTap: () => _cmd('media', 'toggle_play')),
+                    _QuickActionCard(label: 'NEXT', icon: LucideIcons.skipForward, onTap: () => _cmd('media', 'next')),
+                    
+                    _QuickActionCard(label: '-10S', icon: LucideIcons.rewind, onTap: () => _cmd('media', 'seek', -10)),
+                    _QuickActionCard(label: 'BACK', icon: LucideIcons.rotateCcw, onTap: () => _cmd('nav', 'back')),
+                    _QuickActionCard(label: '+10S', icon: LucideIcons.fastForward, onTap: () => _cmd('media', 'seek', 10)),
+                  ],
+                ),
+              ),
+              
+              // const SizedBox(height: 48),
+            ],
           ),
-          
-          // const SizedBox(height: 48),
-        ],
+        ),
       ),
     );
   }
@@ -1035,130 +1123,140 @@ class _ConnectionHistoryScreenState extends State<_ConnectionHistoryScreen> {
     final now = DateTime.now();
     final recent = all.where((c) => now.difference(c.time).inDays <= 1).toList();
     final older = all.where((c) => now.difference(c.time).inDays > 1).toList();
+    final isMobile = DS.isMobile(context);
 
     return Scaffold(
       backgroundColor: kWebBlack,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Opacity(opacity: 0.05, child: const CustomPaint(painter: GridPainter())),
-          ),
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (ctx, constraints) {
-                final isMobile = constraints.maxWidth <= DS.bpMobile;
-                final pad = isMobile ? 16.0 : 48.0;
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(pad, 16, pad, 16),
-                      child: Row(
-                        children: [
-                          Actions(
-                            actions: {
-                              ActivateIntent: CallbackAction<ActivateIntent>(
-                                onInvoke: (_) {
-                                  Navigator.pop(context);
-                                  return null;
-                                },
-                              ),
-                            },
-                            child: Focus(
-                              onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
-                              child: IconButton(
-                                icon: Icon(LucideIcons.arrowLeft, size: isMobile ? 18 : 20, color: kWebWhite),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () => Navigator.pop(context),
-                              ),
+      body: SafeArea(
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            _buildAppBar(isMobile),
+            SliverToBoxAdapter(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 800),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildSearchField(),
+                      if (recent.isNotEmpty) ...[
+                        const _TerminalHeader(title: 'RECENT ACTIVITY', icon: LucideIcons.history),
+                        ...recent.map((c) => _HistoryCard(record: c, isMobile: isMobile)),
+                        const SizedBox(height: 24),
+                      ],
+                      if (older.isNotEmpty) ...[
+                        const _TerminalHeader(title: 'ARCHIVED LOGS', icon: LucideIcons.archive),
+                        ...older.map((c) => _HistoryCard(record: c, isMobile: isMobile)),
+                      ],
+                      if (all.isEmpty)
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 80),
+                            child: Column(
+                              children: [
+                                Icon(LucideIcons.history, size: 48, color: kWebTextMuted),
+                                const SizedBox(height: 16),
+                                Text('NO LOGS FOUND', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 12, letterSpacing: 4)),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Text('SYSTEM LOGS // HISTORY', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 4)),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: pad),
-                      child: Text('ACCESS LOGS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: isMobile ? 40 : 56, fontWeight: FontWeight.w900, height: 1.0)),
-                    ),
-                    const SizedBox(height: 24),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: pad),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: kWebSurface,
-                          border: Border.all(color: kWebBorder),
                         ),
-                        child: Row(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Text(
-                                '>',
-                                style: GoogleFonts.dmMono(color: kWebTextMuted, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            Expanded(
-                              child: TextField(
-                                style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 12),
-                                decoration: InputDecoration(
-                                  hintText: 'QUERY IP ADDRESS...',
-                                  hintStyle: TextStyle(color: kWebTextMuted),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                                ),
-                                onChanged: (v) => setState(() => _query = v),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.fromLTRB(pad, 0, pad, 40),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (recent.isNotEmpty) ...[
-                              Text('RECENT ACTIVITY', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)),
-                              const SizedBox(height: 12),
-                              ...recent.map((c) => _HistoryCard(record: c, isMobile: isMobile)),
-                              const SizedBox(height: 32),
-                            ],
-                            if (older.isNotEmpty) ...[
-                              Text('ARCHIVED LOGS', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)),
-                              const SizedBox(height: 12),
-                              ...older.map((c) => _HistoryCard(record: c, isMobile: isMobile)),
-                            ],
-                            if (all.isEmpty)
-                              Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 60),
-                                  child: Column(
-                                    children: [
-                                      Icon(LucideIcons.history, size: 48, color: kWebTextMuted),
-                                      const SizedBox(height: 16),
-                                      Text('NO LOGS FOUND', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 12, letterSpacing: 4)),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
+                      const SizedBox(height: 100),
+                    ],
+                  ),
+                ),
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppBar(bool isMobile) {
+    return SliverAppBar(
+      backgroundColor: kWebSurface,
+      floating: true,
+      elevation: 0,
+      pinned: true,
+      centerTitle: true,
+      titleSpacing: 0,
+      leading: Actions(
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              Navigator.pop(context);
+              return null;
+            },
           ),
-        ],
+        },
+        child: Focus(
+          onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
+          child: IconButton(
+            icon: Icon(LucideIcons.chevronLeft, size: 20, color: kWebWhite),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+      ),
+      automaticallyImplyLeading: false,
+      title: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 800),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'SYSTEM LOGS',
+                style: GoogleFonts.barlowCondensed(
+                  color: kWebWhite,
+                  fontSize: isMobile ? 20 : 24,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(color: kWebBorder, height: 1),
+      ),
+    );
+  }
+
+  Widget _buildSearchField() {
+    return Focus(
+      onFocusChange: (v) => handleTVFocusScroll(v, context),
+      child: Container(
+        decoration: BoxDecoration(
+          color: kWebSurface,
+          border: Border(bottom: BorderSide(color: kWebBorder)),
+        ),
+        child: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                '>',
+                style: GoogleFonts.dmMono(color: kWebTextMuted, fontWeight: FontWeight.bold),
+              ),
+            ),
+            Expanded(
+              child: TextField(
+                style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 12),
+                decoration: InputDecoration(
+                  hintText: 'QUERY IP ADDRESS...',
+                  hintStyle: TextStyle(color: kWebTextMuted),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 20),
+                ),
+                onChanged: (v) => setState(() => _query = v),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1176,135 +1274,169 @@ class _HistoryCard extends StatefulWidget {
 class _HistoryCardState extends State<_HistoryCard> {
   bool _focusConnect = false;
   bool _focusPurge = false;
+  bool _isFocused = false;
 
   @override
   Widget build(BuildContext context) {
     final state = context.read<ServerViewModel>();
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: kWebSurface,
-        border: Border.all(color: kWebBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
-            child: Row(
+    return Focus(
+      onFocusChange: (v) => setState(() => _isFocused = v),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: _isFocused ? kWebWhite.withValues(alpha: 0.05) : kWebSurface,
+          border: Border(bottom: BorderSide(color: kWebBorder)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: EdgeInsets.all(widget.isMobile ? 16 : 20),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: kWebSurface2,
+                      border: Border.all(color: kWebBorder),
+                    ),
+                    child: Icon(LucideIcons.hardDrive, color: kWebText, size: 18),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              widget.record.ip,
+                              style: GoogleFonts.barlowCondensed(
+                                color: kWebWhite,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            if (widget.record.isOnline) const _BlinkingDot(isOnline: true),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${widget.record.network.toUpperCase()} // '
+                          '${widget.record.time.month}/${widget.record.time.day} '
+                          '${widget.record.time.hour.toString().padLeft(2, '0')}:'
+                          '${widget.record.time.minute.toString().padLeft(2, '0')}',
+                          style: GoogleFonts.dmMono(fontSize: 9, color: kWebTextMuted, letterSpacing: 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    '${widget.record.transferGB.toStringAsFixed(1)} GB',
+                    style: GoogleFonts.dmMono(
+                      color: kWebWhite,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(height: 1, color: kWebBorder.withValues(alpha: 0.05)),
+            Row(
               children: [
-                Icon(LucideIcons.hardDrive, color: kWebWhite, size: widget.isMobile ? 20 : 24),
-                const SizedBox(width: 16),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(widget.record.ip, style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 20, fontWeight: FontWeight.bold)),
-                          const SizedBox(width: 12),
-                          if (widget.record.isOnline) const _BlinkingDot(isOnline: true),
-                        ],
+                  flex: 2,
+                  child: Actions(
+                    actions: {
+                      ActivateIntent: CallbackAction<ActivateIntent>(
+                        onInvoke: (_) {
+                          if (widget.record.isOnline) _connect(context);
+                          return null;
+                        },
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${widget.record.network.toUpperCase()} // '
-                            '${widget.record.time.month}/${widget.record.time.day} '
-                            '${widget.record.time.hour.toString().padLeft(2, '0')}:'
-                            '${widget.record.time.minute.toString().padLeft(2, '0')}',
-                        style: GoogleFonts.dmMono(fontSize: 10, color: kWebTextMuted, letterSpacing: 1),
+                    },
+                    child: Focus(
+                      onFocusChange: (v) => setState(() => _focusConnect = v),
+                      onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.record.isOnline ? () => _connect(context) : null),
+                      child: InkWell(
+                        onTap: widget.record.isOnline ? () => _connect(context) : null,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: _focusConnect ? kWebWhite : Colors.transparent,
+                            border: Border(right: BorderSide(color: kWebBorder)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                widget.record.isOnline ? LucideIcons.cloudLightning : LucideIcons.wifiZero,
+                                size: 14,
+                                color: _focusConnect ? kWebBlack : (widget.record.isOnline ? kWebWhite : kWebTextMuted),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                widget.record.isOnline ? 'CONNECT' : 'OFFLINE',
+                                style: GoogleFonts.dmMono(
+                                  color: _focusConnect ? kWebBlack : (widget.record.isOnline ? kWebWhite : kWebTextMuted),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                  letterSpacing: 2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
-                Text(
-                  '${widget.record.transferGB.toStringAsFixed(1)} GB',
-                  style: GoogleFonts.dmMono(color: kWebWhite, fontSize: widget.isMobile ? 18 : 24, fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Actions(
+                    actions: {
+                      ActivateIntent: CallbackAction<ActivateIntent>(
+                        onInvoke: (_) {
+                          state.forgetConnection(widget.record);
+                          return null;
+                        },
+                      ),
+                    },
+                    child: Focus(
+                      onFocusChange: (v) => setState(() => _focusPurge = v),
+                      onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => state.forgetConnection(widget.record)),
+                      child: InkWell(
+                        onTap: () => state.forgetConnection(widget.record),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: _focusPurge ? kWebWhite : Colors.transparent,
+                          ),
+                          child: Center(
+                            child: Text(
+                              'PURGE',
+                              style: GoogleFonts.dmMono(
+                                color: _focusPurge ? kWebBlack : kWebTextMuted,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
-          Container(height: 1, color: kWebBorder),
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: Actions(
-                  actions: {
-                    ActivateIntent: CallbackAction<ActivateIntent>(
-                      onInvoke: (_) {
-                        if (widget.record.isOnline) _connect(context);
-                        return null;
-                      },
-                    ),
-                  },
-                  child: Focus(
-                    onFocusChange: (v) => setState(() => _focusConnect = v),
-                    onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.record.isOnline ? () => _connect(context) : null),
-                    child: InkWell(
-                      onTap: widget.record.isOnline ? () => _connect(context) : null,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        decoration: BoxDecoration(
-                          color: _focusConnect ? kWebWhite : (widget.record.isOnline ? kWebSurface2 : Colors.transparent),
-                          border: Border(
-                            right: BorderSide(color: kWebBorder),
-                            bottom: BorderSide(color: _focusConnect ? kWebWhite : Colors.transparent, width: 2),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(widget.record.isOnline ? LucideIcons.cloudLightning : LucideIcons.wifiZero, size: 16, color: _focusConnect ? kWebBlack : (widget.record.isOnline ? kWebWhite : kWebTextMuted)),
-                            const SizedBox(width: 12),
-                            Text(
-                              widget.record.isOnline ? 'CONNECT NODE' : 'NODE OFFLINE',
-                              style: GoogleFonts.dmMono(color: _focusConnect ? kWebBlack : (widget.record.isOnline ? kWebWhite : kWebTextMuted), fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 2),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Actions(
-                  actions: {
-                    ActivateIntent: CallbackAction<ActivateIntent>(
-                      onInvoke: (_) {
-                        state.forgetConnection(widget.record);
-                        return null;
-                      },
-                    ),
-                  },
-                  child: Focus(
-                    onFocusChange: (v) => setState(() => _focusPurge = v),
-                    onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => state.forgetConnection(widget.record)),
-                    child: InkWell(
-                      onTap: () => state.forgetConnection(widget.record),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        decoration: BoxDecoration(
-                          color: _focusPurge ? kWebWhite : Colors.transparent,
-                          border: Border(bottom: BorderSide(color: _focusPurge ? kWebWhite : Colors.transparent, width: 2)),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'PURGE',
-                            style: GoogleFonts.dmMono(color: _focusPurge ? kWebBlack : kWebTextMuted, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 2),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1831,11 +1963,18 @@ class _DirRowState extends State<_DirRow> {
 // STATIONS TAB
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _StationsTab extends StatelessWidget {
+class _StationsTab extends StatefulWidget {
   final ServerViewModel state;
   final double pad;
   final bool isMobile;
   const _StationsTab({required this.state, required this.pad, required this.isMobile});
+
+  @override
+  State<_StationsTab> createState() => _StationsTabState();
+}
+
+class _StationsTabState extends State<_StationsTab> {
+  bool _addFocused = false;
 
   @override
   Widget build(BuildContext context) {
@@ -1868,12 +2007,33 @@ class _StationsTab extends StatelessWidget {
                             ],
                           ),
                         ),
-                        InkWell(
-                          onTap: () => _showCreateStationDialog(context),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                            decoration: BoxDecoration(border: Border.all(color: kWebWhite)),
-                            child: Text('+', style: GoogleFonts.dmMono(color: kWebWhite, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 2)),
+                        Actions(
+                          actions: {
+                            ActivateIntent: CallbackAction<ActivateIntent>(
+                              onInvoke: (_) {
+                                _showCreateStationDialog(context);
+                                return null;
+                              },
+                            ),
+                          },
+                          child: Focus(
+                            onFocusChange: (v) {
+                              setState(() => _addFocused = v);
+                              handleTVFocusScroll(v, context);
+                            },
+                            onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => _showCreateStationDialog(context)),
+                            child: InkWell(
+                              onTap: () => _showCreateStationDialog(context),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: _addFocused ? kWebWhite : Colors.transparent,
+                                  border: Border.all(color: _addFocused ? kWebWhite : kWebWhite),
+                                ),
+                                child: Text('+', style: GoogleFonts.dmMono(color: _addFocused ? kWebBlack : kWebWhite, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 2)),
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -1883,7 +2043,7 @@ class _StationsTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            if (state.stations.isEmpty)
+            if (widget.state.stations.isEmpty)
               Center(
                 child: Padding(
                   padding: const EdgeInsets.all(40),
@@ -1891,7 +2051,7 @@ class _StationsTab extends StatelessWidget {
                 ),
               )
             else
-              ...state.stations.map((s) => _StationCard(station: s, state: state, isMobile: isMobile)),
+              ...widget.state.stations.map((s) => _StationCard(station: s, state: widget.state, isMobile: widget.isMobile)),
           ],
         ),
       ),
@@ -1900,7 +2060,7 @@ class _StationsTab extends StatelessWidget {
 
   void _showCreateStationDialog(BuildContext context) {
     final nameCtrl = TextEditingController();
-    final items = state.getLocalMediaItems(shareImages: false);
+    final items = widget.state.getLocalMediaItems(shareImages: false);
     final selectedItems = <MediaItem>[];
     final width = MediaQuery.sizeOf(context).width;
     final isMobile = width < DS.bpMobile;
@@ -1964,7 +2124,7 @@ class _StationsTab extends StatelessWidget {
               onPressed: (nameCtrl.text.isEmpty || selectedItems.isEmpty)
                   ? null
                   : () {
-                state.createStation(nameCtrl.text, selectedItems);
+                widget.state.createStation(nameCtrl.text, selectedItems);
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -2032,17 +2192,18 @@ class _StationCard extends StatelessWidget {
                   ),
                 ),
                 if (station.isActive)
-                  IconButton(
-                    icon: Icon(station.isPaused ? LucideIcons.play : LucideIcons.pause, color: kWebWhite, size: 20),
-                    onPressed: () => state.toggleStationPlayback(station.id),
+                  _BrutalistIconButton(
+                    icon: station.isPaused ? LucideIcons.play : LucideIcons.pause,
+                    onTap: () => state.toggleStationPlayback(station.id),
                   ),
-                IconButton(
-                  icon: Icon(station.isActive ? LucideIcons.square : LucideIcons.playCircle, color: kWebWhite, size: 20),
-                  onPressed: () => state.toggleStationActive(station.id),
+                _BrutalistIconButton(
+                  icon: station.isActive ? LucideIcons.square : LucideIcons.playCircle,
+                  onTap: () => state.toggleStationActive(station.id),
                 ),
-                IconButton(
-                  icon: const Icon(LucideIcons.trash2, color: Colors.redAccent, size: 20),
-                  onPressed: () => state.removeStation(station.id),
+                _BrutalistIconButton(
+                  icon: LucideIcons.trash2,
+                  color: Colors.redAccent,
+                  onTap: () => state.removeStation(station.id),
                 ),
               ],
             ),
@@ -2050,6 +2211,55 @@ class _StationCard extends StatelessWidget {
           Container(height: 1, color: kWebBorder),
           _StationLiveStatus(station: station),
         ],
+      ),
+    );
+  }
+}
+
+class _BrutalistIconButton extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final Color? color;
+
+  const _BrutalistIconButton({required this.icon, required this.onTap, this.color});
+
+  @override
+  State<_BrutalistIconButton> createState() => _BrutalistIconButtonState();
+}
+
+class _BrutalistIconButtonState extends State<_BrutalistIconButton> {
+  bool _isFocused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Actions(
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onTap();
+            return null;
+          },
+        ),
+      },
+      child: Focus(
+        onFocusChange: (v) {
+          setState(() => _isFocused = v);
+          handleTVFocusScroll(v, context);
+        },
+        onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
+        child: InkWell(
+          onTap: widget.onTap,
+          onHover: (v) => setState(() => _isFocused = v),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _isFocused ? kWebWhite : Colors.transparent,
+              border: Border.all(color: _isFocused ? kWebWhite : Colors.transparent),
+            ),
+            child: Icon(widget.icon, color: _isFocused ? kWebBlack : (widget.color ?? kWebWhite), size: 20),
+          ),
+        ),
       ),
     );
   }

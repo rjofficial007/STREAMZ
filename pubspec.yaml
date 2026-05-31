@@ -51,7 +51,9 @@ dependencies:
   # DI
   get_it: ^9.2.1
 
-  # Utilities — REQUIRED, were missing from original pubspec
+  # Utilities
+  logger: ^2.5.0
+  intl: ^0.20.2
   crypto: ^3.0.7          # Used by ThumbnailCache for MD5 cache key hashing
   path_provider: ^2.1.5   # Used by ThumbnailCache for app cache directory
   convert: ^3.1.2         # Used by MediaScanner for hex encoding

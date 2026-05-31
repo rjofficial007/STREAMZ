@@ -2,6 +2,7 @@
 // Handles scanning PhotoManager (Android/iOS/macOS), OnAudioQuery (Android),
 // and raw Directory scanning (Windows/Linux/macOS).
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:convert/convert.dart';
@@ -10,6 +11,7 @@ import 'package:on_audio_query/on_audio_query.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../../core/utils/file_type_utils.dart';
+import '../../core/utils/logger.dart';
 import '../../domain/models/media_item.dart';
 
 class MediaScanner {
@@ -26,8 +28,12 @@ class MediaScanner {
     if (kIsWeb) return;
     if (defaultTargetPlatform != TargetPlatform.android && defaultTargetPlatform != TargetPlatform.iOS && defaultTargetPlatform != TargetPlatform.macOS) return;
 
+    logger.i('Scanning PhotoManager assets...');
     final ps = await PhotoManager.requestPermissionExtend();
-    if (!ps.isAuth) return;
+    if (!ps.isAuth) {
+      logger.w('PhotoManager permission denied.');
+      return;
+    }
 
     localAssets.clear();
     assetFolders.clear();
@@ -52,68 +58,80 @@ class MediaScanner {
         }
       }
     }
+    logger.i('PhotoManager scan complete: ${localAssets.length} assets found.');
   }
 
   Future<void> scanAudio() async {
     if (kIsWeb) return;
     if (defaultTargetPlatform != TargetPlatform.android && defaultTargetPlatform != TargetPlatform.iOS) return;
+    logger.i('Scanning audio library...');
     try {
       if (await _audioQuery.checkAndRequest(retryRequest: true)) {
         localSongs = await _audioQuery.querySongs(sortType: SongSortType.TITLE, uriType: UriType.EXTERNAL, ignoreCase: true);
+        logger.i('Audio scan complete: ${localSongs.length} songs found.');
       }
     } catch (e) {
-      debugPrint('Audio scan error: $e');
+      logger.e('Audio scan error', error: e);
     }
   }
 
-  /// Refactored to use async stream-based scanning to prevent UI thread blockage.
+  /// Refactored to use background isolate scanning for heavy filesystem operations.
   Future<void> scanDirectory(
     String rootPath, {
     required bool includeVideos,
     required bool includeAudio,
     required bool includeImages,
-    required void Function(List<MapEntry<String, File>> batch) onBatch,
+    required void Function(List<MapEntry<String, String>> batch) onBatch,
   }) async {
     if (kIsWeb) return;
 
-    final dir = Directory(rootPath);
-    if (!await dir.exists()) return;
+    logger.i('Starting background scan for: $rootPath');
+    
+    // We pass the paths to the isolate, then rebuild Files on the main thread
+    // because File objects don't survive isolate transfer well if they are complex.
+    final result = await compute(_scanDirectoryIsolate, {
+      'rootPath': rootPath,
+      'includeVideos': includeVideos,
+      'includeAudio': includeAudio,
+      'includeImages': includeImages,
+    });
 
-    final batch = <MapEntry<String, File>>[];
-    int processedCount = 0;
+    if (result.isNotEmpty) {
+      final batch = <MapEntry<String, String>>[];
+      for (final path in result) {
+        final id = _pathToId(path);
+        winFiles[id] = File(path);
+        batch.add(MapEntry(id, path));
+      }
+      onBatch(batch);
+      logger.i('Directory scan complete for $rootPath: ${result.length} files found.');
+    }
+  }
+
+  static List<String> _scanDirectoryIsolate(Map<String, dynamic> args) {
+    final rootPath = args['rootPath'] as String;
+    final includeVideos = args['includeVideos'] as bool;
+    final includeAudio = args['includeAudio'] as bool;
+    final includeImages = args['includeImages'] as bool;
+
+    final foundPaths = <String>[];
+    final dir = Directory(rootPath);
+    if (!dir.existsSync()) return [];
 
     try {
-      await for (final entity in dir.list(recursive: true, followLinks: false).handleError((_) {})) {
+      final entities = dir.listSync(recursive: true, followLinks: false);
+      for (final entity in entities) {
         if (entity is File) {
           final type = FileTypeUtils.fromFilename(entity.path);
           final isTarget = (type == MediaFileType.video && includeVideos) || (type == MediaFileType.audio && includeAudio) || (type == MediaFileType.image && includeImages);
 
           if (isTarget) {
-            final id = _pathToId(entity.path);
-            winFiles[id] = entity;
-            batch.add(MapEntry(id, entity));
+            foundPaths.add(entity.path);
           }
         }
-
-        processedCount++;
-        // Batch and yield to keep UI responsive and prevent notification flooding.
-        if (batch.length >= 50) {
-          onBatch(List.from(batch));
-          batch.clear();
-          await Future.delayed(Duration.zero);
-        } else if (processedCount % 200 == 0) {
-          // Even if no targets found, yield occasionally to unblock event loop.
-          await Future.delayed(Duration.zero);
-        }
       }
-
-      // Flush remaining.
-      if (batch.isNotEmpty) {
-        onBatch(batch);
-      }
-    } catch (e) {
-      debugPrint('[MediaScanner] Directory scan error: $e');
-    }
+    } catch (_) {}
+    return foundPaths;
   }
 
   // ── MediaItem conversion ──────────────────────────────────────────────────

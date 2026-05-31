@@ -1,0 +1,44 @@
+import 'package:flutter/foundation.dart';
+import '../models/media_item.dart';
+import '../../data/repositories/media_repository.dart';
+
+class MediaService extends ChangeNotifier {
+  final MediaRepository _repo;
+
+  List<MediaItem> _allMedia = [];
+  List<MediaItem> _filteredMedia = [];
+  String _searchQuery = '';
+
+  MediaService({required MediaRepository repo}) : _repo = repo;
+
+  List<MediaItem> get allMedia => _allMedia;
+  List<MediaItem> get filteredMedia => _filteredMedia;
+
+  void loadMedia({bool shareVideos = true, bool shareMusic = true, bool shareImages = true}) {
+    _allMedia = _repo.getLocalMediaItems(
+      shareVideos: shareVideos,
+      shareMusic: shareMusic,
+      shareImages: shareImages,
+    );
+    _applyFilter();
+  }
+
+  void setSearchQuery(String query) {
+    _searchQuery = query.toLowerCase();
+    _applyFilter();
+  }
+
+  void _applyFilter() {
+    if (_searchQuery.isEmpty) {
+      _filteredMedia = List.from(_allMedia);
+    } else {
+      _filteredMedia = _allMedia.where((item) {
+        return item.title.toLowerCase().contains(_searchQuery) ||
+               (item.artist?.toLowerCase().contains(_searchQuery) ?? false) ||
+               (item.album?.toLowerCase().contains(_searchQuery) ?? false) ||
+               item.folder.toLowerCase().contains(_searchQuery);
+      }).toList();
+    }
+    notifyListeners();
+  }
+}

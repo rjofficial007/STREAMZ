@@ -16,6 +16,9 @@ import '../../data/network/udp_discovery.dart';
 import '../../data/repositories/media_repository.dart';
 import '../../data/repositories/server_repository.dart';
 import '../../domain/services/download_service.dart';
+import '../../domain/services/lifecycle_service.dart';
+import '../../domain/services/media_service.dart';
+import '../../domain/services/network_service.dart';
 import '../../domain/services/remote_command_service.dart';
 import '../../domain/services/station_service.dart';
 import '../../domain/services/video_thumbnail_service.dart';
@@ -43,6 +46,9 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton<VideoThumbnailService>(() => VideoThumbnailService());
 
   // ── Network services ──────────────────────────────────────────────────────
+  sl.registerLazySingleton<NetworkService>(() => NetworkService());
+  sl.registerLazySingleton<LifecycleService>(() => LifecycleService());
+
   sl.registerLazySingleton<HttpServerService>(() => HttpServerService(
     scanner: sl<MediaScanner>(),
     thumbCache: sl<ThumbnailCache>(),
@@ -61,4 +67,7 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton<DownloadService>(() => DownloadService());
   sl.registerLazySingleton<RemoteCommandService>(() => RemoteCommandService());
   sl.registerLazySingleton<StationService>(() => StationService());
+  sl.registerLazySingleton<MediaService>(() => MediaService(repo: sl<MediaRepository>()));
 }
+
+

@@ -98,15 +98,28 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       floating: true,
       elevation: 0,
       pinned: true,
-      titleSpacing: 16,
+      centerTitle: true,
+      titleSpacing: 0,
       automaticallyImplyLeading: false,
-      title: Text(
-        'STREAMZ NOC',
-        style: GoogleFonts.barlowCondensed(
-          color: kWebWhite, 
-          fontSize: isMobile ? 20 : 24, 
-          fontWeight: FontWeight.w900, 
-          letterSpacing: 4
+      title: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1200),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'STREAMZ NOC',
+                  style: GoogleFonts.barlowCondensed(
+                    color: kWebWhite,
+                    fontSize: isMobile ? 20 : 24,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 4,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
       bottom: PreferredSize(
@@ -117,62 +130,109 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   }
 
   Widget _buildBody(bool isMobile) {
-    return SliverList(
-      delegate: SliverChildListDelegate([
-        _SystemStatusCard(isMobile: isMobile),
-        
-        Container(
-          decoration: BoxDecoration(
-            border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), 
-            color: kWebBorder
+    if (isMobile) {
+      return SliverList(
+        delegate: SliverChildListDelegate([
+          _SystemStatusCard(isMobile: isMobile),
+          Container(
+            decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
+            child: GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 1,
+              crossAxisSpacing: 1,
+              children: [
+                _QuickActionCard(
+                  label: 'HOST SERVER',
+                  subLabel: 'BROADCAST ENGINE',
+                  code: '01',
+                  icon: LucideIcons.hardDrive,
+                  onTap: _handleServerTap,
+                ),
+                _QuickActionCard(
+                  label: 'JOIN NODE',
+                  subLabel: 'SYNCHRONIZE',
+                  code: '02',
+                  icon: LucideIcons.wifiHigh,
+                  onTap: _handleClientTap,
+                ),
+              ],
+            ),
           ),
-          child: GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 1,
-            crossAxisSpacing: 1,
-            children: [
-              _QuickActionCard(
-                label: 'HOST SERVER',
-                icon: LucideIcons.hardDrive,
-                onTap: _handleServerTap,
-              ),
-              _QuickActionCard(
-                label: 'JOIN NODE',
-                icon: LucideIcons.wifiHigh,
-                onTap: _handleClientTap,
-              ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+            child: Text('CORE ARCHITECTURE', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)),
+          ),
+          _ArchitectureTile(title: 'BROADCAST ENGINE', subtitle: 'UDP DISCOVERY // HTTP DATA STREAM', icon: LucideIcons.zap, isFirst: true),
+          _ArchitectureTile(title: 'DISTRIBUTED NODES', subtitle: 'MULTI-CLIENT SYNCHRONIZATION', icon: LucideIcons.share2),
+          _ArchitectureTile(title: 'LOCAL PERSISTENCE', subtitle: 'SECURE CREDENTIAL STORAGE', icon: LucideIcons.lock),
+          const SizedBox(height: 100),
+        ]),
+      );
+    }
 
-            ],
+    // Desktop / TV Layout (2-Column)
+    return SliverToBoxAdapter(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Container(
+            decoration: BoxDecoration(border: Border(left: BorderSide(color: kWebBorder), right: BorderSide(color: kWebBorder))),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _SystemStatusCard(isMobile: false),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                          child: Text('CORE ARCHITECTURE', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)),
+                        ),
+                        _ArchitectureTile(title: 'BROADCAST ENGINE', subtitle: 'UDP DISCOVERY // HTTP DATA STREAM', icon: LucideIcons.zap, isFirst: true),
+                        _ArchitectureTile(title: 'DISTRIBUTED NODES', subtitle: 'MULTI-CLIENT SYNCHRONIZATION', icon: LucideIcons.share2),
+                        _ArchitectureTile(title: 'LOCAL PERSISTENCE', subtitle: 'SECURE CREDENTIAL STORAGE', icon: LucideIcons.lock),
+                      ],
+                    ),
+                  ),
+                  Container(width: 1, color: kWebBorder),
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: _QuickActionCard(
+                            label: 'HOST SERVER',
+                            subLabel: 'BROADCAST ENGINE',
+                            code: '01',
+                            icon: LucideIcons.hardDrive,
+                            onTap: _handleServerTap,
+                          ),
+                        ),
+                        Container(height: 1, color: kWebBorder),
+                        Expanded(
+                          child: _QuickActionCard(
+                            label: 'JOIN NODE',
+                            subLabel: 'SYNCHRONIZE',
+                            code: '02',
+                            icon: LucideIcons.wifiHigh,
+                            onTap: _handleClientTap,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-          child: Text('CORE ARCHITECTURE', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)),
-        ),
-        
-        _ArchitectureTile(
-          title: 'BROADCAST ENGINE',
-          subtitle: 'UDP DISCOVERY // HTTP DATA STREAM',
-          icon: LucideIcons.zap,
-          isFirst: true,
-        ),
-        _ArchitectureTile(
-          title: 'DISTRIBUTED NODES',
-          subtitle: 'MULTI-CLIENT SYNCHRONIZATION',
-          icon: LucideIcons.share2,
-        ),
-        _ArchitectureTile(
-          title: 'LOCAL PERSISTENCE',
-          subtitle: 'SECURE CREDENTIAL STORAGE',
-          icon: LucideIcons.lock,
-        ),
-          
-        const SizedBox(height: 100),
-      ]),
+      ),
     );
   }
 }
@@ -184,7 +244,7 @@ class _SystemStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final platform = defaultTargetPlatform.toString().split('.').last.toUpperCase();
-    
+
     return Container(
       padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
@@ -231,7 +291,7 @@ class _SystemStatusCard extends StatelessWidget {
             children: [
               Container(height: 8, color: kWebSurface2),
               FractionallySizedBox(
-                widthFactor: 1.0, 
+                widthFactor: 1.0,
                 child: Container(height: 8, color: kWebWhite),
               ),
             ],
@@ -263,10 +323,18 @@ class _SystemStatusCard extends StatelessWidget {
 
 class _QuickActionCard extends StatefulWidget {
   final String label;
+  final String subLabel;
+  final String code;
   final IconData icon;
   final VoidCallback onTap;
 
-  const _QuickActionCard({required this.label, required this.icon, required this.onTap});
+  const _QuickActionCard({
+    required this.label,
+    required this.subLabel,
+    required this.code,
+    required this.icon,
+    required this.onTap,
+  });
 
   @override
   State<_QuickActionCard> createState() => _QuickActionCardState();
@@ -279,6 +347,8 @@ class _QuickActionCardState extends State<_QuickActionCard> {
   @override
   Widget build(BuildContext context) {
     final isActive = _isPressed || _isFocused;
+    final bgColor = isActive ? DS.surface4 : kWebSurface2;
+
     return Actions(
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
@@ -294,27 +364,112 @@ class _QuickActionCardState extends State<_QuickActionCard> {
           if (v) handleTVFocusScroll(v, context);
         },
         onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-        child: GestureDetector(
+        child: InkWell(
+          onTap: widget.onTap,
           onTapDown: (_) => setState(() => _isPressed = true),
-          onTapUp: (_) {
-            setState(() => _isPressed = false);
-            widget.onTap();
-          },
           onTapCancel: () => setState(() => _isPressed = false),
-          child: Container(
-            color: isActive ? kWebWhite.withValues(alpha: 0.1) : kWebSurface2,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+          onHighlightChanged: (v) => setState(() => _isPressed = v),
+          onHover: (v) => setState(() => _isFocused = v),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            color: bgColor,
+            child: Stack(
               children: [
-                Icon(widget.icon, color: isActive ? DS.accent : kWebWhite, size: 24),
-                const SizedBox(height: 8),
-                Text(
-                  widget.label,
-                  style: GoogleFonts.dmMono(color: isActive ? kWebWhite : kWebText, fontSize: 9, letterSpacing: 1),
-                  textAlign: TextAlign.center,
+                // Faint Technical Grid Background
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: GridPainter(
+                      spacing: 20,
+                      color: isActive ? kWebWhite.withValues(alpha: 0.05) : kWebWhite.withValues(alpha: 0.02),
+                    ),
+                  ),
                 ),
+
+                // Corner Brackets (Brutalist/NOC Aesthetic)
+                _buildCorner(Alignment.topLeft, isActive),
+                _buildCorner(Alignment.topRight, isActive),
+                _buildCorner(Alignment.bottomLeft, isActive),
+                _buildCorner(Alignment.bottomRight, isActive),
+
+                // Content
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Status Code / Index
+                      Text(
+                        'SYS_TYPE // ${widget.code}',
+                        style: GoogleFonts.dmMono(
+                          color: isActive ? kWebWhite : kWebTextMuted,
+                          fontSize: 8,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      AnimatedScale(
+                        duration: const Duration(milliseconds: 200),
+                        scale: isActive ? 1.2 : 1.0,
+                        child: Icon(
+                          widget.icon,
+                          color: isActive ? kWebWhite : kWebText,
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.label,
+                        style: GoogleFonts.barlowCondensed(
+                          color: kWebWhite,
+                          fontSize: 18,
+                          letterSpacing: 2,
+                          fontWeight: FontWeight.w900,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.subLabel,
+                        style: GoogleFonts.dmMono(
+                          color: isActive ? kWebWhite : kWebTextMuted,
+                          fontSize: 9,
+                          letterSpacing: 1,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Focus/Active Indicator (Brutalist Border)
+                if (isActive)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: kWebWhite, width: 2),
+                      ),
+                    ),
+                  ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCorner(Alignment alignment, bool isActive) {
+    return Align(
+      alignment: alignment,
+      child: Container(
+        width: 12,
+        height: 12,
+        margin: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          border: Border(
+            top: alignment == Alignment.topLeft || alignment == Alignment.topRight ? BorderSide(color: isActive ? kWebWhite : kWebBorder, width: 1.5) : BorderSide.none,
+            bottom: alignment == Alignment.bottomLeft || alignment == Alignment.bottomRight ? BorderSide(color: isActive ? kWebWhite : kWebBorder, width: 1.5) : BorderSide.none,
+            left: alignment == Alignment.topLeft || alignment == Alignment.bottomLeft ? BorderSide(color: isActive ? kWebWhite : kWebBorder, width: 1.5) : BorderSide.none,
+            right: alignment == Alignment.topRight || alignment == Alignment.bottomRight ? BorderSide(color: isActive ? kWebWhite : kWebBorder, width: 1.5) : BorderSide.none,
           ),
         ),
       ),
@@ -348,7 +503,7 @@ class _ArchitectureTileState extends State<_ArchitectureTile> {
         decoration: BoxDecoration(
           color: _focused ? kWebWhite.withValues(alpha: 0.05) : kWebSurface,
           border: Border(
-            bottom: BorderSide(color: kWebBorder), 
+            bottom: BorderSide(color: kWebBorder),
             top: widget.isFirst ? BorderSide(color: kWebBorder) : BorderSide.none
           ),
         ),
