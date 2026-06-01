@@ -36,7 +36,6 @@ class MobileSelectionScreen extends StatelessWidget {
     }
 
     final vm = context.watch<ClientViewModel>();
-    final isMobile = DS.isMobile(context);
 
     return Scaffold(
       backgroundColor: kWebBlack,
@@ -44,15 +43,15 @@ class MobileSelectionScreen extends StatelessWidget {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            _buildSliverAppBar(context, isMobile, vm),
-            _buildBody(context, isMobile, vm),
+            _buildSliverAppBar(context, vm),
+            _buildBody(context, vm),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSliverAppBar(BuildContext context, bool isMobile, ClientViewModel vm) {
+  Widget _buildSliverAppBar(BuildContext context, ClientViewModel vm) {
     return SliverAppBar(
       backgroundColor: kWebSurface,
       floating: true,
@@ -80,7 +79,7 @@ class MobileSelectionScreen extends StatelessWidget {
         'MOBILE INTERFACE',
         style: GoogleFonts.barlowCondensed(
           color: kWebWhite, 
-          fontSize: isMobile ? 20 : 24, 
+          fontSize: 20, 
           fontWeight: FontWeight.w900, 
           letterSpacing: 4
         ),
@@ -92,10 +91,10 @@ class MobileSelectionScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBody(BuildContext context, bool isMobile, ClientViewModel vm) {
+  Widget _buildBody(BuildContext context, ClientViewModel vm) {
     return SliverList(
       delegate: SliverChildListDelegate([
-        _SessionAnalysisCard(vm: vm, isMobile: isMobile, mode: 'MOBILE MODE'),
+        _SessionAnalysisCard(vm: vm, mode: 'MOBILE MODE'),
         
         Container(
           decoration: BoxDecoration(
@@ -184,14 +183,13 @@ class MobileSelectionScreen extends StatelessWidget {
 
 class _SessionAnalysisCard extends StatelessWidget {
   final ClientViewModel vm;
-  final bool isMobile;
   final String mode;
-  const _SessionAnalysisCard({required this.vm, required this.isMobile, required this.mode});
+  const _SessionAnalysisCard({required this.vm, required this.mode});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: kWebSurface,
         border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)),
@@ -206,7 +204,7 @@ class _SessionAnalysisCard extends StatelessWidget {
               _BlinkingDot(isOnline: vm.isConnected),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : 24),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -234,7 +232,7 @@ class _SessionAnalysisCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: isMobile ? 20 : 24),
+          const SizedBox(height: 20),
           Stack(
             children: [
               Container(height: 8, color: kWebSurface2),
@@ -245,7 +243,7 @@ class _SessionAnalysisCard extends StatelessWidget {
                 ),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : 20),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(child: _legend('ASSETS', '${vm.remoteMedia.length} INDEXED', kWebWhite)),
@@ -311,7 +309,7 @@ class _QuickActionCardState extends State<_QuickActionCard> {
           },
           onTapCancel: () => setState(() => _isPressed = false),
           child: Container(
-            color: isActive ? kWebWhite.withValues(alpha: 0.1) : kWebSurface2,
+            color: isActive ? kWebWhite.withValues(alpha: 0.1) : kWebBlack,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

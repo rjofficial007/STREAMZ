@@ -474,7 +474,7 @@ class _QuickActionCardState extends State<_QuickActionCard> {
           },
           onTapCancel: () => setState(() => _isPressed = false),
           child: Container(
-            color: active ? kWebWhite.withValues(alpha: 0.1) : kWebSurface2,
+            color: active ? kWebWhite.withValues(alpha: 0.1) : kWebBlack,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

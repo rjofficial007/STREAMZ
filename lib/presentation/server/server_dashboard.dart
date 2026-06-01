@@ -720,7 +720,7 @@ class _QuickActionCardState extends State<_QuickActionCard> {
           onHover: (v) => setState(() => _isFocused = v),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            color: _isFocused ? kWebWhite : kWebSurface2,
+            color: _isFocused ? kWebWhite : kWebBlack,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

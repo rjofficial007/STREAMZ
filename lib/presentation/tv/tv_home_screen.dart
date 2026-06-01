@@ -280,6 +280,7 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
                   title: 'PHOTO DB',
                   subTitle: 'PATH // ROOT/IMAGES',
                   items: images,
+                  isSquare: true,
                   railIndex: _calcRailIndex(continueWatching, videos, 3),
                   focusedRail: _railFocus,
                   onRailFocus: (i) => setState(() => _railFocus = i),

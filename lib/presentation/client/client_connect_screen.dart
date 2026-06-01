@@ -85,7 +85,6 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
     }
 
     final vm = context.watch<ClientViewModel>();
-    final isMobile = DS.isMobile(context);
 
     return Scaffold(
       backgroundColor: kWebBlack,
@@ -93,15 +92,15 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            _buildSliverAppBar(isMobile),
-            _buildBody(isMobile, vm),
+            _buildSliverAppBar(),
+            _buildBody(vm),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSliverAppBar(bool isMobile) {
+  Widget _buildSliverAppBar() {
     return SliverAppBar(
       backgroundColor: kWebSurface,
       floating: true,
@@ -129,7 +128,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
         'CLIENT NODE',
         style: GoogleFonts.barlowCondensed(
           color: kWebWhite, 
-          fontSize: isMobile ? 20 : 24, 
+          fontSize: 20, 
           fontWeight: FontWeight.w900, 
           letterSpacing: 4
         ),
@@ -141,10 +140,10 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
     );
   }
 
-  Widget _buildBody(bool isMobile, ClientViewModel vm) {
+  Widget _buildBody(ClientViewModel vm) {
     return SliverList(
       delegate: SliverChildListDelegate([
-        _HandshakeAnalysisCard(vm: vm, isMobile: isMobile),
+        _HandshakeAnalysisCard(vm: vm),
         
         Container(
           decoration: BoxDecoration(
@@ -278,13 +277,12 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
 
 class _HandshakeAnalysisCard extends StatelessWidget {
   final ClientViewModel vm;
-  final bool isMobile;
-  const _HandshakeAnalysisCard({required this.vm, required this.isMobile});
+  const _HandshakeAnalysisCard({required this.vm});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: kWebSurface,
         border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)),
@@ -299,7 +297,7 @@ class _HandshakeAnalysisCard extends StatelessWidget {
               _BlinkingDot(isOnline: vm.isDiscovering),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : 24),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -324,7 +322,7 @@ class _HandshakeAnalysisCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: isMobile ? 20 : 24),
+          const SizedBox(height: 20),
           Stack(
             children: [
               Container(height: 8, color: kWebSurface2),
@@ -332,7 +330,7 @@ class _HandshakeAnalysisCard extends StatelessWidget {
                 _DiscoveryProgressBar(),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : 20),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(child: _legend('HISTORY', '${vm.ipHistory.length} NODES', kWebWhite)),
@@ -358,6 +356,8 @@ class _HandshakeAnalysisCard extends StatelessWidget {
 }
 
 class _DiscoveryProgressBar extends StatefulWidget {
+  const _DiscoveryProgressBar();
+
   @override
   State<_DiscoveryProgressBar> createState() => _DiscoveryProgressBarState();
 }
@@ -520,6 +520,8 @@ class _ErrorBanner extends StatelessWidget {
 }
 
 class _EmptyHistoryPlaceholder extends StatelessWidget {
+  const _EmptyHistoryPlaceholder();
+
   @override
   Widget build(BuildContext context) {
     return Container(

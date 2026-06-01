@@ -36,7 +36,6 @@ class InterfaceSelectionScreen extends StatelessWidget {
     }
 
     final vm = context.watch<ClientViewModel>();
-    final isMobile = DS.isMobile(context);
 
     return Scaffold(
       backgroundColor: kWebBlack,
@@ -44,15 +43,15 @@ class InterfaceSelectionScreen extends StatelessWidget {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            _buildSliverAppBar(context, isMobile, vm),
-            _buildBody(context, isMobile, vm),
+            _buildSliverAppBar(context, vm),
+            _buildBody(context, vm),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSliverAppBar(BuildContext context, bool isMobile, ClientViewModel vm) {
+  Widget _buildSliverAppBar(BuildContext context, ClientViewModel vm) {
     return SliverAppBar(
       backgroundColor: kWebSurface,
       floating: true,
@@ -87,7 +86,7 @@ class InterfaceSelectionScreen extends StatelessWidget {
         'GATEWAY MODE',
         style: GoogleFonts.barlowCondensed(
           color: kWebWhite, 
-          fontSize: isMobile ? 20 : 24, 
+          fontSize: 20, 
           fontWeight: FontWeight.w900, 
           letterSpacing: 4
         ),
@@ -99,10 +98,10 @@ class InterfaceSelectionScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBody(BuildContext context, bool isMobile, ClientViewModel vm) {
+  Widget _buildBody(BuildContext context, ClientViewModel vm) {
     return SliverList(
       delegate: SliverChildListDelegate([
-        _GatewayAnalysisCard(vm: vm, isMobile: isMobile),
+        _GatewayAnalysisCard(vm: vm),
         
         Container(
           decoration: BoxDecoration(
@@ -191,13 +190,12 @@ class InterfaceSelectionScreen extends StatelessWidget {
 
 class _GatewayAnalysisCard extends StatelessWidget {
   final ClientViewModel vm;
-  final bool isMobile;
-  const _GatewayAnalysisCard({required this.vm, required this.isMobile});
+  const _GatewayAnalysisCard({required this.vm});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: kWebSurface,
         border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)),
@@ -212,7 +210,7 @@ class _GatewayAnalysisCard extends StatelessWidget {
               _BlinkingDot(isOnline: vm.isConnected),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : 24),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -240,7 +238,7 @@ class _GatewayAnalysisCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: isMobile ? 20 : 24),
+          const SizedBox(height: 20),
           Stack(
             children: [
               Container(height: 8, color: kWebSurface2),
@@ -251,7 +249,7 @@ class _GatewayAnalysisCard extends StatelessWidget {
                 ),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : 20),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(child: _legend('STATIONS', '${vm.stations.length} ACTIVE', kWebWhite)),

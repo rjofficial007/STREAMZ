@@ -299,8 +299,6 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = DS.isMobile(context);
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -314,8 +312,8 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              _buildSliverAppBar(isMobile),
-              ..._buildBodySlivers(isMobile),
+              _buildSliverAppBar(),
+              ..._buildBodySlivers(),
             ],
           ),
         ),
@@ -323,8 +321,8 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     );
   }
 
-  Widget _buildSliverAppBar(bool isMobile) {
-    final iconSz = isMobile ? 20.0 : 22.0;
+  Widget _buildSliverAppBar() {
+    final iconSz = 20.0;
     final showNav = _searchActive || _currentPath != null || _activeCategory != null;
 
     return SliverAppBar(
@@ -408,7 +406,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
                 _title.toUpperCase(),
                 style: GoogleFonts.barlowCondensed(
                     color: kWebWhite,
-                    fontSize: isMobile ? 20 : 24,
+                    fontSize: 20,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 4
                 ),
@@ -466,7 +464,6 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
           _SortMenuButton(
             sortBy: _sortBy,
             sortAsc: _sortAsc,
-            isMobile: isMobile,
             onChanged: (by, asc) => setState(() {
               _sortBy = by;
               _sortAsc = asc;
@@ -517,17 +514,17 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     );
   }
 
-  List<Widget> _buildBodySlivers(bool isMobile) {
+  List<Widget> _buildBodySlivers() {
     if (_currentPath == null && _activeCategory == null && !_isLoading) {
-      return _buildHomeSlivers(isMobile);
+      return _buildHomeSlivers();
     }
-    if (_isLoading) return _buildSkeletonSlivers(isMobile);
-    if (_error != null) return _buildErrorSlivers(isMobile);
+    if (_isLoading) return _buildSkeletonSlivers();
+    if (_error != null) return _buildErrorSlivers();
 
     if (_activeCategory == 'live') {
-      if (_stations.isEmpty) return _buildEmptySlivers(isMobile);
+      if (_stations.isEmpty) return _buildEmptySlivers();
       return [
-        SliverToBoxAdapter(child: SizedBox(height: isMobile ? 16 : 24)),
+        SliverToBoxAdapter(child: const SizedBox(height: 16)),
         SliverToBoxAdapter(
           child: Container(
             decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
@@ -550,17 +547,17 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     }
 
     final items = _displayItems;
-    if (items.isEmpty) return _buildEmptySlivers(isMobile);
+    if (items.isEmpty) return _buildEmptySlivers();
 
-    return _isListView ? _buildListSlivers(items, isMobile) : _buildGridSlivers(items, isMobile);
+    return _isListView ? _buildListSlivers(items) : _buildGridSlivers(items);
   }
 
   // ── Home View Slivers ─────────────────────────────────────────────────────
 
-  List<Widget> _buildHomeSlivers(bool isMobile) {
+  List<Widget> _buildHomeSlivers() {
     return [
       // Storage Analysis Card
-      SliverToBoxAdapter(child: _buildStorageCard(isMobile)),
+      SliverToBoxAdapter(child: _buildStorageCard()),
       // Categories Grid (3 Columns)
       SliverToBoxAdapter(
         child: Container(
@@ -578,11 +575,11 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(cat.icon, color: kWebWhite, size: isMobile ? 22 : 26),
-                    SizedBox(height: isMobile ? 7 : 10),
+                    Icon(cat.icon, color: kWebWhite, size: 22),
+                    const SizedBox(height: 7),
                     Text(
                       cat.label,
-                      style: GoogleFonts.dmMono(color: kWebText, fontSize: isMobile ? 9 : 10, letterSpacing: 1),
+                      style: GoogleFonts.dmMono(color: kWebText, fontSize: 9, letterSpacing: 1),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -593,11 +590,11 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(LucideIcons.radio, color: _stations.isNotEmpty ? DS.accent : kWebWhite, size: isMobile ? 22 : 26),
-                    SizedBox(height: isMobile ? 7 : 10),
+                    Icon(LucideIcons.radio, color: _stations.isNotEmpty ? DS.accent : kWebWhite, size: 22),
+                    const SizedBox(height: 7),
                     Text(
                       'LIVE',
-                      style: GoogleFonts.dmMono(color: _stations.isNotEmpty ? DS.accent : kWebText, fontSize: isMobile ? 9 : 10, letterSpacing: 1),
+                      style: GoogleFonts.dmMono(color: _stations.isNotEmpty ? DS.accent : kWebText, fontSize: 9, letterSpacing: 1),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -608,12 +605,12 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
         ),
       ),
       // Root Directory Button
-      SliverToBoxAdapter(child: _buildRootButton(isMobile)),
+      SliverToBoxAdapter(child: _buildRootButton()),
       SliverToBoxAdapter(child: const SizedBox(height: 100)),
     ];
   }
 
-  Widget _buildStorageCard(bool isMobile) {
+  Widget _buildStorageCard() {
     final imgs = _allItems.where((i) => i.type == SFileType.image).length;
     final vids = _allItems.where((i) => i.type == SFileType.video).length;
     final auds = _allItems.where((i) => i.type == SFileType.audio).length;
@@ -632,7 +629,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     }
 
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: kWebSurface,
         border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)),
@@ -647,10 +644,10 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
               Icon(LucideIcons.hardDrive, color: kWebTextMuted, size: 20),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : 24),
+          const SizedBox(height: 16),
           if (total > 0)
             SizedBox(
-              height: isMobile ? 12 : 16,
+              height: 12,
               child: Row(
                 children: [
                   if (vids > 0) Expanded(flex: vids, child: Container(color: kWebWhite)),
@@ -661,8 +658,8 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
               ),
             )
           else
-            Container(height: isMobile ? 12 : 16, color: kWebSurface2),
-          SizedBox(height: isMobile ? 20 : 24),
+            Container(height: 12, color: kWebSurface2),
+          const SizedBox(height: 20),
           Row(
             children: [
               Expanded(child: Column(children: [legend('VIDEOS', vids, kWebWhite), const SizedBox(height: 8), legend('IMAGES', imgs, Colors.white70)])),
@@ -670,9 +667,9 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
               Expanded(child: Column(children: [legend('AUDIO', auds, Colors.white30), const SizedBox(height: 8), legend('OTHER', other, kWebSurface2)])),
             ],
           ),
-          SizedBox(height: isMobile ? 16 : 24),
+          const SizedBox(height: 16),
           Container(height: 1, color: kWebBorder),
-          SizedBox(height: isMobile ? 12 : 16),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -685,7 +682,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     );
   }
 
-  Widget _buildRootButton(bool isMobile) {
+  Widget _buildRootButton() {
     return Container(
       decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder))),
       child: _BrutalistInteractiveCard(
@@ -694,22 +691,22 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
           _loadPath('');
         },
         child: Padding(
-          padding: EdgeInsets.all(isMobile ? 14 : 18),
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              Icon(LucideIcons.terminal, size: isMobile ? 24 : 28, color: kWebWhite),
-              SizedBox(width: isMobile ? 12 : 16),
+              Icon(LucideIcons.terminal, size: 24, color: kWebWhite),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('ROOT DIRECTORY', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: isMobile ? 18 : 20, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    Text('ROOT DIRECTORY', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
                     const SizedBox(height: 3),
-                    Text('${_allItems.length} FILES INDEXED', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: isMobile ? 9 : 10, letterSpacing: 1)),
+                    Text('${_allItems.length} FILES INDEXED', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 9, letterSpacing: 1)),
                   ],
                 ),
               ),
-              Icon(LucideIcons.chevronRight, color: kWebTextMuted, size: isMobile ? 16 : 18),
+              Icon(LucideIcons.chevronRight, color: kWebTextMuted, size: 16),
             ],
           ),
         ),
@@ -719,12 +716,12 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
 
   // ── Skeleton & State Slivers ──────────────────────────────────────────────
 
-  List<Widget> _buildSkeletonSlivers(bool isMobile) {
+  List<Widget> _buildSkeletonSlivers() {
     return [
       SliverList(
         delegate: SliverChildBuilderDelegate(
               (_, i) => Container(
-            height: isMobile ? 60 : 72,
+            height: 60,
             decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: kWebBorder), top: i == 0 ? BorderSide(color: kWebBorder) : BorderSide.none),
                 color: kWebSurface
@@ -732,7 +729,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                Container(width: isMobile ? 40 : 52, height: isMobile ? 40 : 52, color: kWebSurface2),
+                Container(width: 40, height: 40, color: kWebSurface2),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -754,7 +751,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     ];
   }
 
-  List<Widget> _buildEmptySlivers(bool isMobile) {
+  List<Widget> _buildEmptySlivers() {
     return [
       SliverFillRemaining(
         hasScrollBody: false,
@@ -765,8 +762,8 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(LucideIcons.folderOpen, size: isMobile ? 48 : 60, color: kWebTextMuted),
-                SizedBox(height: isMobile ? 14 : 20),
+                Icon(LucideIcons.folderOpen, size: 48, color: kWebTextMuted),
+                const SizedBox(height: 14),
                 Text('DIRECTORY EMPTY', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 4)),
               ],
             ),
@@ -776,7 +773,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     ];
   }
 
-  List<Widget> _buildErrorSlivers(bool isMobile) {
+  List<Widget> _buildErrorSlivers() {
     return [
       SliverFillRemaining(
         hasScrollBody: false,
@@ -787,12 +784,12 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(LucideIcons.alertTriangle, size: isMobile ? 48 : 60, color: kWebTextMuted),
-                SizedBox(height: isMobile ? 14 : 20),
+                Icon(LucideIcons.alertTriangle, size: 48, color: kWebTextMuted),
+                const SizedBox(height: 14),
                 Text('CONNECTION FAILED', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 const SizedBox(height: 6),
                 Text((_error ?? 'UNKNOWN ERROR').toUpperCase(), style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)),
-                SizedBox(height: isMobile ? 24 : 32),
+                const SizedBox(height: 24),
                 GestureDetector(
                   onTap: () => _currentPath != null ? _loadPath(_currentPath!) : _loadHome(),
                   child: Container(
@@ -811,7 +808,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
 
   // ── List & Grid Slivers ───────────────────────────────────────────────────
 
-  List<Widget> _buildListSlivers(List<SFileItem> items, bool isMobile) {
+  List<Widget> _buildListSlivers(List<SFileItem> items) {
     return [
       SliverPadding(
         padding: const EdgeInsets.only(bottom: 100),
@@ -831,20 +828,20 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     ];
   }
 
-  List<Widget> _buildGridSlivers(List<SFileItem> items, bool isMobile) {
+  List<Widget> _buildGridSlivers(List<SFileItem> items) {
     final dirs = items.where((i) => i.isDirectory).toList();
     final files = items.where((i) => !i.isDirectory).toList();
 
     // Exact match: 2 crossAxisCount brutalist layout
     const gridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: 2,
-      childAspectRatio: 1.0,
+      crossAxisCount: 3,
+      childAspectRatio: 0.8,
       crossAxisSpacing: 1,
       mainAxisSpacing: 1,
     );
 
     return [
-      SliverToBoxAdapter(child: SizedBox(height: isMobile ? 16 : 24)),
+      // SliverToBoxAdapter(child: const SizedBox(height: 16)),
 
       if (dirs.isNotEmpty) ...[
         SliverPadding(
@@ -857,7 +854,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
             ),
           ),
         ),
-        SliverToBoxAdapter(child: SizedBox(height: isMobile ? 24 : 32)),
+        SliverToBoxAdapter(child: const SizedBox(height: 24)),
       ],
 
       if (files.isNotEmpty) ...[
@@ -905,7 +902,7 @@ class _BrutalistInteractiveCardState extends State<_BrutalistInteractiveCard> {
       onTapCancel: () => setState(() => _isFocused = false),
       child: Container(
         decoration: BoxDecoration(
-          color: _isFocused ? kWebWhite.withValues(alpha: 0.1) : kWebSurface2,
+          color: _isFocused ? kWebWhite.withValues(alpha: 0.1) : kWebBlack,
         ),
         child: widget.child,
       ),
@@ -935,8 +932,7 @@ class _FileListTileState extends State<_FileListTile> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = DS.isMobile(context);
-    final iconBoxSz = isMobile ? 44.0 : 52.0;
+    final iconBoxSz = 44.0;
 
     String? thumbUrl;
     if (widget.item.isPlayable) {
@@ -959,7 +955,7 @@ class _FileListTileState extends State<_FileListTile> {
           color: _isFocused ? kWebWhite.withValues(alpha:0.1) : kWebSurface,
           border: Border(bottom: BorderSide(color: kWebBorder), top: widget.isFirst ? BorderSide(color: kWebBorder) : BorderSide.none),
         ),
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: isMobile ? 8 : 11),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
             // Icon / thumbnail
@@ -983,7 +979,7 @@ class _FileListTileState extends State<_FileListTile> {
                 ),
                 child: Icon(widget.item.icon, color: kWebText, size: iconBoxSz * 0.45),
               ),
-            SizedBox(width: isMobile ? 10 : 14),
+            const SizedBox(width: 10),
             // Name + meta
             Expanded(
               child: Column(
@@ -993,18 +989,18 @@ class _FileListTileState extends State<_FileListTile> {
                     widget.item.name.toUpperCase(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: isMobile ? 16 : 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
                   ),
                   const SizedBox(height: 3),
                   Row(
                     children: [
                       if (widget.item.isDirectory)
-                        Text('${widget.item.itemCount} ITEMS', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: isMobile ? 9 : 10, letterSpacing: 1))
+                        Text('${widget.item.itemCount} ITEMS', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 9, letterSpacing: 1))
                       else if (widget.item.sizeLabel.isNotEmpty) ...[
-                        Text(widget.item.sizeLabel, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: isMobile ? 9 : 10, letterSpacing: 1)),
-                        Text('  ///  ', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: isMobile ? 9 : 10, letterSpacing: 1)),
+                        Text(widget.item.sizeLabel, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 9, letterSpacing: 1)),
+                        Text('  ///  ', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 9, letterSpacing: 1)),
                       ],
-                      Text(widget.item.typeLabel, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: isMobile ? 9 : 10, letterSpacing: 1)),
+                      Text(widget.item.typeLabel, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 9, letterSpacing: 1)),
                     ],
                   ),
                 ],
@@ -1012,7 +1008,7 @@ class _FileListTileState extends State<_FileListTile> {
             ),
             // Action button
             if (widget.item.isDirectory)
-              Icon(LucideIcons.chevronRight, color: kWebTextMuted, size: isMobile ? 15 : 17)
+              Icon(LucideIcons.chevronRight, color: kWebTextMuted, size: 15)
             else
               Actions(
                 actions: {
@@ -1026,7 +1022,7 @@ class _FileListTileState extends State<_FileListTile> {
                 child: Focus(
                   onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onDownload),
                   child: IconButton(
-                    icon: Icon(LucideIcons.download, color: kWebWhite, size: isMobile ? 20 : 22),
+                    icon: Icon(LucideIcons.download, color: kWebWhite, size: 20),
                     onPressed: widget.onDownload,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -1062,7 +1058,6 @@ class _FileGridCardState extends State<_FileGridCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = DS.isMobile(context);
     final isDir = widget.item.isDirectory;
 
     String? thumbUrl;
@@ -1104,17 +1099,44 @@ class _FileGridCardState extends State<_FileGridCard> {
                     Container(
                       color: isDir ? kWebSurface : kWebSurface2,
                       child: Center(
-                        child: Icon(widget.item.icon, color: isDir ? kWebWhite : kWebTextMuted, size: isMobile ? (isDir ? 32 : 24) : (isDir ? 42 : 32)),
+                        child: Icon(widget.item.icon, color: isDir ? kWebWhite : kWebTextMuted, size: isDir ? 32 : 24),
                       ),
                     ),
 
 
-                  // Bottom-Right Download Button (Files Only)
-                  if (!isDir)
-                    Positioned(
-                      bottom: 4,
-                      right: 4,
-                      child: Actions(
+
+                ],
+              ),
+            ),
+
+            // Info area (22%)
+            Expanded(
+              flex: 22,
+              child: Container(
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: kWebSurface,
+                  border: Border(top: BorderSide(color: kWebBorder)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.item.name.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.dmMono(
+                          color: _isFocused || _isPressed ? kWebBlack : kWebText,
+                          fontSize: 9,
+                          fontWeight: (_isFocused || _isPressed) ? FontWeight.bold : FontWeight.normal,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                    // Bottom-Right Download Button (Files Only)
+                    if (!isDir)
+                      Actions(
                         actions: {
                           ActivateIntent: CallbackAction<ActivateIntent>(
                             onInvoke: (_) {
@@ -1130,36 +1152,12 @@ class _FileGridCardState extends State<_FileGridCard> {
                             child: Container(
                               padding: const EdgeInsets.all(5),
                               decoration: BoxDecoration(border: Border.all(color: kWebBorder), color: kWebBlack),
-                              child: Icon(LucideIcons.download, color: kWebWhite, size: isMobile ? 12 : 14),
+                              child: const Icon(LucideIcons.download, color: kWebWhite, size: 12),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-            ),
-
-            // Info area (22%)
-            Expanded(
-              flex: 22,
-              child: Container(
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  color: kWebSurface,
-                  border: Border(top: BorderSide(color: kWebBorder)),
-                ),
-                child: Text(
-                  widget.item.name.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.dmMono(
-                    color: _isFocused || _isPressed ? kWebBlack : kWebText,
-                    fontSize: isMobile ? 9 : 10,
-                    fontWeight: (_isFocused || _isPressed) ? FontWeight.bold : FontWeight.normal,
-                    letterSpacing: 1,
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -1244,23 +1242,22 @@ class _MobileStationCardState extends State<_MobileStationCard> {
 class _SortMenuButton extends StatelessWidget {
   final String sortBy;
   final bool sortAsc;
-  final bool isMobile;
   final void Function(String by, bool asc) onChanged;
 
-  const _SortMenuButton({required this.sortBy, required this.sortAsc, required this.isMobile, required this.onChanged});
+  const _SortMenuButton({required this.sortBy, required this.sortAsc, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      icon: Icon(LucideIcons.arrowDownWideNarrow, size: isMobile ? 20 : 22, color: kWebText),
+      icon: Icon(LucideIcons.arrowDownWideNarrow, size: 20, color: kWebText),
       color: kWebSurface,
       shape: Border.all(color: kWebBorder),
       onSelected: (v) => onChanged(v, v == sortBy ? !sortAsc : true),
-      itemBuilder: (_) => [_sortItem('name', 'NAME', isMobile), _sortItem('size', 'SIZE', isMobile), _sortItem('type', 'TYPE', isMobile)],
+      itemBuilder: (_) => [_sortItem('name', 'NAME'), _sortItem('size', 'SIZE'), _sortItem('type', 'TYPE')],
     );
   }
 
-  PopupMenuItem<String> _sortItem(String value, String label, bool isMobile) {
+  PopupMenuItem<String> _sortItem(String value, String label) {
     final active = value == sortBy;
     return PopupMenuItem<String>(
       value: value,
@@ -1268,10 +1265,10 @@ class _SortMenuButton extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.dmMono(color: active ? kWebWhite : kWebText, fontSize: isMobile ? 11 : 13, fontWeight: active ? FontWeight.bold : FontWeight.normal, letterSpacing: 1),
+            style: GoogleFonts.dmMono(color: active ? kWebWhite : kWebText, fontSize: 11, fontWeight: active ? FontWeight.bold : FontWeight.normal, letterSpacing: 1),
           ),
           const Spacer(),
-          if (active) Icon(sortAsc ? LucideIcons.arrowUp : LucideIcons.arrowDown, size: isMobile ? 13 : 15, color: kWebWhite),
+          if (active) Icon(sortAsc ? LucideIcons.arrowUp : LucideIcons.arrowDown, size: 13, color: kWebWhite),
         ],
       ),
     );
