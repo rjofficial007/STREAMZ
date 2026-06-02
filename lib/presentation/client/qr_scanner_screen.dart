@@ -26,10 +26,11 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final scanWindowSize = MediaQuery.sizeOf(context).width * 0.75;
 
     return Scaffold(
-      backgroundColor: DS.bg,
+      backgroundColor: tokens.background,
       body: Stack(
         children: [
           MobileScanner(
@@ -46,7 +47,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           // Overlay with cutout
           Container(
             decoration: ShapeDecoration(
-              shape: _ScannerOverlayShape(borderColor: DS.accent, borderWidth: 2.0, overlayColor: Colors.black.withValues(alpha: 0.88), cutOutSize: scanWindowSize),
+              shape: _ScannerOverlayShape(borderColor: tokens.accent, borderWidth: 2.0, overlayColor: tokens.background.withValues(alpha: 0.88), cutOutSize: scanWindowSize),
             ),
           ),
           // Controls
@@ -70,7 +71,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                         child: Focus(
                           onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
                           child: IconButton(
-                            icon: const Icon(LucideIcons.x, color: Colors.white, size: 24),
+                            icon: Icon(LucideIcons.x, color: tokens.textPrimary, size: 24),
                             onPressed: () => Navigator.pop(context),
                           ),
                         ),
@@ -91,7 +92,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                             setState(() => _isFlashOn = !_isFlashOn);
                           }),
                           child: IconButton(
-                            icon: Icon(_isFlashOn ? LucideIcons.zap : LucideIcons.zapOff, color: _isFlashOn ? DS.accent : Colors.white, size: 24),
+                            icon: Icon(_isFlashOn ? LucideIcons.zap : LucideIcons.zapOff, color: _isFlashOn ? tokens.accent : tokens.textPrimary, size: 24),
                             onPressed: () {
                               _controller.toggleTorch();
                               setState(() => _isFlashOn = !_isFlashOn);
@@ -107,15 +108,15 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                   padding: const EdgeInsets.all(DS.s24),
                   margin: const EdgeInsets.only(bottom: 40, left: DS.s16, right: DS.s16),
                   decoration: BoxDecoration(
-                    color: DS.bg,
-                    border: Border.all(color: DS.borderDefault),
+                    color: tokens.background,
+                    border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('SCAN QR SIGNAL', style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 14)),
+                      Text('SCAN QR SIGNAL', style: Theme.of(context).textTheme.labelMedium?.copyWith(fontSize: 14)),
                       const SizedBox(height: DS.s8),
-                      Text('ALIGN QR CODE WITHIN THE FRAME', textAlign: TextAlign.center, style: AppTheme.theme.textTheme.labelSmall),
+                      Text('ALIGN QR CODE WITHIN THE FRAME', textAlign: TextAlign.center, style: Theme.of(context).textTheme.labelSmall),
                     ],
                   ),
                 ),
@@ -164,7 +165,7 @@ class _ScannerOverlayShape extends ShapeBorder {
     final half = cutOutSize / 2;
     const cLen = 20.0;
     final paint = Paint()
-      ..color = DS.accent
+      ..color = borderColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
 

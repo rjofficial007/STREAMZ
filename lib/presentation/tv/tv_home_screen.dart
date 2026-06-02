@@ -26,12 +26,7 @@ final Color kWebBorder = Colors.white.withValues(alpha: 0.15);
 final Color kWebTextMuted = Colors.white.withValues(alpha: 0.3);
 final Color kWebText = Colors.white.withValues(alpha: 0.6);
 
-const ColorFilter kGreyscale = ColorFilter.matrix(<double>[
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0,      0,      0,      1, 0,
-]);
+const ColorFilter kGreyscale = ColorFilter.matrix(<double>[0.2126, 0.7152, 0.0722, 0, 0, 0.2126, 0.7152, 0.0722, 0, 0, 0.2126, 0.7152, 0.0722, 0, 0, 0, 0, 0, 1, 0]);
 
 class TVHomeScreen extends StatefulWidget {
   const TVHomeScreen({super.key});
@@ -98,201 +93,188 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
         body: allMedia.isEmpty
             ? const Center(child: _EmptyState())
             : CustomScrollView(
-          controller: _scrollController,
-          physics: const ClampingScrollPhysics(), // Prevent bounce on TVs
-          slivers: [
-            // Persistent TV Top Bar
-            SliverAppBar(
-              backgroundColor: _isScrolled ? kWebSurface : Colors.transparent,
-              floating: true,
-              elevation: 0,
-              pinned: true,
-              toolbarHeight: (size.height * 0.1).clamp(60.0, 100.0),
-              leadingWidth: sidePadding + 48,
-              leading: Padding(
-                padding: const EdgeInsets.only(left: sidePadding),
-                child: Actions(
-                  actions: {
-                    ActivateIntent: CallbackAction<ActivateIntent>(
-                      onInvoke: (_) {
-                        Navigator.pop(context);
-                        return null;
-                      },
-                    ),
-                  },
-                  child: Focus(
-                    onFocusChange: (f) {
-                      if (f) Scrollable.ensureVisible(context, alignment: 0.0, duration: const Duration(milliseconds: 250));
-                    },
-                    onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
-                    child: IconButton(
-                      icon: Icon(LucideIcons.arrowLeft, color: kWebWhite, size: (size.width * 0.02).clamp(24.0, 32.0)),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
-                ),
-              ),
-              title: Text(
-                'STREAMZ // STUDIO',
-                style: GoogleFonts.barlowCondensed(
-                  fontSize: (size.width * 0.018).clamp(20.0, 32.0),
-                  letterSpacing: 4,
-                  color: kWebWhite,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              centerTitle: false,
-              actions: [
-                Center(
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        color: kWebWhite,
-                      ),
-                      const SizedBox(width: DS.s12),
-                      Text('TGT // ${vm.targetIp}', style: GoogleFonts.dmMono(color: kWebText, fontSize: (size.width * 0.01).clamp(10.0, 14.0))),
-                      const SizedBox(width: DS.s32),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(right: sidePadding),
-                  child: Actions(
-                    actions: {
-                      ActivateIntent: CallbackAction<ActivateIntent>(
-                        onInvoke: (_) {
-                          _openSearch(context, allMedia);
-                          return null;
+                controller: _scrollController,
+                physics: const ClampingScrollPhysics(), // Prevent bounce on TVs
+                slivers: [
+                  // Persistent TV Top Bar
+                  SliverAppBar(
+                    backgroundColor: _isScrolled ? kWebSurface : Colors.transparent,
+                    floating: true,
+                    elevation: 0,
+                    pinned: true,
+                    toolbarHeight: (size.height * 0.1).clamp(60.0, 100.0),
+                    leadingWidth: sidePadding + 48,
+                    leading: Padding(
+                      padding: const EdgeInsets.only(left: sidePadding),
+                      child: Actions(
+                        actions: {
+                          ActivateIntent: CallbackAction<ActivateIntent>(
+                            onInvoke: (_) {
+                              Navigator.pop(context);
+                              return null;
+                            },
+                          ),
                         },
+                        child: Focus(
+                          onFocusChange: (f) {
+                            if (f) Scrollable.ensureVisible(context, alignment: 0.0, duration: const Duration(milliseconds: 250));
+                          },
+                          onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
+                          child: IconButton(
+                            icon: Icon(LucideIcons.arrowLeft, color: kWebWhite, size: (size.width * 0.02).clamp(24.0, 32.0)),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ),
                       ),
-                    },
-                    child: Focus(
-                      onFocusChange: (f) {
-                        if (f) Scrollable.ensureVisible(context, alignment: 0.0, duration: const Duration(milliseconds: 250));
-                      },
-                      onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => _openSearch(context, allMedia)),
-                      child: IconButton(
-                        icon: Icon(LucideIcons.search, color: kWebWhite, size: (size.width * 0.02).clamp(24.0, 32.0)),
-                        onPressed: () => _openSearch(context, allMedia),
+                    ),
+                    title: Text(
+                      'STREAMZ // STUDIO',
+                      style: GoogleFonts.barlowCondensed(fontSize: (size.width * 0.018).clamp(20.0, 32.0), letterSpacing: 4, color: kWebWhite, fontWeight: FontWeight.w900),
+                    ),
+                    centerTitle: false,
+                    actions: [
+                      Center(
+                        child: Row(
+                          children: [
+                            Container(width: 8, height: 8, color: kWebWhite),
+                            const SizedBox(width: DS.s12),
+                            Text(
+                              'TGT // ${vm.targetIp}',
+                              style: GoogleFonts.dmMono(color: kWebText, fontSize: (size.width * 0.01).clamp(10.0, 14.0)),
+                            ),
+                            const SizedBox(width: DS.s32),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(right: sidePadding),
+                        child: Actions(
+                          actions: {
+                            ActivateIntent: CallbackAction<ActivateIntent>(
+                              onInvoke: (_) {
+                                _openSearch(context, allMedia);
+                                return null;
+                              },
+                            ),
+                          },
+                          child: Focus(
+                            onFocusChange: (f) {
+                              if (f) Scrollable.ensureVisible(context, alignment: 0.0, duration: const Duration(milliseconds: 250));
+                            },
+                            onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => _openSearch(context, allMedia)),
+                            child: IconButton(
+                              icon: Icon(LucideIcons.search, color: kWebWhite, size: (size.width * 0.02).clamp(24.0, 32.0)),
+                              onPressed: () => _openSearch(context, allMedia),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    bottom: PreferredSize(
+                      preferredSize: const Size.fromHeight(1),
+                      child: AnimatedOpacity(
+                        opacity: _isScrolled ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: Container(color: kWebBorder, height: 1),
                       ),
                     ),
                   ),
-                ),
-              ],
-              bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(1),
-                child: AnimatedOpacity(
-                  opacity: _isScrolled ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Container(color: kWebBorder, height: 1),
-                ),
+
+                  // Hero Section (Fills 75% of screen height)
+                  if (featuredItems.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: SizedBox(
+                        height: size.height * 0.75,
+                        width: double.infinity,
+                        child: _HeroSection(items: featuredItems, vm: vm, allItems: allMedia),
+                      ),
+                    )
+                  else
+                    const SliverToBoxAdapter(child: SizedBox(height: 100)),
+
+                  SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
+
+                  // Live Stations
+                  if (stations.isNotEmpty) ...[
+                    SliverToBoxAdapter(
+                      child: _TVStationRail(stations: stations, railIndex: 0, focusedRail: _railFocus, onRailFocus: (i) => setState(() => _railFocus = i), vm: vm, safePad: safePad),
+                    ),
+                    SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
+                  ],
+
+                  // Continue Watching
+                  if (continueWatching.isNotEmpty) ...[
+                    SliverToBoxAdapter(
+                      child: _TVContentRail(
+                        title: 'CONTINUE WATCHING',
+                        subTitle: 'PATH // ROOT/RESUME',
+                        items: continueWatching,
+                        showProgress: true,
+                        railIndex: stations.isNotEmpty ? 1 : 0,
+                        focusedRail: _railFocus,
+                        onRailFocus: (i) => setState(() => _railFocus = i),
+                        vm: vm,
+                        safePad: safePad,
+                      ),
+                    ),
+                    SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
+                  ],
+
+                  // Videos
+                  if (videos.isNotEmpty) ...[
+                    SliverToBoxAdapter(
+                      child: _TVContentRail(
+                        title: 'VIDEO ARCHIVE',
+                        subTitle: 'PATH // ROOT/VIDEOS',
+                        items: videos,
+                        railIndex: continueWatching.isNotEmpty ? 1 : 0,
+                        focusedRail: _railFocus,
+                        onRailFocus: (i) => setState(() => _railFocus = i),
+                        vm: vm,
+                        safePad: safePad,
+                      ),
+                    ),
+                    SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
+                  ],
+
+                  // Audio
+                  if (audio.isNotEmpty) ...[
+                    SliverToBoxAdapter(
+                      child: _TVContentRail(
+                        title: 'AUDIO MATRIX',
+                        subTitle: 'PATH // ROOT/AUDIO',
+                        items: audio,
+                        isSquare: true,
+                        railIndex: _calcRailIndex(continueWatching, videos, 2),
+                        focusedRail: _railFocus,
+                        onRailFocus: (i) => setState(() => _railFocus = i),
+                        vm: vm,
+                        safePad: safePad,
+                      ),
+                    ),
+                    SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
+                  ],
+
+                  // Images
+                  if (images.isNotEmpty) ...[
+                    SliverToBoxAdapter(
+                      child: _TVContentRail(
+                        title: 'PHOTO DB',
+                        subTitle: 'PATH // ROOT/IMAGES',
+                        items: images,
+                        isSquare: true,
+                        railIndex: _calcRailIndex(continueWatching, videos, 3),
+                        focusedRail: _railFocus,
+                        onRailFocus: (i) => setState(() => _railFocus = i),
+                        vm: vm,
+                        safePad: safePad,
+                      ),
+                    ),
+                  ],
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                ],
               ),
-            ),
-
-            // Hero Section (Fills 75% of screen height)
-            if (featuredItems.isNotEmpty)
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: size.height * 0.75,
-                  width: double.infinity,
-                  child: _HeroSection(items: featuredItems, vm: vm, allItems: allMedia),
-                ),
-              )
-            else
-              const SliverToBoxAdapter(child: SizedBox(height: 100)),
-
-            SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
-
-            // Live Stations
-            if (stations.isNotEmpty) ...[
-              SliverToBoxAdapter(
-                child: _TVStationRail(
-                  stations: stations,
-                  railIndex: 0,
-                  focusedRail: _railFocus,
-                  onRailFocus: (i) => setState(() => _railFocus = i),
-                  vm: vm,
-                  safePad: safePad,
-                ),
-              ),
-              SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
-            ],
-
-            // Continue Watching
-            if (continueWatching.isNotEmpty) ...[
-              SliverToBoxAdapter(
-                child: _TVContentRail(
-                  title: 'CONTINUE WATCHING',
-                  subTitle: 'PATH // ROOT/RESUME',
-                  items: continueWatching,
-                  showProgress: true,
-                  railIndex: stations.isNotEmpty ? 1 : 0,
-                  focusedRail: _railFocus,
-                  onRailFocus: (i) => setState(() => _railFocus = i),
-                  vm: vm,
-                  safePad: safePad,
-                ),
-              ),
-              SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
-            ],
-
-            // Videos
-            if (videos.isNotEmpty) ...[
-              SliverToBoxAdapter(
-                child: _TVContentRail(
-                  title: 'VIDEO ARCHIVE',
-                  subTitle: 'PATH // ROOT/VIDEOS',
-                  items: videos,
-                  railIndex: continueWatching.isNotEmpty ? 1 : 0,
-                  focusedRail: _railFocus,
-                  onRailFocus: (i) => setState(() => _railFocus = i),
-                  vm: vm,
-                  safePad: safePad,
-                ),
-              ),
-              SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
-            ],
-
-            // Audio
-            if (audio.isNotEmpty) ...[
-              SliverToBoxAdapter(
-                child: _TVContentRail(
-                  title: 'AUDIO MATRIX',
-                  subTitle: 'PATH // ROOT/AUDIO',
-                  items: audio,
-                  isSquare: true,
-                  railIndex: _calcRailIndex(continueWatching, videos, 2),
-                  focusedRail: _railFocus,
-                  onRailFocus: (i) => setState(() => _railFocus = i),
-                  vm: vm,
-                  safePad: safePad,
-                ),
-              ),
-              SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
-            ],
-
-            // Images
-            if (images.isNotEmpty) ...[
-              SliverToBoxAdapter(
-                child: _TVContentRail(
-                  title: 'PHOTO DB',
-                  subTitle: 'PATH // ROOT/IMAGES',
-                  items: images,
-                  isSquare: true,
-                  railIndex: _calcRailIndex(continueWatching, videos, 3),
-                  focusedRail: _railFocus,
-                  onRailFocus: (i) => setState(() => _railFocus = i),
-                  vm: vm,
-                  safePad: safePad,
-                ),
-              ),
-            ],
-
-            const SliverToBoxAdapter(child: SizedBox(height: 100)),
-          ],
-        ),
       ),
     );
   }
@@ -397,7 +379,9 @@ class _HeroSectionState extends State<_HeroSection> {
               final thumbUrl = widget.vm.thumbnailUrl(item.id);
 
               return Container(
-                decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: kWebBorder)),
+                ),
                 child: Column(
                   children: [
                     // Main Image Area
@@ -456,14 +440,7 @@ class _HeroSectionState extends State<_HeroSection> {
                           const SizedBox(width: 32),
                           _TVHeroButton(icon: LucideIcons.play, label: 'PLAY', width: btnWidth, isPrimary: true, onFocus: _recordInteraction, onTap: () => _play(context, item)),
                           const SizedBox(width: 16),
-                          _TVHeroButton(
-                            icon: LucideIcons.info,
-                            label: 'INFO',
-                            width: btnWidth,
-                            isPrimary: false,
-                            onFocus: _recordInteraction,
-                            onTap: () {},
-                          ),
+                          _TVHeroButton(icon: LucideIcons.info, label: 'INFO', width: btnWidth, isPrimary: false, onFocus: _recordInteraction, onTap: () {}),
                         ],
                       ),
                     ),
@@ -482,12 +459,8 @@ class _HeroSectionState extends State<_HeroSection> {
               child: Row(
                 children: List.generate(
                   widget.items.length,
-                      (index) => Expanded(
-                    child: Container(
-                      height: 4,
-                      margin: const EdgeInsets.only(right: 1),
-                      color: _currentPage == index ? kWebWhite : Colors.black54,
-                    ),
+                  (index) => Expanded(
+                    child: Container(height: 4, margin: const EdgeInsets.only(right: 1), color: _currentPage == index ? kWebWhite : Colors.black54),
                   ),
                 ),
               ),
@@ -545,7 +518,7 @@ class _TVHeroButtonState extends State<_TVHeroButton> {
               width: widget.width,
               padding: EdgeInsets.symmetric(vertical: (widget.width * 0.08).clamp(12.0, 20.0)),
               decoration: BoxDecoration(
-                color: _isFocused ? kWebWhite : (widget.isPrimary ? kWebWhite.withValues(alpha:0.1) : kWebSurface2),
+                color: _isFocused ? kWebWhite : (widget.isPrimary ? kWebWhite.withValues(alpha: 0.1) : kWebSurface2),
                 border: Border.all(color: _isFocused ? kWebWhite : kWebBorder, width: _isFocused ? 4 : 1),
               ),
               child: Row(
@@ -555,12 +528,7 @@ class _TVHeroButtonState extends State<_TVHeroButton> {
                   const SizedBox(width: 12),
                   Text(
                     widget.label,
-                    style: GoogleFonts.dmMono(
-                      color: _isFocused ? kWebBlack : kWebWhite,
-                      fontWeight: FontWeight.bold,
-                      fontSize: (widget.width * 0.08).clamp(14.0, 22.0),
-                      letterSpacing: 2,
-                    ),
+                    style: GoogleFonts.dmMono(color: _isFocused ? kWebBlack : kWebWhite, fontWeight: FontWeight.bold, fontSize: (widget.width * 0.08).clamp(14.0, 22.0), letterSpacing: 2),
                   ),
                 ],
               ),
@@ -803,7 +771,9 @@ class _TVRailCardState extends State<_TVRailCard> with SingleTickerProviderState
                     child: Container(
                       alignment: Alignment.centerLeft,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(border: Border(top: BorderSide(color: kWebBorder))),
+                      decoration: BoxDecoration(
+                        border: Border(top: BorderSide(color: kWebBorder)),
+                      ),
                       child: Text(
                         widget.item.title.toUpperCase(),
                         maxLines: 1,
@@ -838,13 +808,18 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 80),
-      decoration: BoxDecoration(border: Border.all(color: kWebBorder, style: BorderStyle.solid)),
+      decoration: BoxDecoration(
+        border: Border.all(color: kWebBorder, style: BorderStyle.solid),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(LucideIcons.wifiHigh, size: 64, color: kWebTextMuted),
           const SizedBox(height: DS.s24),
-          Text('SIGNAL ERROR // DISCONNECTED', style: GoogleFonts.barlowCondensed(color: kWebTextMuted, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 4)),
+          Text(
+            'SIGNAL ERROR // DISCONNECTED',
+            style: GoogleFonts.barlowCondensed(color: kWebTextMuted, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 4),
+          ),
         ],
       ),
     );
@@ -904,9 +879,15 @@ class _TVStationRailState extends State<_TVStationRail> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('NETWORK BROADCASTS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: (size.width * 0.018).clamp(20.0, 32.0), fontWeight: FontWeight.bold, letterSpacing: 2)),
+              Text(
+                'NETWORK BROADCASTS',
+                style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: (size.width * 0.018).clamp(20.0, 32.0), fontWeight: FontWeight.bold, letterSpacing: 2),
+              ),
               const SizedBox(height: 2),
-              Text('PATH // ROOT/LIVE', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: (size.width * 0.01).clamp(10.0, 14.0), letterSpacing: 2)),
+              Text(
+                'PATH // ROOT/LIVE',
+                style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: (size.width * 0.01).clamp(10.0, 14.0), letterSpacing: 2),
+              ),
             ],
           ),
         ),
@@ -1005,10 +986,12 @@ class _TVStationCardState extends State<_TVStationCard> with SingleTickerProvide
 
     return Actions(
       actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-          _tuneIn();
-          return null;
-        }),
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            _tuneIn();
+            return null;
+          },
+        ),
       },
       child: Focus(
         onFocusChange: (f) {
@@ -1040,21 +1023,33 @@ class _TVStationCardState extends State<_TVStationCard> with SingleTickerProvide
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                          child: Text(title, style: GoogleFonts.barlowCondensed(color: widget.isFocused ? kWebBlack : kWebWhite, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1), maxLines: 1)
+                        child: Text(
+                          title,
+                          style: GoogleFonts.barlowCondensed(color: widget.isFocused ? kWebBlack : kWebWhite, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1),
+                          maxLines: 1,
+                        ),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(border: Border.all(color: widget.isFocused ? kWebBlack : kWebWhite)),
-                        child: Text('LIVE', style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: widget.isFocused ? kWebBlack : kWebWhite)),
+                        child: Text(
+                          'LIVE',
+                          style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: widget.isFocused ? kWebBlack : kWebWhite),
+                        ),
                       ),
                     ],
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('STATUS // NOW PLAYING', style: GoogleFonts.dmMono(fontSize: 10, color: widget.isFocused ? kWebBlack.withValues(alpha:0.5) : kWebTextMuted, letterSpacing: 1)),
+                      Text('STATUS // NOW PLAYING', style: GoogleFonts.dmMono(fontSize: 10, color: widget.isFocused ? kWebBlack.withValues(alpha: 0.5) : kWebTextMuted, letterSpacing: 1)),
                       const SizedBox(height: 4),
-                      Text(itemTitle, style: GoogleFonts.dmMono(fontSize: 12, color: widget.isFocused ? kWebBlack : kWebText), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(
+                        itemTitle,
+                        style: GoogleFonts.dmMono(fontSize: 12, color: widget.isFocused ? kWebBlack : kWebText),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ],
@@ -1186,47 +1181,46 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
             Expanded(
               child: _query.isEmpty
                   ? Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 80),
-                  decoration: BoxDecoration(border: Border.all(color: kWebBorder, style: BorderStyle.solid)),
-                  child: Text('AWAITING SIGNAL // CMD READY', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 16, letterSpacing: 4)),
-                ),
-              )
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 80),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: kWebBorder, style: BorderStyle.solid),
+                        ),
+                        child: Text('AWAITING SIGNAL // CMD READY', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 16, letterSpacing: 4)),
+                      ),
+                    )
                   : results.isEmpty
                   ? Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 80),
-                  decoration: BoxDecoration(border: Border.all(color: kWebBorder, style: BorderStyle.solid)),
-                  child: Text('0 SIGNALS FOUND FOR "${_query.toUpperCase()}"', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 16, letterSpacing: 4)),
-                ),
-              )
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 80),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: kWebBorder, style: BorderStyle.solid),
+                        ),
+                        child: Text('0 SIGNALS FOUND FOR "${_query.toUpperCase()}"', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 16, letterSpacing: 4)),
+                      ),
+                    )
                   : Container(
-                decoration: BoxDecoration(color: kWebBorder),
-                child: GridView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: sidePadding, vertical: sidePadding),
-                  // 5 columns for TV layout
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 5,
-                      childAspectRatio: 16 / 9,
-                      crossAxisSpacing: 1,
-                      mainAxisSpacing: 1
-                  ),
-                  itemCount: results.length,
-                  itemBuilder: (_, i) {
-                    final item = results[i];
-                    return _TVSearchGridCard(
-                      item: item,
-                      isFocused: _focusedIndex == i,
-                      vm: vm,
-                      onFocus: (cardCtx) {
-                        setState(() => _focusedIndex = i);
-                        Scrollable.ensureVisible(cardCtx, alignment: 0.5, duration: const Duration(milliseconds: 250));
-                      },
-                      onTap: () => _play(item),
-                    );
-                  },
-                ),
-              ),
+                      decoration: BoxDecoration(color: kWebBorder),
+                      child: GridView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: sidePadding, vertical: sidePadding),
+                        // 5 columns for TV layout
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, childAspectRatio: 16 / 9, crossAxisSpacing: 1, mainAxisSpacing: 1),
+                        itemCount: results.length,
+                        itemBuilder: (_, i) {
+                          final item = results[i];
+                          return _TVSearchGridCard(
+                            item: item,
+                            isFocused: _focusedIndex == i,
+                            vm: vm,
+                            onFocus: (cardCtx) {
+                              setState(() => _focusedIndex = i);
+                              Scrollable.ensureVisible(cardCtx, alignment: 0.5, duration: const Duration(milliseconds: 250));
+                            },
+                            onTap: () => _play(item),
+                          );
+                        },
+                      ),
+                    ),
             ),
           ],
         ),
@@ -1319,17 +1313,14 @@ class _TVSearchGridCardState extends State<_TVSearchGridCard> with SingleTickerP
                     child: Container(
                       alignment: Alignment.centerLeft,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(border: Border(top: BorderSide(color: kWebBorder))),
+                      decoration: BoxDecoration(
+                        border: Border(top: BorderSide(color: kWebBorder)),
+                      ),
                       child: Text(
                         widget.item.title.toUpperCase(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.dmMono(
-                          color: widget.isFocused ? kWebBlack : kWebText,
-                          fontSize: 12,
-                          fontWeight: widget.isFocused ? FontWeight.bold : FontWeight.normal,
-                          letterSpacing: 1,
-                        ),
+                        style: GoogleFonts.dmMono(color: widget.isFocused ? kWebBlack : kWebText, fontSize: 12, fontWeight: widget.isFocused ? FontWeight.bold : FontWeight.normal, letterSpacing: 1),
                       ),
                     ),
                   ),

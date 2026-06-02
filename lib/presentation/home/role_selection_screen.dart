@@ -15,17 +15,9 @@ import '../../core/theme/design_tokens.dart';
 import '../client/client_connect_screen.dart';
 import '../client/client_viewmodel.dart';
 import '../server/server_dashboard.dart';
+import '../shared/theme_settings_screen.dart';
 import 'permission_screen.dart';
 import 'role_selection_screen_tv.dart';
-
-// --- Web UI Color Palette & Styles (Synced with System Dashboards) ---
-const Color kWebBlack = Color(0xFF000000);
-const Color kWebSurface = Color(0xFF0A0A0A);
-const Color kWebSurface2 = Color(0xFF111111);
-const Color kWebWhite = Color(0xFFFFFFFF);
-final Color kWebBorder = Colors.white.withValues(alpha: 0.15);
-final Color kWebTextMuted = Colors.white.withValues(alpha: 0.3);
-final Color kWebText = Colors.white.withValues(alpha: 0.6);
 
 class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
@@ -81,23 +73,20 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       return const RoleSelectionScreenTV();
     }
 
+    final tokens = context.tokens;
+
     return Scaffold(
-      backgroundColor: kWebBlack,
+      backgroundColor: tokens.background,
       body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            _buildSliverAppBar(),
-            _buildBody(),
-          ],
-        ),
+        child: CustomScrollView(physics: const BouncingScrollPhysics(), slivers: [_buildSliverAppBar(), _buildBody()]),
       ),
     );
   }
 
   Widget _buildSliverAppBar() {
+    final tokens = context.tokens;
     return SliverAppBar(
-      backgroundColor: kWebSurface,
+      backgroundColor: tokens.surface1,
       floating: true,
       elevation: 0,
       pinned: true,
@@ -107,19 +96,18 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       title: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1200),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.only(left: 16),
           child: Row(
             children: [
               Expanded(
                 child: Text(
                   'STREAMZ NOC',
-                  style: GoogleFonts.barlowCondensed(
-                    color: kWebWhite,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 4,
-                  ),
+                  style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 4),
                 ),
+              ),
+              IconButton(
+                icon: Icon(LucideIcons.settings, color: tokens.textPrimary),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ThemeSettingsScreen())),
               ),
             ],
           ),
@@ -127,17 +115,21 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(color: kWebBorder, height: 1),
+        child: Container(color: tokens.border.withValues(alpha: 0.15), height: 1),
       ),
     );
   }
 
   Widget _buildBody() {
+    final tokens = context.tokens;
     return SliverList(
       delegate: SliverChildListDelegate([
         const _SystemStatusCard(),
         Container(
-          decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
+          decoration: BoxDecoration(
+            border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+            color: tokens.border.withValues(alpha: 0.15),
+          ),
           child: GridView.count(
             childAspectRatio: 2,
             crossAxisCount: 1,
@@ -147,24 +139,11 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             mainAxisSpacing: 1,
             crossAxisSpacing: 1,
             children: [
-              _QuickActionCard(
-                label: 'HOST SERVER',
-                subLabel: 'BROADCAST ENGINE',
-                code: '01',
-                icon: LucideIcons.hardDrive,
-                onTap: _handleServerTap,
-              ),
-              _QuickActionCard(
-                label: 'JOIN NODE',
-                subLabel: 'SYNCHRONIZE',
-                code: '02',
-                icon: LucideIcons.wifiHigh,
-                onTap: _handleClientTap,
-              ),
+              _QuickActionCard(label: 'HOST SERVER', subLabel: 'BROADCAST ENGINE', code: '01', icon: LucideIcons.hardDrive, onTap: _handleServerTap),
+              _QuickActionCard(label: 'JOIN NODE', subLabel: 'SYNCHRONIZE', code: '02', icon: LucideIcons.wifiHigh, onTap: _handleClientTap),
             ],
           ),
         ),
-
       ]),
     );
   }
@@ -176,12 +155,13 @@ class _SystemStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final platform = defaultTargetPlatform.toString().split('.').last.toUpperCase();
+    final tokens = context.tokens;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: kWebSurface,
-        border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)),
+        color: tokens.surface1,
+        border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,7 +169,10 @@ class _SystemStatusCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('SYSTEM ANALYSIS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              Text(
+                'SYSTEM ANALYSIS',
+                style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+              ),
               const _BlinkingDot(isOnline: true),
             ],
           ),
@@ -200,9 +183,12 @@ class _SystemStatusCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('PLATFORM', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+                    Text('PLATFORM', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
                     const SizedBox(height: 4),
-                    Text(platform, style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text(
+                      platform,
+                      style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
               ),
@@ -210,9 +196,12 @@ class _SystemStatusCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('STATUS', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+                    Text('STATUS', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
                     const SizedBox(height: 4),
-                    Text('READY', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text(
+                      'READY',
+                      style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
               ),
@@ -221,19 +210,16 @@ class _SystemStatusCard extends StatelessWidget {
           const SizedBox(height: 20),
           Stack(
             children: [
-              Container(height: 8, color: kWebSurface2),
-              FractionallySizedBox(
-                widthFactor: 1.0,
-                child: Container(height: 8, color: kWebWhite),
-              ),
+              Container(height: 8, color: tokens.surface2),
+              FractionallySizedBox(widthFactor: 1.0, child: Container(height: 8, color: tokens.accent)),
             ],
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _legend('VERSION', 'v2.0.4-PROD', kWebWhite)),
+              Expanded(child: _legend(context, 'VERSION', 'v2.0.4-PROD', tokens.accent)),
               const SizedBox(width: 16),
-              Expanded(child: _legend('ARCHITECTURE', 'BRUTALIST', Colors.white70)),
+              Expanded(child: _legend(context, 'ARCHITECTURE', 'BRUTALIST', tokens.textSecondary)),
             ],
           ),
         ],
@@ -241,13 +227,19 @@ class _SystemStatusCard extends StatelessWidget {
     );
   }
 
-  Widget _legend(String label, String value, Color color) {
+  Widget _legend(BuildContext context, String label, String value, Color color) {
+    final tokens = context.tokens;
     return Row(
       children: [
         Container(width: 8, height: 8, color: color),
         const SizedBox(width: 8),
-        Expanded(child: Text(label, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10))),
-        Text(value, style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: kWebWhite)),
+        Expanded(
+          child: Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10)),
+        ),
+        Text(
+          value,
+          style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: tokens.textPrimary),
+        ),
       ],
     );
   }
@@ -260,13 +252,7 @@ class _QuickActionCard extends StatefulWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _QuickActionCard({
-    required this.label,
-    required this.subLabel,
-    required this.code,
-    required this.icon,
-    required this.onTap,
-  });
+  const _QuickActionCard({required this.label, required this.subLabel, required this.code, required this.icon, required this.onTap});
 
   @override
   State<_QuickActionCard> createState() => _QuickActionCardState();
@@ -278,8 +264,9 @@ class _QuickActionCardState extends State<_QuickActionCard> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final isActive = _isPressed || _isFocused;
-    final bgColor = isActive ? DS.surface4 : kWebBlack;
+    final bgColor = isActive ? tokens.surface4 : tokens.background;
 
     return Actions(
       actions: {
@@ -307,48 +294,32 @@ class _QuickActionCardState extends State<_QuickActionCard> {
             color: bgColor,
             child: Stack(
               children: [
-
-
                 // Corner Brackets (Brutalist/NOC Aesthetic)
-                _buildCorner(Alignment.topLeft, isActive),
-                _buildCorner(Alignment.topRight, isActive),
-                _buildCorner(Alignment.bottomLeft, isActive),
-                _buildCorner(Alignment.bottomRight, isActive),
+                _buildCorner(context, Alignment.topLeft, isActive),
+                _buildCorner(context, Alignment.topRight, isActive),
+                _buildCorner(context, Alignment.bottomLeft, isActive),
+                _buildCorner(context, Alignment.bottomRight, isActive),
 
                 // Content
                 Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-
                       AnimatedScale(
                         duration: const Duration(milliseconds: 200),
                         scale: isActive ? 1.2 : 1.0,
-                        child: Icon(
-                          widget.icon,
-                          color: isActive ? kWebWhite : kWebText,
-                          size: 32,
-                        ),
+                        child: Icon(widget.icon, color: isActive ? tokens.accent : tokens.textSecondary, size: 32),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         widget.label,
-                        style: GoogleFonts.barlowCondensed(
-                          color: kWebWhite,
-                          fontSize: 18,
-                          letterSpacing: 2,
-                          fontWeight: FontWeight.w900,
-                        ),
+                        style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, letterSpacing: 2, fontWeight: FontWeight.w900),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         widget.subLabel,
-                        style: GoogleFonts.dmMono(
-                          color: isActive ? kWebWhite : kWebTextMuted,
-                          fontSize: 9,
-                          letterSpacing: 1,
-                        ),
+                        style: GoogleFonts.dmMono(color: isActive ? tokens.textPrimary : tokens.textMuted, fontSize: 9, letterSpacing: 1),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -359,9 +330,7 @@ class _QuickActionCardState extends State<_QuickActionCard> {
                 if (isActive)
                   Positioned.fill(
                     child: Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: kWebWhite, width: 2),
-                      ),
+                      decoration: BoxDecoration(border: Border.all(color: tokens.accent, width: 2)),
                     ),
                   ),
               ],
@@ -372,7 +341,8 @@ class _QuickActionCardState extends State<_QuickActionCard> {
     );
   }
 
-  Widget _buildCorner(Alignment alignment, bool isActive) {
+  Widget _buildCorner(BuildContext context, Alignment alignment, bool isActive) {
+    final tokens = context.tokens;
     return Align(
       alignment: alignment,
       child: Container(
@@ -381,10 +351,10 @@ class _QuickActionCardState extends State<_QuickActionCard> {
         margin: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           border: Border(
-            top: alignment == Alignment.topLeft || alignment == Alignment.topRight ? BorderSide(color: kWebWhite, width: 1.5) : BorderSide.none,
-            bottom: alignment == Alignment.bottomLeft || alignment == Alignment.bottomRight ? BorderSide(color: kWebWhite, width: 1.5) : BorderSide.none,
-            left: alignment == Alignment.topLeft || alignment == Alignment.bottomLeft ? BorderSide(color: kWebWhite, width: 1.5) : BorderSide.none,
-            right: alignment == Alignment.topRight || alignment == Alignment.bottomRight ? BorderSide(color: kWebWhite, width: 1.5) : BorderSide.none,
+            top: alignment == Alignment.topLeft || alignment == Alignment.topRight ? BorderSide(color: tokens.textPrimary, width: 1.5) : BorderSide.none,
+            bottom: alignment == Alignment.bottomLeft || alignment == Alignment.bottomRight ? BorderSide(color: tokens.textPrimary, width: 1.5) : BorderSide.none,
+            left: alignment == Alignment.topLeft || alignment == Alignment.bottomLeft ? BorderSide(color: tokens.textPrimary, width: 1.5) : BorderSide.none,
+            right: alignment == Alignment.topRight || alignment == Alignment.bottomRight ? BorderSide(color: tokens.textPrimary, width: 1.5) : BorderSide.none,
           ),
         ),
       ),
@@ -417,15 +387,16 @@ class _BlinkingDotState extends State<_BlinkingDot> with SingleTickerProviderSta
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isOnline) return Container(width: 8, height: 8, color: Colors.white24);
+    final tokens = context.tokens;
+    if (!widget.isOnline) return Container(width: 8, height: 8, color: tokens.textMuted.withValues(alpha: 0.3));
     return FadeTransition(
       opacity: _ctrl,
       child: Container(
         width: 8,
         height: 8,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.white, blurRadius: 4)],
+        decoration: BoxDecoration(
+          color: tokens.success,
+          boxShadow: [BoxShadow(color: tokens.success, blurRadius: 4)],
         ),
       ),
     );

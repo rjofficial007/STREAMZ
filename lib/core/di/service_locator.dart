@@ -22,6 +22,7 @@ import '../../domain/services/network_service.dart';
 import '../../domain/services/remote_command_service.dart';
 import '../../domain/services/station_service.dart';
 import '../../domain/services/video_thumbnail_service.dart';
+import '../theme/theme_service.dart';
 
 final sl = GetIt.instance;
 
@@ -29,6 +30,8 @@ Future<void> setupServiceLocator() async {
   // ── Infrastructure ────────────────────────────────────────────────────────
   final prefs = await SharedPreferences.getInstance();
   sl.registerSingleton<SharedPreferences>(prefs);
+
+  sl.registerSingleton<ThemeService>(ThemeService(prefs));
 
   // ── App lifecycle broadcaster — registered first, used by ServerViewModel ─
   sl.registerSingleton<AppLifecycleBroadcaster>(AppLifecycleBroadcaster());
@@ -49,11 +52,7 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton<NetworkService>(() => NetworkService());
   sl.registerLazySingleton<LifecycleService>(() => LifecycleService());
 
-  sl.registerLazySingleton<HttpServerService>(() => HttpServerService(
-    scanner: sl<MediaScanner>(),
-    thumbCache: sl<ThumbnailCache>(),
-    thumbGenerator: sl<VideoThumbnailService>(),
-  ));
+  sl.registerLazySingleton<HttpServerService>(() => HttpServerService(scanner: sl<MediaScanner>(), thumbCache: sl<ThumbnailCache>(), thumbGenerator: sl<VideoThumbnailService>()));
 
   sl.registerLazySingleton<UdpBroadcaster>(() => UdpBroadcaster());
   sl.registerLazySingleton<UdpDiscovery>(() => UdpDiscovery());
@@ -69,5 +68,3 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton<StationService>(() => StationService());
   sl.registerLazySingleton<MediaService>(() => MediaService(repo: sl<MediaRepository>()));
 }
-
-

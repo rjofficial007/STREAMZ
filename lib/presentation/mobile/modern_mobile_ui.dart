@@ -12,18 +12,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
 import '../client/client_viewmodel.dart';
 import '../player/player_screen.dart';
-
-// --- Web UI Color Palette & Styles ---
-const Color kWebBlack = Color(0xFF000000);
-const Color kWebSurface = Color(0xFF0A0A0A);
-const Color kWebSurface2 = Color(0xFF111111);
-const Color kWebWhite = Color(0xFFFFFFFF);
-final Color kWebBorder = Colors.white.withValues(alpha: 0.15);
-final Color kWebTextMuted = Colors.white.withValues(alpha: 0.3);
-final Color kWebText = Colors.white.withValues(alpha: 0.6);
 
 const ColorFilter kGreyscale = ColorFilter.matrix(<double>[
   0.2126, 0.7152, 0.0722, 0, 0,
@@ -55,6 +47,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<ClientViewModel>();
+    final tokens = context.tokens;
     final allMedia = vm.remoteMedia;
     final stations = vm.stations;
     final continueWatching = vm.continueWatching;
@@ -69,7 +62,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
     final featuredItems = [...continueWatching, ...videos].take(5).toList();
 
     return Scaffold(
-      backgroundColor: kWebBlack,
+      backgroundColor: tokens.background,
       body: SafeArea(
         child: allMedia.isEmpty
             ? const Center(child: _EmptyState())
@@ -78,7 +71,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
           slivers: [
             // Persistent Floating Top Bar (Dashboard Style)
             SliverAppBar(
-              backgroundColor: kWebSurface,
+              backgroundColor: tokens.surface1,
               floating: true,
               elevation: 0,
               pinned: true,
@@ -95,7 +88,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
                 child: Focus(
                   onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
                   child: IconButton(
-                    icon: Icon(LucideIcons.arrowLeft, color: kWebText),
+                    icon: Icon(LucideIcons.arrowLeft, color: tokens.textSecondary),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
@@ -105,7 +98,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
                 style: GoogleFonts.barlowCondensed(
                   fontSize: 20,
                   letterSpacing: 4,
-                  color: kWebWhite,
+                  color: tokens.textPrimary,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -123,7 +116,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
                   child: Focus(
                     onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => _openSearch(context, allMedia)),
                     child: IconButton(
-                      icon: Icon(LucideIcons.search, color: kWebText, size: 20),
+                      icon: Icon(LucideIcons.search, color: tokens.textSecondary, size: 20),
                       onPressed: () => _openSearch(context, allMedia),
                     ),
                   ),
@@ -132,7 +125,7 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
               ],
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(1),
-                child: Container(color: kWebBorder, height: 1),
+                child: Container(color: tokens.border.withValues(alpha: 0.15), height: 1),
               ),
             ),
 
@@ -259,6 +252,7 @@ class _HeroSectionState extends State<_HeroSection> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return AspectRatio(
       aspectRatio: 16 / 10,
       child: Stack(
@@ -275,7 +269,7 @@ class _HeroSectionState extends State<_HeroSection> {
                 onTap: () => _play(context, item),
                 child: Container(
                   decoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(color: kWebBorder)),
+                    border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
                   ),
                   child: Column(
                     children: [
@@ -283,7 +277,7 @@ class _HeroSectionState extends State<_HeroSection> {
                       Expanded(
                         child: Container(
                           width: double.infinity,
-                          color: kWebSurface2,
+                          color: tokens.surface2,
                           child: ColorFiltered(
                             colorFilter: kGreyscale,
                             child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: item.isAudio ? LucideIcons.music : LucideIcons.video),
@@ -295,17 +289,17 @@ class _HeroSectionState extends State<_HeroSection> {
                         height: 64,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         decoration: BoxDecoration(
-                          color: kWebSurface,
-                          border: Border(top: BorderSide(color: kWebBorder)),
+                          color: tokens.surface1,
+                          border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
                         ),
                         child: Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: const BoxDecoration(color: kWebWhite),
+                              decoration: BoxDecoration(color: tokens.textPrimary),
                               child: Text(
                                 'PLAY',
-                                style: GoogleFonts.dmMono(color: kWebBlack, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2),
+                                style: GoogleFonts.dmMono(color: tokens.background, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -316,14 +310,14 @@ class _HeroSectionState extends State<_HeroSection> {
                                 children: [
                                   Text(
                                     'STATUS // HIGHLIGHTED',
-                                    style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 8, letterSpacing: 2),
+                                    style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 8, letterSpacing: 2),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     item.title.toUpperCase(),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+                                    style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
                                   ),
                                 ],
                               ),
@@ -350,7 +344,7 @@ class _HeroSectionState extends State<_HeroSection> {
                     child: Container(
                       height: 3,
                       margin: const EdgeInsets.only(right: 1),
-                      color: _currentPage == index ? kWebWhite : Colors.black54,
+                      color: _currentPage == index ? tokens.accent : tokens.background.withValues(alpha: 0.5),
                     ),
                   ),
                 ),
@@ -384,6 +378,7 @@ class _MobileContentRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -394,12 +389,12 @@ class _MobileContentRail extends StatelessWidget {
             children: [
               Text(
                 title.toUpperCase(),
-                style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2),
+                style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2),
               ),
               const SizedBox(height: 2),
               Text(
                 subTitle.toUpperCase(),
-                style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 9, letterSpacing: 2),
+                style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 9, letterSpacing: 2),
               ),
             ],
           ),
@@ -407,8 +402,8 @@ class _MobileContentRail extends StatelessWidget {
         Container(
           height: 140,
           decoration: BoxDecoration(
-            border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)),
-            color: kWebSurface,
+            border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+            color: tokens.surface1,
           ),
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
@@ -448,6 +443,7 @@ class _MobileRailCardState extends State<_MobileRailCard> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final thumbUrl = widget.vm.thumbnailUrl(widget.item.id);
 
     return Focus(
@@ -466,8 +462,8 @@ class _MobileRailCardState extends State<_MobileRailCard> {
         child: Container(
           width: widget.size,
           decoration: BoxDecoration(
-            color: _isFocused || _isPressed ? kWebWhite : kWebSurface2,
-            border: Border(right: BorderSide(color: kWebBorder)), // Only right border for flush continuous scroll
+            color: _isFocused || _isPressed ? tokens.textPrimary : tokens.surface2,
+            border: Border(right: BorderSide(color: tokens.border.withValues(alpha: 0.15))), // Only right border for flush continuous scroll
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -476,7 +472,7 @@ class _MobileRailCardState extends State<_MobileRailCard> {
               Expanded(
                 flex: 78,
                 child: Container(
-                  color: kWebBlack,
+                  color: tokens.background,
                   child: ColorFiltered(
                     colorFilter: (_isFocused || _isPressed) ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply) : kGreyscale,
                     child: NetworkImageFade(
@@ -492,10 +488,10 @@ class _MobileRailCardState extends State<_MobileRailCard> {
                 Container(
                   height: 2,
                   alignment: Alignment.centerLeft,
-                  color: kWebBorder,
+                  color: tokens.border.withValues(alpha: 0.15),
                   child: FractionallySizedBox(
                     widthFactor: widget.item.watchProgress,
-                    child: Container(color: kWebWhite),
+                    child: Container(color: _isFocused || _isPressed ? tokens.background : tokens.accent),
                   ),
                 ),
               // Info (22%)
@@ -505,14 +501,14 @@ class _MobileRailCardState extends State<_MobileRailCard> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   alignment: Alignment.centerLeft,
                   decoration: BoxDecoration(
-                    border: Border(top: BorderSide(color: kWebBorder)),
+                    border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
                   ),
                   child: Text(
                     widget.item.title.toUpperCase(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.dmMono(
-                      color: _isFocused || _isPressed ? kWebBlack : kWebText,
+                      color: _isFocused || _isPressed ? tokens.background : tokens.textSecondary,
                       fontSize: 10,
                       fontWeight: (_isFocused || _isPressed) ? FontWeight.bold : FontWeight.normal,
                       letterSpacing: 1,
@@ -542,6 +538,7 @@ class _StationRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -550,17 +547,17 @@ class _StationRail extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('NETWORK BROADCASTS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
+              Text('NETWORK BROADCASTS', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
               const SizedBox(height: 2),
-              Text('PATH // ROOT/LIVE', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 9, letterSpacing: 2)),
+              Text('PATH // ROOT/LIVE', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 9, letterSpacing: 2)),
             ],
           ),
         ),
         Container(
           height: 100,
           decoration: BoxDecoration(
-            border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)),
-            color: kWebSurface,
+            border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+            color: tokens.surface1,
           ),
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
@@ -610,6 +607,7 @@ class _StationCardState extends State<_StationCard> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final nowPlaying = widget.station['nowPlaying'];
     final title = widget.station['name'].toString().toUpperCase();
     final itemTitle = nowPlaying != null ? nowPlaying['item']['title'].toString().toUpperCase() : 'AWAITING SIGNAL';
@@ -623,8 +621,8 @@ class _StationCardState extends State<_StationCard> {
           width: 240,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: _focused ? kWebWhite : kWebSurface2,
-            border: Border(right: BorderSide(color: kWebBorder)),
+            color: _focused ? tokens.textPrimary : tokens.surface2,
+            border: Border(right: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -634,21 +632,21 @@ class _StationCardState extends State<_StationCard> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Text(title, style: GoogleFonts.barlowCondensed(color: _focused ? kWebBlack : kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1), maxLines: 1),
+                    child: Text(title, style: GoogleFonts.barlowCondensed(color: _focused ? tokens.background : tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1), maxLines: 1),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(border: Border.all(color: _focused ? kWebBlack : kWebWhite)),
-                    child: Text('LIVE', style: GoogleFonts.dmMono(fontSize: 9, fontWeight: FontWeight.bold, color: _focused ? kWebBlack : kWebWhite)),
+                    decoration: BoxDecoration(border: Border.all(color: _focused ? tokens.background : tokens.textPrimary)),
+                    child: Text('LIVE', style: GoogleFonts.dmMono(fontSize: 9, fontWeight: FontWeight.bold, color: _focused ? tokens.background : tokens.textPrimary)),
                   ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('STATUS // NOW PLAYING', style: GoogleFonts.dmMono(fontSize: 8, color: _focused ? kWebBlack.withValues(alpha:0.5) : kWebTextMuted, letterSpacing: 1)),
+                  Text('STATUS // NOW PLAYING', style: GoogleFonts.dmMono(fontSize: 8, color: _focused ? tokens.background.withValues(alpha:0.5) : tokens.textMuted, letterSpacing: 1)),
                   const SizedBox(height: 4),
-                  Text(itemTitle, style: GoogleFonts.dmMono(fontSize: 10, color: _focused ? kWebBlack : kWebText), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(itemTitle, style: GoogleFonts.dmMono(fontSize: 10, color: _focused ? tokens.background : tokens.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
                 ],
               ),
             ],
@@ -694,10 +692,11 @@ class _MobileSearchScreenState extends State<_MobileSearchScreen> {
   @override
   Widget build(BuildContext context) {
     final vm = context.read<ClientViewModel>();
+    final tokens = context.tokens;
     final results = _results;
 
     return Scaffold(
-      backgroundColor: kWebBlack,
+      backgroundColor: tokens.background,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -706,32 +705,32 @@ class _MobileSearchScreenState extends State<_MobileSearchScreen> {
             Container(
               height: 60,
               decoration: BoxDecoration(
-                color: kWebSurface,
-                border: Border(bottom: BorderSide(color: kWebBorder)),
+                color: tokens.surface1,
+                border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
               ),
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(LucideIcons.arrowLeft),
+                    icon: Icon(LucideIcons.arrowLeft, color: tokens.textSecondary),
                     onPressed: () => Navigator.pop(context),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('CMD>', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 12)),
+                    child: Text('CMD>', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12)),
                   ),
                   Expanded(
                     child: TextField(
                       controller: _ctrl,
                       autofocus: true,
-                      style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 12, letterSpacing: 1),
-                      cursorColor: kWebWhite,
+                      style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 12, letterSpacing: 1),
+                      cursorColor: tokens.textPrimary,
                       decoration: InputDecoration(
                         hintText: 'SEARCH QUERY...',
-                        hintStyle: TextStyle(color: kWebTextMuted),
+                        hintStyle: TextStyle(color: tokens.textMuted),
                         border: InputBorder.none,
                         suffixIcon: _query.isNotEmpty
                             ? IconButton(
-                          icon: Icon(LucideIcons.x, color: kWebTextMuted, size: 18),
+                          icon: Icon(LucideIcons.x, color: tokens.textMuted, size: 18),
                           onPressed: () {
                             _ctrl.clear();
                             setState(() => _query = '');
@@ -752,8 +751,8 @@ class _MobileSearchScreenState extends State<_MobileSearchScreen> {
                 child: Container(
                   margin: EdgeInsets.zero, // Outer padding removed
                   padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 32),
-                  decoration: BoxDecoration(border: Border.all(color: kWebBorder, style: BorderStyle.solid)),
-                  child: Text('AWAITING SIGNAL // CMD READY', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 4)),
+                  decoration: BoxDecoration(border: Border.all(color: tokens.border.withValues(alpha: 0.15), style: BorderStyle.solid)),
+                  child: Text('AWAITING SIGNAL // CMD READY', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 4)),
                 ),
               )
                   : results.isEmpty
@@ -761,12 +760,12 @@ class _MobileSearchScreenState extends State<_MobileSearchScreen> {
                 child: Container(
                   margin: EdgeInsets.zero,
                   padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 32),
-                  decoration: BoxDecoration(border: Border.all(color: kWebBorder, style: BorderStyle.solid)),
-                  child: Text('0 SIGNALS FOUND', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 4)),
+                  decoration: BoxDecoration(border: Border.all(color: tokens.border.withValues(alpha: 0.15), style: BorderStyle.solid)),
+                  child: Text('0 SIGNALS FOUND', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 4)),
                 ),
               )
                   : Container(
-                decoration: BoxDecoration(color: kWebBorder),
+                decoration: BoxDecoration(color: tokens.border.withValues(alpha: 0.15)),
                 child: CustomScrollView(
                   physics: const BouncingScrollPhysics(),
                   slivers: [
@@ -808,14 +807,15 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       margin: EdgeInsets.zero, // Outer padding removed
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 32),
-      decoration: BoxDecoration(border: Border.all(color: kWebBorder, style: BorderStyle.solid)),
+      decoration: BoxDecoration(border: Border.all(color: tokens.border.withValues(alpha: 0.15), style: BorderStyle.solid)),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('SIGNAL ERROR // DISCONNECTED', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 4)),
+          Text('SIGNAL ERROR // DISCONNECTED', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 4)),
         ],
       ),
     );

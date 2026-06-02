@@ -10,6 +10,7 @@ STREAMZ is a premium, cross-platform local media broadcasting system. Built with
 
 ### **SERVER NODE (NOC)**
 *   **Zero-Config HTTP Engine:** Hosts a local REST API and Web server using `shelf` and `shelf_router`.
+*   **Network Resilience:** Integrated watchdog detects IP changes every 15s and hot-restarts the HTTP engine automatically to ensure zero downtime during network handovers.
 *   **UDP Auto-Discovery:** Broadcasts its presence across the local subnet (`239.1.2.3` multicast) for instant client pairing.
 *   **Media Indexing:** Deep scans device storage for Videos, Audio, and Images using `photo_manager`, `on_audio_query`, and raw filesystem crawlers.
 *   **Linear Broadcast Stations:** Create virtual "TV Channels" from local media. The server maintains a synchronized playlist cycle, allowing multiple clients to "tune in" to the exact same moment in a broadcast.
@@ -25,8 +26,9 @@ STREAMZ is a premium, cross-platform local media broadcasting system. Built with
 *   **Download Manager:** Background-capable download service to cache payloads locally.
 
 ### **WEB STUDIO**
-*   **Built-in Web Client:** Access the server from any desktop browser via `http://<SERVER_IP>:8080`.
-*   **Crosshair Navigation:** A pure HTML/CSS/JS brutalist web interface synced instantly with the server's WebSocket telemetry.
+*   **Modern Studio Edition:** A built-in, mobile-responsive web interface accessible via `http://<SERVER_IP>:8080`.
+*   **Crosshair Navigation:** A pure HTML/CSS/JS brutalist interface with custom crosshair cursor and keyboard shortcuts (`F` for fullscreen, `Space` for play/pause).
+*   **Real-time Sync:** Instantly synced with the server's WebSocket telemetry, showing "Now Playing" status across all devices.
 
 ---
 
@@ -39,8 +41,11 @@ The codebase strictly adheres to **Clean Architecture** principles, decoupling t
 *   **Dependency Injection:** `GetIt` (Service Locator Pattern)
 *   **Media Engine:** `media_kit` (libmpv backend)
 *   **Local Server:** `shelf`, `shelf_router`, `shelf_web_socket`
+*   **Keep-Alive:** `wakelock_plus` (Screen sleep prevention) and `flutter_background` (Android Foreground Service)
+*   **Desktop Support:** `window_manager` for window state persistence and management.
 *   **Persistence:** `shared_preferences` (Progress caching, IP history, Station records)
 *   **Network:** `http`, UDP Multicast (`RawDatagramSocket`), WebSockets
+*   **Icons:** `lucide_icons_flutter`
 
 ### **Directory Structure**
 ```text
@@ -72,13 +77,13 @@ lib/
 
 The UI/UX abandons traditional Material Design soft corners and elevations in favor of a **High-Contrast Brutalist Aesthetic**.
 
-*   **Palette:** Absolute Black (`#000000`), Stark White (`#FFFFFF`), and High-Visibility Accents (`#FFFF00`).
+*   **Palette:** Absolute Black (`#000000`) and Stark White (`#FFFFFF`). No soft grays or gradients.
 *   **Geometry:** Strict zero-radius (`radius0`) borders. Sharp edges only.
 *   **Typography:**
     *   **Barlow Condensed:** Used for massive, high-impact display headers.
     *   **DM Mono:** Used for technical data, labels, meta-information, and badges.
     *   **Barlow:** Used for readable body copy.
-*   **Focus Engine:** Engineered explicitly for TV remote control (D-Pad). Focus rings utilize scale animations, stark border highlights, and shadow offsets to provide undeniable visual feedback across the room.
+*   **Focus Engine:** Engineered explicitly for TV remote control (D-Pad). Focus rings utilize scale animations, stark border highlights, and shadow offsets. The engine uses `PostFrameCallback` guards to ensure smooth scrolling to focused elements even during complex transitions.
 
 ---
 
@@ -102,15 +107,13 @@ flutter run
 ```
 
 ### **3. Permissions Note**
-STREAMZ requires comprehensive storage permissions to function as a server.
-*   **Android:** Requests `READ_MEDIA_VIDEO`, `READ_MEDIA_AUDIO`, `READ_MEDIA_IMAGES`, and `MANAGE_EXTERNAL_STORAGE`. It also utilizes `FOREGROUND_SERVICE` and `WAKE_LOCK` to keep the broadcast engine alive when the app is backgrounded.
+STREAMZ requires comprehensive permissions to function as a persistent broadcast node.
+*   **Android:** Requests `READ_MEDIA_VIDEO`, `READ_MEDIA_AUDIO`, `READ_MEDIA_IMAGES`, and `MANAGE_EXTERNAL_STORAGE`. It utilizes `FOREGROUND_SERVICE` and `WAKE_LOCK` (via `wakelock_plus` and `flutter_background`) with WiFi locks to keep the broadcast engine alive when the app is backgrounded.
 *   **Windows/macOS/Linux:** Automatically inherits the user's filesystem permissions.
 
 ---
 
 ## 🔒 SECURITY & ROUTING
-*   **Path Traversal Prevention:** The internal HTTP server utilizes normalized path resolution (`_isPathAllowed`) with URL-decoding and OS-level canonicalization to prevent `../` directory traversal attacks.
+*   **Path Traversal Prevention:** The internal HTTP server utilizes normalized path resolution with URL-decoding (`Uri.decodeComponent`) and OS-level canonicalization (`path.canonicalize`) to resolve symlinks and prevent `../` directory traversal attacks.
 *   **Network Isolation:** Broadcasts and WebSockets are restricted to the local subnet. Localhost (`127.0.0.1`) accesses are ignored in telemetry to prevent log spam during internal previews.
-*   **Session Integrity:** The server monitors IP changes and hot-restarts the HTTP engine automatically if the host moves to a new network interface.
-
----
+*   **Session Integrity:** The server monitors active WebSocket sessions and prunes stale connections automatically every 10 seconds.

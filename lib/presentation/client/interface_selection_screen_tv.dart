@@ -47,15 +47,16 @@ class _InterfaceSelectionScreenTVState extends State<InterfaceSelectionScreenTV>
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<ClientViewModel>();
+    final tokens = context.tokens;
 
     return Scaffold(
-      backgroundColor: DS.bg,
+      backgroundColor: tokens.background,
       body: Stack(
         children: [
           // Background Grid
-          const Positioned.fill(
+          Positioned.fill(
             child: CustomPaint(
-              painter: GridPainter(spacing: 60, color: DS.borderSubtle),
+              painter: GridPainter(spacing: 60, color: tokens.borderSubtle),
             ),
           ),
 
@@ -64,7 +65,7 @@ class _InterfaceSelectionScreenTVState extends State<InterfaceSelectionScreenTV>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildHeader(vm),
+                _buildHeader(context, vm),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: DS.s80),
@@ -123,11 +124,11 @@ class _InterfaceSelectionScreenTVState extends State<InterfaceSelectionScreenTV>
                         const SizedBox(height: DS.s48),
                         Text(
                           'LIVE SIGNALS // DETECTED BROADCASTS',
-                          style: GoogleFonts.dmMono(color: DS.textMuted, fontSize: 12, letterSpacing: 2),
+                          style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 2),
                         ),
                         const SizedBox(height: DS.s16),
                         if (vm.stations.isEmpty)
-                          _buildEmptySignals()
+                          _buildEmptySignals(context)
                         else
                           GridView.builder(
                             shrinkWrap: true,
@@ -152,7 +153,7 @@ class _InterfaceSelectionScreenTVState extends State<InterfaceSelectionScreenTV>
                     ),
                   ),
                 ),
-                _buildFooter(),
+                _buildFooter(context),
               ],
             ),
           ),
@@ -161,7 +162,8 @@ class _InterfaceSelectionScreenTVState extends State<InterfaceSelectionScreenTV>
     );
   }
 
-  Widget _buildHeader(ClientViewModel vm) {
+  Widget _buildHeader(BuildContext context, ClientViewModel vm) {
+    final tokens = context.tokens;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: DS.s80, vertical: DS.s40),
       child: Row(
@@ -174,14 +176,14 @@ class _InterfaceSelectionScreenTVState extends State<InterfaceSelectionScreenTV>
                 Text(
                   'GATEWAY MODE // SYSTEM ANALYSIS',
                   style: GoogleFonts.barlowCondensed(
-                    color: DS.textPrimary,
+                    color: tokens.textPrimary,
                     fontSize: 32,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 4,
                   ),
                 ),
                 const SizedBox(height: DS.s8),
-                Container(height: 2, width: 200, color: DS.accent),
+                Container(height: 2, width: 200, color: tokens.accent),
               ],
             ),
           ),
@@ -195,14 +197,15 @@ class _InterfaceSelectionScreenTVState extends State<InterfaceSelectionScreenTV>
     );
   }
 
-  Widget _buildFooter() {
+  Widget _buildFooter(BuildContext context) {
+    final tokens = context.tokens;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: DS.s80, vertical: DS.s40),
       child: Row(
         children: [
           Text(
             'SIGNAL ANALYSIS: OPTIMAL // LATENCY: LOW // ENCRYPTION: NONE',
-            style: GoogleFonts.dmMono(color: DS.textMuted, fontSize: 12, letterSpacing: 2),
+            style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 2),
           ),
           const Spacer(),
           const _BlinkingDotTV(),
@@ -211,21 +214,22 @@ class _InterfaceSelectionScreenTVState extends State<InterfaceSelectionScreenTV>
     );
   }
 
-  Widget _buildEmptySignals() {
+  Widget _buildEmptySignals(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       padding: const EdgeInsets.all(DS.s48),
       decoration: BoxDecoration(
-        color: DS.surface1,
-        border: Border.all(color: DS.borderSubtle),
+        color: tokens.surface1,
+        border: Border.all(color: tokens.borderSubtle),
       ),
       child: Center(
         child: Column(
           children: [
-            Icon(LucideIcons.radioTower, size: 48, color: DS.textMuted),
+            Icon(LucideIcons.radioTower, size: 48, color: tokens.textMuted),
             const SizedBox(height: DS.s16),
             Text(
               'NO LIVE BROADCASTS DETECTED',
-              style: GoogleFonts.dmMono(color: DS.textMuted, fontSize: 14, letterSpacing: 4),
+              style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 14, letterSpacing: 4),
             ),
           ],
         ),
@@ -241,12 +245,13 @@ class _StatusModule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.dmMono(color: DS.textMuted, fontSize: 10, letterSpacing: 1)),
+        Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
         const SizedBox(height: 4),
-        Text(value, style: GoogleFonts.dmMono(color: DS.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(value, style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
       ],
     );
   }
@@ -280,8 +285,9 @@ class _TVGatewayCardState extends State<_TVGatewayCard> {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = _isFocused ? DS.surface3 : DS.surface1;
-    final borderColor = _isFocused ? (widget.isWarning ? DS.danger : DS.accent) : DS.borderDefault;
+    final tokens = context.tokens;
+    final bgColor = _isFocused ? tokens.surface3 : tokens.surface1;
+    final borderColor = _isFocused ? (widget.isWarning ? tokens.error : tokens.accent) : tokens.border;
 
     return Focus(
       autofocus: widget.autofocus,
@@ -303,7 +309,7 @@ class _TVGatewayCardState extends State<_TVGatewayCard> {
               boxShadow: _isFocused
                   ? [
                       BoxShadow(
-                        color: (widget.isWarning ? DS.danger : DS.accent).withValues(alpha: 0.2),
+                        color: (widget.isWarning ? tokens.error : tokens.accent).withValues(alpha: 0.2),
                         blurRadius: 20,
                         spreadRadius: 5,
                       )
@@ -316,14 +322,14 @@ class _TVGatewayCardState extends State<_TVGatewayCard> {
                   child: CustomPaint(
                     painter: GridPainter(
                       spacing: 20,
-                      color: _isFocused ? (widget.isWarning ? DS.danger : DS.accent).withValues(alpha: 0.05) : DS.borderSubtle,
+                      color: _isFocused ? (widget.isWarning ? tokens.error : tokens.accent).withValues(alpha: 0.05) : tokens.borderSubtle,
                     ),
                   ),
                 ),
-                _buildCorner(Alignment.topLeft, borderColor),
-                _buildCorner(Alignment.topRight, borderColor),
-                _buildCorner(Alignment.bottomLeft, borderColor),
-                _buildCorner(Alignment.bottomRight, borderColor),
+                _buildCorner(context, Alignment.topLeft, borderColor),
+                _buildCorner(context, Alignment.topRight, borderColor),
+                _buildCorner(context, Alignment.bottomLeft, borderColor),
+                _buildCorner(context, Alignment.bottomRight, borderColor),
                 Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -331,7 +337,7 @@ class _TVGatewayCardState extends State<_TVGatewayCard> {
                       Text(
                         'SYS_TYPE // ${widget.code}',
                         style: GoogleFonts.dmMono(
-                          color: _isFocused ? DS.textPrimary : DS.textMuted,
+                          color: _isFocused ? tokens.textPrimary : tokens.textMuted,
                           fontSize: 10,
                           letterSpacing: 2,
                         ),
@@ -339,14 +345,14 @@ class _TVGatewayCardState extends State<_TVGatewayCard> {
                       const SizedBox(height: DS.s24),
                       Icon(
                         widget.icon,
-                        color: _isFocused ? (widget.isWarning ? DS.danger : DS.textPrimary) : DS.textSecondary,
+                        color: _isFocused ? (widget.isWarning ? tokens.error : tokens.textPrimary) : tokens.textSecondary,
                         size: 48,
                       ),
                       const SizedBox(height: DS.s24),
                       Text(
                         widget.label,
                         style: GoogleFonts.barlowCondensed(
-                          color: DS.textPrimary,
+                          color: tokens.textPrimary,
                           fontSize: 28,
                           letterSpacing: 4,
                           fontWeight: FontWeight.w900,
@@ -357,7 +363,7 @@ class _TVGatewayCardState extends State<_TVGatewayCard> {
                       Text(
                         widget.subLabel,
                         style: GoogleFonts.dmMono(
-                          color: _isFocused ? DS.textPrimary : DS.textMuted,
+                          color: _isFocused ? tokens.textPrimary : tokens.textMuted,
                           fontSize: 11,
                           letterSpacing: 1,
                         ),
@@ -374,7 +380,7 @@ class _TVGatewayCardState extends State<_TVGatewayCard> {
     );
   }
 
-  Widget _buildCorner(Alignment alignment, Color color) {
+  Widget _buildCorner(BuildContext context, Alignment alignment, Color color) {
     return Align(
       alignment: alignment,
       child: Container(
@@ -383,18 +389,10 @@ class _TVGatewayCardState extends State<_TVGatewayCard> {
         margin: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           border: Border(
-            top: alignment == Alignment.topLeft || alignment == Alignment.topRight
-                ? BorderSide(color: color, width: 2)
-                : BorderSide.none,
-            bottom: alignment == Alignment.bottomLeft || alignment == Alignment.bottomRight
-                ? BorderSide(color: color, width: 2)
-                : BorderSide.none,
-            left: alignment == Alignment.topLeft || alignment == Alignment.bottomLeft
-                ? BorderSide(color: color, width: 2)
-                : BorderSide.none,
-            right: alignment == Alignment.topRight || alignment == Alignment.bottomRight
-                ? BorderSide(color: color, width: 2)
-                : BorderSide.none,
+            top: alignment == Alignment.topLeft || alignment == Alignment.topRight ? BorderSide(color: color, width: 2) : BorderSide.none,
+            bottom: alignment == Alignment.bottomLeft || alignment == Alignment.bottomRight ? BorderSide(color: color, width: 2) : BorderSide.none,
+            left: alignment == Alignment.topLeft || alignment == Alignment.bottomLeft ? BorderSide(color: color, width: 2) : BorderSide.none,
+            right: alignment == Alignment.topRight || alignment == Alignment.bottomRight ? BorderSide(color: color, width: 2) : BorderSide.none,
           ),
         ),
       ),
@@ -417,6 +415,7 @@ class _StationTileTVState extends State<_StationTileTV> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final title = widget.station['name'].toString().toUpperCase();
     final nowPlaying = widget.station['nowPlaying'];
     final itemTitle = nowPlaying != null ? nowPlaying['item']['title'].toString().toUpperCase() : 'AWAITING SIGNAL';
@@ -431,8 +430,8 @@ class _StationTileTVState extends State<_StationTileTV> {
         onTap: widget.onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: _isFocused ? DS.surface3 : DS.surface1,
-            border: Border.all(color: _isFocused ? DS.accent : DS.borderSubtle, width: _isFocused ? 2 : 1),
+            color: _isFocused ? tokens.surface3 : tokens.surface1,
+            border: Border.all(color: _isFocused ? tokens.accent : tokens.borderSubtle, width: _isFocused ? 2 : 1),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Row(
@@ -441,10 +440,10 @@ class _StationTileTVState extends State<_StationTileTV> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: DS.surface2,
-                  border: Border.all(color: _isFocused ? DS.accent : DS.borderSubtle),
+                  color: tokens.surface2,
+                  border: Border.all(color: _isFocused ? tokens.accent : tokens.borderSubtle),
                 ),
-                child: Icon(LucideIcons.radio, color: _isFocused ? DS.textPrimary : DS.textSecondary, size: 20),
+                child: Icon(LucideIcons.radio, color: _isFocused ? tokens.textPrimary : tokens.textSecondary, size: 20),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -455,7 +454,7 @@ class _StationTileTVState extends State<_StationTileTV> {
                     Text(
                       title,
                       style: GoogleFonts.barlowCondensed(
-                        color: DS.textPrimary,
+                        color: tokens.textPrimary,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1,
@@ -467,7 +466,7 @@ class _StationTileTVState extends State<_StationTileTV> {
                     Text(
                       'LIVE: $itemTitle',
                       style: GoogleFonts.dmMono(
-                        color: _isFocused ? DS.textPrimary : DS.textMuted,
+                        color: _isFocused ? tokens.textPrimary : tokens.textMuted,
                         fontSize: 10,
                         letterSpacing: 1,
                       ),
@@ -477,7 +476,7 @@ class _StationTileTVState extends State<_StationTileTV> {
                   ],
                 ),
               ),
-              if (_isFocused) Icon(LucideIcons.chevronRight, color: DS.accent, size: 20),
+              if (_isFocused) Icon(LucideIcons.chevronRight, color: tokens.accent, size: 20),
             ],
           ),
         ),
@@ -510,6 +509,7 @@ class _BlinkingDotTVState extends State<_BlinkingDotTV> with SingleTickerProvide
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return FadeTransition(
       opacity: _ctrl,
       child: Row(
@@ -517,15 +517,15 @@ class _BlinkingDotTVState extends State<_BlinkingDotTV> with SingleTickerProvide
           Container(
             width: 8,
             height: 8,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.white, blurRadius: 6)],
+            decoration: BoxDecoration(
+              color: tokens.success,
+              boxShadow: [BoxShadow(color: tokens.success, blurRadius: 6)],
             ),
           ),
           const SizedBox(width: 12),
           Text(
             'SIGNAL ESTABLISHED',
-            style: GoogleFonts.dmMono(color: DS.textPrimary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2),
+            style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2),
           ),
         ],
       ),

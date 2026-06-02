@@ -1,14 +1,6 @@
 // core/theme/app_theme.dart
 // ============================================================================
 // STREAMZ — Master Design System & UI Components (Production-Fixed)
-//
-// BUG FIXED:
-//   handleTVFocusScroll called Scrollable.ensureVisible synchronously during
-//   a focus-change callback. On the very first frame after navigation, the
-//   widget may not yet be attached to a scroll ancestor, causing:
-//     "Scrollable.ensureVisible called with a context that does not contain a Scrollable"
-//   Fixed by wrapping the call in WidgetsBinding.instance.addPostFrameCallback
-//   so it executes after the current frame's layout pass completes.
 // ============================================================================
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -19,46 +11,70 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:media_kit/media_kit.dart';
 
 import 'design_tokens.dart';
+import 'streamz_theme.dart';
+import 'theme_tokens.dart';
 
 abstract final class AppTheme {
   static const double bpMobile = DS.bpMobile;
   static const double bpDesktop = DS.bpTablet;
 
-  static const Color background = DS.bg;
-  static const Color surfaceDark = DS.surface1;
-  static const Color surfaceLight = DS.surface2;
-  static const Color surfaceHighlight = DS.surface3;
-  static const Color accent = DS.accent;
-  static const Color borderLine = DS.borderDefault;
-  static const Color borderHover = DS.borderStrong;
-  static const Color textPrimary = DS.textPrimary;
-  static const Color textSecondary = DS.textSecondary;
-  static const Color textMuted = DS.textMuted;
+  static ThemeData themeFor(StreamzTheme streamzTheme) {
+    final tokens = streamzTheme.tokens;
+    final isDark = streamzTheme.identity != ThemeIdentity.whiteout;
 
-  static ThemeData get theme => ThemeData.dark().copyWith(
-    scaffoldBackgroundColor: DS.bg,
-    primaryColor: DS.accent,
-    canvasColor: DS.surface1,
-    appBarTheme: AppBarTheme(
-      backgroundColor: DS.bg,
-      elevation: 0,
-      centerTitle: false,
-      iconTheme: const IconThemeData(color: DS.textPrimary),
-      shape: const Border(bottom: BorderSide(color: DS.borderDefault, width: 1)),
-      titleTextStyle: GoogleFonts.dmMono(fontSize: 14, letterSpacing: 3, color: DS.textPrimary, fontWeight: FontWeight.bold),
-    ),
-    colorScheme: const ColorScheme.dark(primary: DS.accent, secondary: DS.accent, surface: DS.surface1, onSurface: DS.textPrimary),
-    textTheme: TextTheme(
-      displayLarge: GoogleFonts.barlowCondensed(fontSize: 80, fontWeight: FontWeight.w900, color: DS.textPrimary, letterSpacing: -2, height: 0.9),
-      displayMedium: GoogleFonts.barlowCondensed(fontSize: 48, fontWeight: FontWeight.w900, color: DS.textPrimary, letterSpacing: -1, height: 1.0),
-      headlineSmall: GoogleFonts.barlowCondensed(fontSize: 32, fontWeight: FontWeight.w700, color: DS.textPrimary, letterSpacing: -0.5, height: 1.1),
-      titleMedium: GoogleFonts.barlowCondensed(fontSize: 24, fontWeight: FontWeight.w700, color: DS.textPrimary, letterSpacing: 1.0),
-      labelSmall: GoogleFonts.dmMono(fontSize: 11, letterSpacing: 3, color: DS.textMuted, fontWeight: FontWeight.w500),
-      labelMedium: GoogleFonts.dmMono(fontSize: 13, letterSpacing: 2, color: DS.textPrimary, fontWeight: FontWeight.w500),
-      bodyLarge: GoogleFonts.barlow(fontSize: 15, fontWeight: FontWeight.w300, color: DS.textSecondary, height: 1.6),
-      bodyMedium: GoogleFonts.barlow(fontSize: 13, fontWeight: FontWeight.w300, color: DS.textSecondary, height: 1.6),
-    ),
-  );
+    return (isDark ? ThemeData.dark() : ThemeData.light()).copyWith(
+      scaffoldBackgroundColor: tokens.background,
+      primaryColor: tokens.primary,
+      canvasColor: tokens.surface1,
+      extensions: [tokens],
+      appBarTheme: AppBarTheme(
+        backgroundColor: tokens.background,
+        elevation: 0,
+        centerTitle: false,
+        iconTheme: IconThemeData(color: tokens.textPrimary),
+        shape: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15), width: 1)),
+        titleTextStyle: GoogleFonts.dmMono(fontSize: 14, letterSpacing: 3, color: tokens.textPrimary, fontWeight: FontWeight.bold),
+      ),
+      iconTheme: IconThemeData(color: tokens.textPrimary),
+      dialogTheme: DialogThemeData(
+        backgroundColor: tokens.surface1,
+        shape: Border.all(color: tokens.textPrimary, width: 2),
+        titleTextStyle: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2),
+        contentTextStyle: GoogleFonts.dmMono(color: tokens.textSecondary, fontSize: 14),
+      ),
+      colorScheme: (isDark ? const ColorScheme.dark() : const ColorScheme.light()).copyWith(primary: tokens.primary, secondary: tokens.accent, surface: tokens.surface1, onSurface: tokens.textPrimary),
+      textTheme: TextTheme(
+        displayLarge: GoogleFonts.barlowCondensed(fontSize: 80, fontWeight: FontWeight.w900, color: tokens.textPrimary, letterSpacing: -2, height: 0.9),
+        displayMedium: GoogleFonts.barlowCondensed(fontSize: 48, fontWeight: FontWeight.w900, color: tokens.textPrimary, letterSpacing: -1, height: 1.0),
+        headlineSmall: GoogleFonts.barlowCondensed(fontSize: 32, fontWeight: FontWeight.w700, color: tokens.textPrimary, letterSpacing: -0.5, height: 1.1),
+        titleMedium: GoogleFonts.barlowCondensed(fontSize: 24, fontWeight: FontWeight.w700, color: tokens.textPrimary, letterSpacing: 1.0),
+        labelSmall: GoogleFonts.dmMono(fontSize: 11, letterSpacing: 3, color: tokens.textMuted, fontWeight: FontWeight.w500),
+        labelMedium: GoogleFonts.dmMono(fontSize: 13, letterSpacing: 2, color: tokens.textPrimary, fontWeight: FontWeight.w500),
+        bodyLarge: GoogleFonts.barlow(fontSize: 15, fontWeight: FontWeight.w300, color: tokens.textSecondary, height: 1.6),
+        bodyMedium: GoogleFonts.barlow(fontSize: 13, fontWeight: FontWeight.w300, color: tokens.textSecondary, height: 1.6),
+      ),
+    );
+  }
+
+  // Deprecated properties for backward compatibility during transition
+  static Color get background => DS.bg;
+  static Color get surfaceDark => DS.surface1;
+  static Color get surfaceLight => DS.surface2;
+  static Color get surfaceHighlight => DS.surface3;
+  static Color get accent => DS.accent;
+  static Color get borderLine => DS.borderDefault;
+  static Color get borderHover => DS.borderStrong;
+  static Color get textPrimary => DS.textPrimary;
+  static Color get textSecondary => DS.textSecondary;
+  static Color get textMuted => DS.textMuted;
+
+  static ThemeData get theme => themeFor(StreamzTheme.pureBlack);
+}
+
+extension ThemeUtils on BuildContext {
+  StreamzThemeExtension get tokens => Theme.of(this).extension<StreamzThemeExtension>()!;
+  TextTheme get textTheme => Theme.of(this).textTheme;
+  ColorScheme get colorScheme => Theme.of(this).colorScheme;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,7 +113,7 @@ KeyEventResult handleTVSelectKey(KeyEvent event, VoidCallback? onTap) {
 }
 
 /// FIX: Wraps Scrollable.ensureVisible in addPostFrameCallback to prevent
-/// "context does not contain a Scrollable" crash on frame 1.
+/// \"context does not contain a Scrollable\" crash on frame 1.
 void handleTVFocusScroll(bool hasFocus, BuildContext context) {
   if (!hasFocus) return;
   // Defer until after the current frame's layout so the widget is fully
@@ -129,7 +145,7 @@ class AppScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     extendBody: true,
-    backgroundColor: DS.bg,
+    backgroundColor: context.tokens.background,
     appBar: appBar,
     body: body,
     floatingActionButton: floatingActionButton,
@@ -153,35 +169,38 @@ class _AppCardState extends State<AppCard> {
   bool _isFocused = false;
 
   @override
-  Widget build(BuildContext context) => Actions(
-    actions: {
-      ActivateIntent: CallbackAction<ActivateIntent>(
-        onInvoke: (_) {
-          widget.onTap?.call();
-          return null;
-        },
-      ),
-    },
-    child: Focus(
-      onFocusChange: (val) {
-        setState(() => _isFocused = val);
-        handleTVFocusScroll(val, context);
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Actions(
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onTap?.call();
+            return null;
+          },
+        ),
       },
-      onKeyEvent: (node, event) => handleTVSelectKey(event, widget.onTap),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        decoration: BoxDecoration(
-          color: _isFocused ? DS.surface3 : DS.surface1,
-          border: Border.all(color: _isFocused ? DS.accent : DS.borderDefault, width: _isFocused ? 3.0 : 1.0),
-          boxShadow: _isFocused ? [const BoxShadow(color: DS.accent, offset: Offset(4, 4))] : [],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(onTap: widget.onTap, onLongPress: widget.onLongPress, onHover: (val) => setState(() => _isFocused = val), child: widget.child),
+      child: Focus(
+        onFocusChange: (val) {
+          setState(() => _isFocused = val);
+          handleTVFocusScroll(val, context);
+        },
+        onKeyEvent: (node, event) => handleTVSelectKey(event, widget.onTap),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: _isFocused ? tokens.surface3 : tokens.surface1,
+            border: Border.all(color: _isFocused ? tokens.accent : tokens.border.withValues(alpha: 0.15), width: _isFocused ? 2.5 : 1.0),
+            boxShadow: _isFocused ? [BoxShadow(color: tokens.accent.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(4, 4))] : [],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(onTap: widget.onTap, onLongPress: widget.onLongPress, onHover: (val) => setState(() => _isFocused = val), child: widget.child),
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class BrutalistBlock extends StatelessWidget {
@@ -196,8 +215,8 @@ class BrutalistBlock extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: padding,
     decoration: BoxDecoration(
-      color: color ?? DS.surface1,
-      border: Border.all(color: borderColor ?? DS.borderDefault, width: 1),
+      color: color ?? context.tokens.surface1,
+      border: Border.all(color: borderColor ?? context.tokens.border, width: 1),
     ),
     child: child,
   );
@@ -210,25 +229,28 @@ class BrutalistToggle extends StatelessWidget {
   const BrutalistToggle({super.key, required this.value, required this.isMobile});
 
   @override
-  Widget build(BuildContext context) => AnimatedContainer(
-    duration: const Duration(milliseconds: 200),
-    width: isMobile ? 32 : 40,
-    height: isMobile ? 16 : 20,
-    decoration: BoxDecoration(
-      color: value ? DS.accent : Colors.transparent,
-      border: Border.all(color: value ? DS.accent : DS.textMuted, width: 2),
-    ),
-    child: Stack(
-      children: [
-        AnimatedAlign(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(width: isMobile ? 10 : 12, height: isMobile ? 10 : 12, margin: const EdgeInsets.symmetric(horizontal: 2), color: value ? DS.bg : DS.textMuted),
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: isMobile ? 32 : 40,
+      height: isMobile ? 16 : 20,
+      decoration: BoxDecoration(
+        color: value ? tokens.accent : Colors.transparent,
+        border: Border.all(color: value ? tokens.accent : tokens.textMuted, width: 2),
+      ),
+      child: Stack(
+        children: [
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+            child: Container(width: isMobile ? 10 : 12, height: isMobile ? 10 : 12, margin: const EdgeInsets.symmetric(horizontal: 2), color: value ? tokens.background : tokens.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class BrutalistToggleTile extends StatelessWidget {
@@ -241,22 +263,25 @@ class BrutalistToggleTile extends StatelessWidget {
   const BrutalistToggleTile({super.key, required this.label, required this.icon, required this.value, required this.isMobile, required this.onChanged});
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: () => onChanged(!value),
-    child: Container(
-      padding: EdgeInsets.symmetric(horizontal: DS.s16, vertical: isMobile ? DS.s8 : DS.s12),
-      child: Row(
-        children: [
-          Icon(icon, color: DS.accent, size: isMobile ? 16 : 20),
-          const SizedBox(width: DS.s16),
-          Expanded(
-            child: Text(label, style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: isMobile ? 11 : 12)),
-          ),
-          BrutalistToggle(value: value, isMobile: isMobile),
-        ],
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return InkWell(
+      onTap: () => onChanged(!value),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: DS.s16, vertical: isMobile ? DS.s8 : DS.s12),
+        child: Row(
+          children: [
+            Icon(icon, color: tokens.accent, size: isMobile ? 16 : 20),
+            const SizedBox(width: DS.s16),
+            Expanded(
+              child: Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(fontSize: isMobile ? 11 : 12)),
+            ),
+            BrutalistToggle(value: value, isMobile: isMobile),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class CompactBtn extends StatefulWidget {
@@ -278,9 +303,10 @@ class _CompactBtnState extends State<CompactBtn> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = widget.isPrimary ? DS.accent : Colors.transparent;
-    final fg = widget.isPrimary ? DS.bg : DS.textPrimary;
-    final border = widget.isPrimary ? DS.accent : DS.borderDefault;
+    final tokens = context.tokens;
+    final bg = widget.isPrimary ? tokens.accent : Colors.transparent;
+    final fg = widget.isPrimary ? tokens.background : tokens.textPrimary;
+    final border = widget.isPrimary ? tokens.accent : tokens.border;
 
     return Actions(
       actions: {
@@ -299,8 +325,8 @@ class _CompactBtnState extends State<CompactBtn> {
           height: widget.height,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: _isFocused && !widget.isPrimary ? DS.surface3 : bg,
-            border: Border.all(color: _isFocused ? DS.accent : border, width: widget.isPrimary ? 2 : 1),
+            color: _isFocused && !widget.isPrimary ? tokens.surface3 : bg,
+            border: Border.all(color: _isFocused ? tokens.accent : border, width: widget.isPrimary ? 2 : 1),
           ),
           child: Material(
             color: Colors.transparent,
@@ -347,9 +373,10 @@ class _AppButtonState extends State<AppButton> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = widget.isPrimary ? DS.accent : Colors.transparent;
-    final fg = widget.isPrimary ? DS.bg : DS.textPrimary;
-    final border = widget.isPrimary ? DS.accent : DS.borderDefault;
+    final tokens = context.tokens;
+    final bg = widget.isPrimary ? tokens.accent : Colors.transparent;
+    final fg = widget.isPrimary ? tokens.background : tokens.textPrimary;
+    final border = widget.isPrimary ? tokens.accent : tokens.border;
 
     return Actions(
       actions: {
@@ -376,8 +403,8 @@ class _AppButtonState extends State<AppButton> {
               height: widget.height,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: _isFocused ? (widget.isPrimary ? Colors.white70 : DS.surface3) : bg,
-                border: Border.all(color: _isFocused ? DS.accent : border, width: _isFocused ? 3 : 1),
+                color: _isFocused ? (widget.isPrimary ? tokens.accent.withValues(alpha: 0.7) : tokens.surface3) : bg,
+                border: Border.all(color: _isFocused ? tokens.accent : border, width: _isFocused ? 3 : 1),
               ),
               child: Center(
                 child: widget.isLoading
@@ -410,14 +437,17 @@ class StatusBadge extends StatelessWidget {
   const StatusBadge({super.key, required this.label, this.isActive = false, this.activeColor, this.activeFg});
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-    color: isActive ? (activeColor ?? DS.accent) : DS.surface3,
-    child: Text(
-      label.toUpperCase(),
-      style: GoogleFonts.dmMono(fontSize: 9, fontWeight: FontWeight.bold, color: isActive ? (activeFg ?? DS.bg) : DS.textSecondary),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      color: isActive ? (activeColor ?? tokens.accent) : tokens.surface3,
+      child: Text(
+        label.toUpperCase(),
+        style: GoogleFonts.dmMono(fontSize: 9, fontWeight: FontWeight.bold, color: isActive ? (activeFg ?? tokens.background) : tokens.textSecondary),
+      ),
+    );
+  }
 }
 
 class SkeletonBox extends StatelessWidget {
@@ -431,8 +461,8 @@ class SkeletonBox extends StatelessWidget {
     width: width,
     height: height,
     decoration: BoxDecoration(
-      color: DS.surface3,
-      border: Border.all(color: DS.borderDefault),
+      color: context.tokens.surface3,
+      border: Border.all(color: context.tokens.border),
     ),
   );
 }
@@ -450,12 +480,12 @@ class NetworkImageFade extends StatelessWidget {
     fit: fit,
     fadeInDuration: const Duration(milliseconds: 300),
     placeholder: (_, _) => Container(
-      color: DS.surface1,
-      child: Center(child: Icon(fallbackIcon, color: Colors.white24, size: 32)),
+      color: context.tokens.surface1,
+      child: Center(child: Icon(fallbackIcon, color: context.tokens.textMuted, size: 32)),
     ),
     errorWidget: (_, _, _) => Container(
-      color: DS.surface1,
-      child: Center(child: Icon(fallbackIcon, color: Colors.white24, size: 32)),
+      color: context.tokens.surface1,
+      child: Center(child: Icon(fallbackIcon, color: context.tokens.textMuted, size: 32)),
     ),
   );
 }
@@ -505,10 +535,11 @@ class _BrutalistPlayerBtnState extends State<BrutalistPlayerBtn> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final isMobile = Responsive.isMobile(context);
-    final bg = _isFocused ? DS.accent : (widget.isPrimary ? DS.textPrimary : DS.surface1);
-    final fg = _isFocused ? DS.bg : (widget.isPrimary ? DS.bg : DS.textPrimary);
-    final borderColor = _isFocused ? DS.accent : DS.borderDefault;
+    final bg = _isFocused ? tokens.accent : (widget.isPrimary ? tokens.textPrimary : tokens.surface1);
+    final fg = _isFocused ? tokens.background : (widget.isPrimary ? tokens.background : tokens.textPrimary);
+    final borderColor = _isFocused ? tokens.accent : tokens.border;
     final shadowOffset = isMobile ? const Offset(4, 4) : const Offset(6, 6);
     final boxSize = (Responsive.isTV(context) || Responsive.isDesktop(context)) ? widget.size * 1.6 : widget.size * 2.0;
 
@@ -538,7 +569,7 @@ class _BrutalistPlayerBtnState extends State<BrutalistPlayerBtn> {
               decoration: BoxDecoration(
                 color: bg,
                 border: Border.all(color: borderColor, width: _isFocused ? (isMobile ? 2 : 4) : (isMobile ? 1 : 2)),
-                boxShadow: _isFocused ? [BoxShadow(color: DS.accent, offset: shadowOffset)] : [],
+                boxShadow: _isFocused ? [BoxShadow(color: tokens.accent, offset: shadowOffset)] : [],
               ),
               child: Icon(widget.icon, size: widget.size, color: fg),
             ),
@@ -568,59 +599,60 @@ class BrutalistProgressBar extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => StreamBuilder<Duration>(
-    stream: player.stream.position,
-    builder: (_, posSnap) => StreamBuilder<Duration>(
-      stream: player.stream.duration,
-      builder: (_, durSnap) {
-        final pos = posSnap.data ?? Duration.zero;
-        final dur = durSnap.data ?? Duration.zero;
-        final maxVal = dur.inMilliseconds.toDouble().clamp(1.0, double.infinity);
-        final curVal = pos.inMilliseconds.toDouble().clamp(0.0, maxVal);
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return StreamBuilder<Duration>(
+      stream: player.stream.position,
+      builder: (_, posSnap) => StreamBuilder<Duration>(
+        stream: player.stream.duration,
+        builder: (_, durSnap) {
+          final pos = posSnap.data ?? Duration.zero;
+          final dur = durSnap.data ?? Duration.zero;
+          final maxVal = dur.inMilliseconds.toDouble().clamp(1.0, double.infinity);
+          final curVal = pos.inMilliseconds.toDouble().clamp(0.0, maxVal);
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: compact ? 56 : 80,
-              child: Text(_fmt(pos.inSeconds), style: AppTheme.theme.textTheme.titleMedium?.copyWith(fontSize: compact ? 12 : 16)),
-            ),
-            const SizedBox(width: DS.s16),
-            Expanded(
-              child: SliderTheme(
-                data: SliderThemeData(
-                  trackHeight: compact ? 4 : 8,
-                  activeTrackColor: isReadOnly ? Colors.orangeAccent : DS.accent,
-                  inactiveTrackColor: DS.surface3,
-                  thumbColor: isReadOnly ? Colors.transparent : DS.accent,
-                  overlayShape: SliderComponentShape.noOverlay,
-                  trackShape: const RectangularSliderTrackShape(),
-                  thumbShape: RoundSliderThumbShape(enabledThumbRadius: isReadOnly ? 0 : 6),
-                ),
-                child: Slider(
-                  value: curVal,
-                  min: 0,
-                  max: maxVal,
-                  onChanged: isReadOnly ? null : (v) => player.seek(Duration(milliseconds: v.toInt())),
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: compact ? 56 : 80,
+                child: Text(_fmt(pos.inSeconds), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: compact ? 12 : 16)),
+              ),
+              const SizedBox(width: DS.s16),
+              Expanded(
+                child: SliderTheme(
+                  data: SliderThemeData(
+                    trackHeight: compact ? 4 : 8,
+                    activeTrackColor: isReadOnly ? tokens.warning : tokens.accent,
+                    inactiveTrackColor: tokens.surface3,
+                    thumbColor: isReadOnly ? Colors.transparent : tokens.accent,
+                    overlayShape: SliderComponentShape.noOverlay,
+                    trackShape: const RectangularSliderTrackShape(),
+                    thumbShape: RoundSliderThumbShape(enabledThumbRadius: isReadOnly ? 0 : 6),
+                  ),
+                  child: Slider(
+                    value: curVal,
+                    min: 0,
+                    max: maxVal,
+                    onChanged: isReadOnly ? null : (v) => player.seek(Duration(milliseconds: v.toInt())),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: DS.s16),
-            SizedBox(
-              width: compact ? 56 : 80,
-              child: Text(
-                isReadOnly ? 'LIVE' : _fmt(dur.inSeconds),
-                textAlign: TextAlign.right,
-                style: AppTheme.theme.textTheme.labelMedium?.copyWith(
-                  color: isReadOnly ? Colors.orangeAccent : DS.textMuted,
-                  fontSize: compact ? 12 : 16,
-                  fontWeight: isReadOnly ? FontWeight.bold : FontWeight.normal,
+              const SizedBox(width: DS.s16),
+              SizedBox(
+                width: compact ? 56 : 80,
+                child: Text(
+                  isReadOnly ? 'LIVE' : _fmt(dur.inSeconds),
+                  textAlign: TextAlign.right,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelMedium?.copyWith(color: isReadOnly ? tokens.warning : tokens.textMuted, fontSize: compact ? 12 : 16, fontWeight: isReadOnly ? FontWeight.bold : FontWeight.normal),
                 ),
               ),
-            ),
-          ],
-        );
-      },
-    ),
-  );
+            ],
+          );
+        },
+      ),
+    );
+  }
 }

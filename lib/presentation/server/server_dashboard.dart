@@ -20,24 +20,16 @@ import '../../core/di/service_locator.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/network/http_server.dart';
-import '../../domain/models/connection_record.dart';
-import '../../domain/models/stream_session.dart';
 import '../../domain/models/broadcast_station.dart';
+import '../../domain/models/connection_record.dart';
 import '../../domain/models/media_item.dart';
+import '../../domain/models/stream_session.dart';
 import '../../domain/services/station_service.dart';
 import '../client/client_viewmodel.dart';
 import '../mobile/mobile_selection_screen.dart';
 import '../tv/tv_selection_screen.dart';
+import '../shared/theme_settings_screen.dart';
 import 'server_viewmodel.dart';
-
-// --- Web UI Color Palette & Styles ---
-const Color kWebBlack = Color(0xFF000000);
-const Color kWebSurface = Color(0xFF0A0A0A);
-const Color kWebSurface2 = Color(0xFF111111);
-const Color kWebWhite = Color(0xFFFFFFFF);
-final Color kWebBorder = Colors.white.withValues(alpha: 0.15);
-final Color kWebTextMuted = Colors.white.withValues(alpha: 0.3);
-final Color kWebText = Colors.white.withValues(alpha: 0.6);
 
 class ServerDashboard extends StatefulWidget {
   const ServerDashboard({super.key});
@@ -86,6 +78,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
   Widget build(BuildContext context) {
     final state = context.watch<ServerViewModel>();
     final isMobile = DS.isMobile(context);
+    final tokens = context.tokens;
 
     return PopScope(
       canPop: false,
@@ -95,15 +88,9 @@ class _ServerDashboardState extends State<ServerDashboard> {
         }
       },
       child: Scaffold(
-        backgroundColor: kWebBlack,
+        backgroundColor: tokens.background,
         body: SafeArea(
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              _buildSliverAppBar(isMobile),
-              ..._buildBodySlivers(isMobile, state),
-            ],
-          ),
+          child: CustomScrollView(physics: const BouncingScrollPhysics(), slivers: [_buildSliverAppBar(isMobile), ..._buildBodySlivers(isMobile, state)]),
         ),
       ),
     );
@@ -111,9 +98,10 @@ class _ServerDashboardState extends State<ServerDashboard> {
 
   Widget _buildSliverAppBar(bool isMobile) {
     final showNav = _currentPath != null;
+    final tokens = context.tokens;
 
     return SliverAppBar(
-      backgroundColor: kWebSurface,
+      backgroundColor: tokens.surface1,
       floating: true,
       elevation: 0,
       pinned: true,
@@ -132,7 +120,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
               child: Focus(
                 onKeyEvent: (_, ev) => handleTVSelectKey(ev, _goBack),
                 child: IconButton(
-                  icon: Icon(LucideIcons.chevronLeft, size: 20, color: kWebWhite),
+                  icon: Icon(LucideIcons.chevronLeft, size: 20, color: tokens.textPrimary),
                   onPressed: _goBack,
                 ),
               ),
@@ -148,21 +136,27 @@ class _ServerDashboardState extends State<ServerDashboard> {
               Expanded(
                 child: Text(
                   _title,
-                  style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: isMobile ? 20 : 24, fontWeight: FontWeight.w900, letterSpacing: 4),
+                  style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: isMobile ? 20 : 24, fontWeight: FontWeight.w900, letterSpacing: 4),
                 ),
               ),
+              if (_currentPath == null)
+                IconButton(
+                  icon: Icon(LucideIcons.settings, color: tokens.textPrimary, size: 20),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ThemeSettingsScreen())),
+                ),
             ],
           ),
         ),
       ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(color: kWebBorder, height: 1),
+        child: Container(color: tokens.border.withValues(alpha: 0.15), height: 1),
       ),
     );
   }
 
   List<Widget> _buildBodySlivers(bool isMobile, ServerViewModel state) {
+    final tokens = context.tokens;
     if (_currentPath == null) {
       return [
         SliverToBoxAdapter(
@@ -180,7 +174,10 @@ class _ServerDashboardState extends State<ServerDashboard> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 800),
               child: Container(
-                decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
+                decoration: BoxDecoration(
+                  border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+                  color: tokens.border.withValues(alpha: 0.15),
+                ),
                 child: GridView.count(
                   crossAxisCount: 3,
                   shrinkWrap: true,
@@ -199,47 +196,23 @@ class _ServerDashboardState extends State<ServerDashboard> {
                       icon: LucideIcons.gamepad2,
                       onTap: () => showModalBottomSheet(
                         context: context,
-                        backgroundColor: kWebBlack,
+                        backgroundColor: tokens.background,
                         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                         isScrollControlled: true,
                         builder: (_) => const _UniversalRemoteSheet(),
                       ),
                     ),
-                    _QuickActionCard(
-                      label: 'QR CODE',
-                      icon: LucideIcons.qrCode,
-                      onTap: () => _showQRSheet(context, state),
-                    ),
-                    _QuickActionCard(
-                      label: 'PREVIEW',
-                      icon: LucideIcons.monitor,
-                      onTap: () => _showPreviewSheet(context, state),
-                    ),
-                    _QuickActionCard(
-                      label: 'WEB UI',
-                      icon: LucideIcons.globe,
-                      onTap: () => launchUrl(Uri.parse('http://${state.serverIp}:8080')),
-                    ),
-                    _QuickActionCard(
-                      label: 'STATIONS',
-                      icon: LucideIcons.radio,
-                      onTap: () => _navigateTo('stations'),
-                    ),
+                    _QuickActionCard(label: 'QR CODE', icon: LucideIcons.qrCode, onTap: () => _showQRSheet(context, state)),
+                    _QuickActionCard(label: 'PREVIEW', icon: LucideIcons.monitor, onTap: () => _showPreviewSheet(context, state)),
+                    _QuickActionCard(label: 'WEB UI', icon: LucideIcons.globe, onTap: () => launchUrl(Uri.parse('http://${state.serverIp}:8080'))),
+                    _QuickActionCard(label: 'STATIONS', icon: LucideIcons.radio, onTap: () => _navigateTo('stations')),
                     _QuickActionCard(
                       label: 'THEME',
                       icon: LucideIcons.layout,
-                      onTap: () => _navigateTo('web_theme'),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ThemeSettingsScreen())),
                     ),
-                    _QuickActionCard(
-                      label: 'FILTERS',
-                      icon: LucideIcons.slidersHorizontal,
-                      onTap: () => _navigateTo('filters'),
-                    ),
-                    _QuickActionCard(
-                      label: 'DIRECTORIES',
-                      icon: LucideIcons.folderOpen,
-                      onTap: () => _navigateTo('directories'),
-                    ),
+                    _QuickActionCard(label: 'FILTERS', icon: LucideIcons.slidersHorizontal, onTap: () => _navigateTo('filters')),
+                    _QuickActionCard(label: 'DIRECTORIES', icon: LucideIcons.folderOpen, onTap: () => _navigateTo('directories')),
                   ],
                 ),
               ),
@@ -256,8 +229,10 @@ class _ServerDashboardState extends State<ServerDashboard> {
       return [
         SliverPadding(
           padding: const EdgeInsets.symmetric(vertical: 24),
-          sliver: SliverToBoxAdapter(child: _NetworkTab(state: state, pad: 16, isMobile: isMobile)),
-        )
+          sliver: SliverToBoxAdapter(
+            child: _NetworkTab(state: state, pad: 16, isMobile: isMobile),
+          ),
+        ),
       ];
     }
 
@@ -270,7 +245,10 @@ class _ServerDashboardState extends State<ServerDashboard> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 800),
                 child: Container(
-                  decoration: BoxDecoration(border: Border.all(color: kWebBorder), color: kWebSurface),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
+                    color: tokens.surface1,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -282,7 +260,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
               ),
             ),
           ),
-        )
+        ),
       ];
     }
 
@@ -295,7 +273,10 @@ class _ServerDashboardState extends State<ServerDashboard> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 800),
                 child: Container(
-                  decoration: BoxDecoration(border: Border.all(color: kWebBorder), color: kWebSurface),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
+                    color: tokens.surface1,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -309,7 +290,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
               ),
             ),
           ),
-        )
+        ),
       ];
     }
 
@@ -322,32 +303,38 @@ class _ServerDashboardState extends State<ServerDashboard> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 800),
                 child: Container(
-                  decoration: BoxDecoration(border: Border.all(color: kWebBorder), color: kWebSurface),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
+                    color: tokens.surface1,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Container(
-                        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+                        decoration: BoxDecoration(
+                          border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+                        ),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Row(
                               children: [
-                                const Icon(LucideIcons.folderOpen, color: kWebWhite, size: 16),
+                                Icon(LucideIcons.folderOpen, color: tokens.textPrimary, size: 16),
                                 const SizedBox(width: 12),
-                                Text('MOUNTED DIRECTORIES', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 11, letterSpacing: 1)),
+                                Text('MOUNTED DIRECTORIES', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 11, letterSpacing: 1)),
                               ],
                             ),
-                            if (!kIsWeb)
-                              _MountButton(onMounted: (path) => state.addSharedFolder(path)),
+                            if (!kIsWeb) _MountButton(onMounted: (path) => state.addSharedFolder(path)),
                           ],
                         ),
                       ),
                       if (state.sharedFolders.isEmpty)
                         Padding(
                           padding: const EdgeInsets.all(32),
-                          child: Center(child: Text('NO DIRECTORIES MOUNTED', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2))),
+                          child: Center(
+                            child: Text('NO DIRECTORIES MOUNTED', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2)),
+                          ),
                         )
                       else
                         ...state.sharedFolders.asMap().entries.map((e) => _DirRow(path: e.value, isLast: e.key == state.sharedFolders.length - 1, onRemove: () => state.removeSharedFolder(e.value))),
@@ -357,7 +344,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
               ),
             ),
           ),
-        )
+        ),
       ];
     }
 
@@ -365,8 +352,10 @@ class _ServerDashboardState extends State<ServerDashboard> {
       return [
         SliverPadding(
           padding: const EdgeInsets.symmetric(vertical: 24),
-          sliver: SliverToBoxAdapter(child: _StationsTab(state: state, pad: 16, isMobile: isMobile)),
-        )
+          sliver: SliverToBoxAdapter(
+            child: _StationsTab(state: state, pad: 16, isMobile: isMobile),
+          ),
+        ),
       ];
     }
 
@@ -375,6 +364,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
 
   Widget _buildTelemetrySlivers(bool isMobile, ServerViewModel state) {
     final sessions = state.activeSessions;
+    final tokens = context.tokens;
     if (sessions.isEmpty) {
       return SliverToBoxAdapter(
         child: Center(
@@ -382,13 +372,15 @@ class _ServerDashboardState extends State<ServerDashboard> {
             constraints: const BoxConstraints(maxWidth: 800),
             child: Container(
               padding: const EdgeInsets.all(40),
-              decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder))),
+              decoration: BoxDecoration(
+                border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+              ),
               child: Center(
                 child: Column(
                   children: [
-                    Icon(LucideIcons.wifiHigh, size: 40, color: kWebTextMuted),
+                    Icon(LucideIcons.wifiHigh, size: 40, color: tokens.textMuted),
                     const SizedBox(height: 12),
-                    Text('NO SIGNAL DETECTED', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 4)),
+                    Text('NO SIGNAL DETECTED', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 4)),
                   ],
                 ),
               ),
@@ -410,23 +402,26 @@ class _ServerDashboardState extends State<ServerDashboard> {
   }
 
   void _showQRSheet(BuildContext context, ServerViewModel state) {
+    final tokens = context.tokens;
     showModalBottomSheet(
       context: context,
-      backgroundColor: kWebBlack,
+      backgroundColor: tokens.background,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (_) => Container(
         padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(border: Border(top: BorderSide(color: kWebBorder))),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('QUICK PAIRING', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 12, letterSpacing: 4)),
+            Text('QUICK PAIRING', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 4)),
             const SizedBox(height: 24),
             Container(
               width: 200,
               height: 200,
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(border: Border.all(color: kWebWhite, width: 1)),
+              decoration: BoxDecoration(border: Border.all(color: tokens.textPrimary, width: 1)),
               child: Container(
                 color: Colors.white,
                 padding: const EdgeInsets.all(8),
@@ -434,7 +429,11 @@ class _ServerDashboardState extends State<ServerDashboard> {
               ),
             ),
             const SizedBox(height: 24),
-            Text('SCAN TO CONNECT NODE', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2), textAlign: TextAlign.center),
+            Text(
+              'SCAN TO CONNECT NODE',
+              style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 16),
           ],
         ),
@@ -443,29 +442,32 @@ class _ServerDashboardState extends State<ServerDashboard> {
   }
 
   void _showPreviewSheet(BuildContext context, ServerViewModel state) {
+    final tokens = context.tokens;
     showModalBottomSheet(
       context: context,
-      backgroundColor: kWebBlack,
+      backgroundColor: tokens.background,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (_) => Container(
         padding: const EdgeInsets.symmetric(vertical: 32),
-        decoration: BoxDecoration(border: Border(top: BorderSide(color: kWebBorder))),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('UI PREVIEW MODE', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 12, letterSpacing: 4)),
+            Text('UI PREVIEW MODE', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 4)),
             const SizedBox(height: 24),
             ListTile(
-              leading: Icon(LucideIcons.smartphone, color: kWebWhite),
-              title: Text('MOBILE INTERFACE', style: GoogleFonts.dmMono(color: kWebWhite)),
+              leading: Icon(LucideIcons.smartphone, color: tokens.textPrimary),
+              title: Text('MOBILE INTERFACE', style: GoogleFonts.dmMono(color: tokens.textPrimary)),
               onTap: () {
                 Navigator.pop(context);
                 _safePreview(context, false, state);
               },
             ),
             ListTile(
-              leading: Icon(LucideIcons.tv, color: kWebWhite),
-              title: Text('TV INTERFACE', style: GoogleFonts.dmMono(color: kWebWhite)),
+              leading: Icon(LucideIcons.tv, color: tokens.textPrimary),
+              title: Text('TV INTERFACE', style: GoogleFonts.dmMono(color: tokens.textPrimary)),
               onTap: () {
                 Navigator.pop(context);
                 _safePreview(context, true, state);
@@ -478,10 +480,11 @@ class _ServerDashboardState extends State<ServerDashboard> {
   }
 
   Future<void> _safePreview(BuildContext context, bool isTV, ServerViewModel state) async {
+    final tokens = context.tokens;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator(color: kWebWhite)),
+      builder: (_) => Center(child: CircularProgressIndicator(color: tokens.accent)),
     );
     final vm = ClientViewModel();
     final ok = await vm.connect(state.serverIp);
@@ -510,6 +513,7 @@ class _MountButtonState extends State<_MountButton> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Actions(
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
@@ -533,10 +537,13 @@ class _MountButtonState extends State<_MountButton> {
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(border: Border.all(color: _isFocused ? kWebBlack : kWebWhite), color: _isFocused ? kWebWhite : Colors.transparent),
+            decoration: BoxDecoration(
+              border: Border.all(color: _isFocused ? tokens.background : tokens.textPrimary),
+              color: _isFocused ? tokens.textPrimary : Colors.transparent,
+            ),
             child: Text(
               '+ MOUNT',
-              style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: _isFocused ? kWebBlack : kWebWhite, letterSpacing: 1),
+              style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: _isFocused ? tokens.background : tokens.textPrimary, letterSpacing: 1),
             ),
           ),
         ),
@@ -559,11 +566,12 @@ class _EngineAnalysisCardState extends State<_EngineAnalysisCard> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
       decoration: BoxDecoration(
-        color: kWebSurface,
-        border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)),
+        color: tokens.surface1,
+        border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -571,7 +579,10 @@ class _EngineAnalysisCardState extends State<_EngineAnalysisCard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('ENGINE ANALYSIS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              Text(
+                'ENGINE ANALYSIS',
+                style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+              ),
               _BlinkingDot(isOnline: widget.state.isRunning),
             ],
           ),
@@ -582,11 +593,14 @@ class _EngineAnalysisCardState extends State<_EngineAnalysisCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('IP ADDRESS', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+                    Text('IP ADDRESS', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
                     const SizedBox(height: 4),
                     FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: Text(widget.state.serverIp.toUpperCase(), style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                      child: Text(
+                        widget.state.serverIp.toUpperCase(),
+                        style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ],
                 ),
@@ -595,9 +609,12 @@ class _EngineAnalysisCardState extends State<_EngineAnalysisCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('UPTIME', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+                    Text('UPTIME', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
                     const SizedBox(height: 4),
-                    Text('LIVE', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text(
+                      'LIVE',
+                      style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
               ),
@@ -607,24 +624,24 @@ class _EngineAnalysisCardState extends State<_EngineAnalysisCard> {
           // Progress bar style metric
           Stack(
             children: [
-              Container(height: 8, color: kWebSurface2),
+              Container(height: 8, color: tokens.surface2),
               if (widget.state.isRunning)
                 FractionallySizedBox(
                   widthFactor: 1.0, // Simulation: fully operational
-                  child: Container(height: 8, color: kWebWhite),
+                  child: Container(height: 8, color: tokens.accent),
                 ),
             ],
           ),
           SizedBox(height: widget.isMobile ? 16 : 20),
           Row(
             children: [
-              Expanded(child: _legend('NODES', widget.state.connectedClients.toString(), kWebWhite)),
+              Expanded(child: _legend(context, 'NODES', widget.state.connectedClients.toString(), tokens.accent)),
               const SizedBox(width: 16),
-              Expanded(child: _legend('SPEED', '${widget.state.currentSpeedMb.toStringAsFixed(1)} MB/S', Colors.white70)),
+              Expanded(child: _legend(context, 'SPEED', '${widget.state.currentSpeedMb.toStringAsFixed(1)} MB/S', tokens.telemetry)),
             ],
           ),
           SizedBox(height: widget.isMobile ? 16 : 24),
-          Container(height: 1, color: kWebBorder),
+          Container(height: 1, color: tokens.border.withValues(alpha: 0.15)),
           SizedBox(height: widget.isMobile ? 12 : 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -651,13 +668,13 @@ class _EngineAnalysisCardState extends State<_EngineAnalysisCard> {
                         duration: const Duration(milliseconds: 150),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color: _btnFocused ? kWebWhite : Colors.transparent,
-                          border: Border.all(color: _btnFocused ? kWebWhite : kWebWhite),
+                          color: _btnFocused ? tokens.textPrimary : Colors.transparent,
+                          border: Border.all(color: tokens.textPrimary),
                         ),
                         child: Center(
                           child: Text(
                             widget.state.isInitializing ? 'INITIALIZING...' : (widget.state.isRunning ? 'STOP ENGINE' : 'START ENGINE'),
-                            style: GoogleFonts.dmMono(color: _btnFocused ? kWebBlack : kWebWhite, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2),
+                            style: GoogleFonts.dmMono(color: _btnFocused ? tokens.background : tokens.textPrimary, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2),
                           ),
                         ),
                       ),
@@ -672,13 +689,19 @@ class _EngineAnalysisCardState extends State<_EngineAnalysisCard> {
     );
   }
 
-  Widget _legend(String label, String value, Color color) {
+  Widget _legend(BuildContext context, String label, String value, Color color) {
+    final tokens = context.tokens;
     return Row(
       children: [
         Container(width: 8, height: 8, color: color),
         const SizedBox(width: 8),
-        Expanded(child: Text(label, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10))),
-        Text(value, style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: kWebWhite)),
+        Expanded(
+          child: Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10)),
+        ),
+        Text(
+          value,
+          style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: tokens.textPrimary),
+        ),
       ],
     );
   }
@@ -700,6 +723,7 @@ class _QuickActionCardState extends State<_QuickActionCard> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Actions(
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
@@ -720,15 +744,15 @@ class _QuickActionCardState extends State<_QuickActionCard> {
           onHover: (v) => setState(() => _isFocused = v),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            color: _isFocused ? kWebWhite : kWebBlack,
+            color: _isFocused ? tokens.textPrimary : tokens.background,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(widget.icon, color: _isFocused ? kWebBlack : kWebWhite, size: 24),
+                Icon(widget.icon, color: _isFocused ? tokens.background : tokens.textPrimary, size: 24),
                 const SizedBox(height: 8),
                 Text(
                   widget.label,
-                  style: GoogleFonts.dmMono(color: _isFocused ? kWebBlack : kWebText, fontSize: 9, letterSpacing: 1),
+                  style: GoogleFonts.dmMono(color: _isFocused ? tokens.background : tokens.textSecondary, fontSize: 9, letterSpacing: 1),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -756,6 +780,7 @@ class _CategoryButtonState extends State<_CategoryButton> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) {
@@ -764,17 +789,22 @@ class _CategoryButtonState extends State<_CategoryButton> {
       },
       onTapCancel: () => setState(() => _isPressed = false),
       child: Container(
-
-        decoration: BoxDecoration(color: _isPressed ? kWebWhite.withValues(alpha: 0.05) : Colors.transparent,border: Border(bottom: BorderSide(color: kWebBorder))),
+        decoration: BoxDecoration(
+          color: _isPressed ? tokens.textPrimary.withValues(alpha: 0.05) : Colors.transparent,
+          border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+        ),
         padding: const EdgeInsets.all(18),
         child: Row(
           children: [
-            Icon(widget.icon, size: 24, color: kWebWhite),
+            Icon(widget.icon, size: 24, color: tokens.textPrimary),
             const SizedBox(width: 16),
             Expanded(
-              child: Text(widget.label, style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              child: Text(
+                widget.label,
+                style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+              ),
             ),
-            Icon(LucideIcons.chevronRight, color: kWebTextMuted, size: 18),
+            Icon(LucideIcons.chevronRight, color: tokens.textMuted, size: 18),
           ],
         ),
       ),
@@ -798,6 +828,7 @@ class _TelemetryTileState extends State<_TelemetryTile> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final safeProgress = widget.session.progress.isFinite ? widget.session.progress.clamp(0.0, 1.0) : 0.0;
 
     return Focus(
@@ -808,10 +839,10 @@ class _TelemetryTileState extends State<_TelemetryTile> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
-          color: _isFocused ? kWebWhite.withValues(alpha: 0.1) : kWebSurface,
+          color: _isFocused ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.surface1,
           border: Border(
-            bottom: BorderSide(color: _isFocused ? kWebWhite : kWebBorder),
-            top: widget.isFirst ? BorderSide(color: _isFocused ? kWebWhite : kWebBorder) : BorderSide.none,
+            bottom: BorderSide(color: _isFocused ? tokens.accent : tokens.border.withValues(alpha: 0.15)),
+            top: widget.isFirst ? BorderSide(color: _isFocused ? tokens.accent : tokens.border.withValues(alpha: 0.15)) : BorderSide.none,
           ),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -820,8 +851,15 @@ class _TelemetryTileState extends State<_TelemetryTile> {
             Container(
               width: 44,
               height: 44,
-              decoration: BoxDecoration(color: kWebSurface2, border: Border.all(color: _isFocused ? kWebWhite : kWebBorder)),
-              child: Icon(widget.session.mediaType == 'video' ? LucideIcons.film : (widget.session.mediaType == 'audio' ? LucideIcons.activity : LucideIcons.download), color: kWebText, size: 20),
+              decoration: BoxDecoration(
+                color: tokens.surface2,
+                border: Border.all(color: _isFocused ? tokens.accent : tokens.border.withValues(alpha: 0.15)),
+              ),
+              child: Icon(
+                widget.session.mediaType == 'video' ? LucideIcons.film : (widget.session.mediaType == 'audio' ? LucideIcons.activity : LucideIcons.download),
+                color: tokens.textSecondary,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -832,16 +870,19 @@ class _TelemetryTileState extends State<_TelemetryTile> {
                     widget.session.title.toUpperCase(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
                   ),
                   const SizedBox(height: 3),
-                  Text('NODE: ${widget.session.clientId.toUpperCase()}', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 9, letterSpacing: 1)),
+                  Text('NODE: ${widget.session.clientId.toUpperCase()}', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 9, letterSpacing: 1)),
                   if (safeProgress > 0) ...[
                     const SizedBox(height: 6),
                     Stack(
                       children: [
-                        Container(height: 1, color: kWebSurface2),
-                        FractionallySizedBox(widthFactor: safeProgress, child: Container(height: 1, color: kWebWhite)),
+                        Container(height: 1, color: tokens.surface2),
+                        FractionallySizedBox(
+                          widthFactor: safeProgress,
+                          child: Container(height: 1, color: tokens.telemetry),
+                        ),
                       ],
                     ),
                   ],
@@ -867,13 +908,14 @@ class _NetworkTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 800),
         child: Container(
           decoration: BoxDecoration(
-            border: Border.all(color: kWebBorder),
-            color: kWebSurface,
+            border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
+            color: tokens.surface1,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -897,12 +939,7 @@ class _NetworkTab extends StatelessWidget {
                       title: 'LOGS',
                       meta: 'HISTORY',
                       isBottomBorder: true,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const _ConnectionHistoryScreen(),
-                        ),
-                      ),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const _ConnectionHistoryScreen())),
                     ),
                   ),
                 ],
@@ -921,9 +958,9 @@ class _NetworkTab extends StatelessWidget {
                           SnackBar(
                             content: Text(
                               'LINK COPIED',
-                              style: GoogleFonts.dmMono(color: kWebBlack, fontWeight: FontWeight.bold),
+                              style: GoogleFonts.dmMono(color: tokens.background, fontWeight: FontWeight.bold),
                             ),
-                            backgroundColor: kWebWhite,
+                            backgroundColor: tokens.textPrimary,
                             shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                           ),
                         );
@@ -937,7 +974,7 @@ class _NetworkTab extends StatelessWidget {
                       meta: 'BROADCAST',
                       onTap: () => showModalBottomSheet(
                         context: context,
-                        backgroundColor: kWebBlack,
+                        backgroundColor: tokens.background,
                         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                         isScrollControlled: true,
                         builder: (_) => const _UniversalRemoteSheet(),
@@ -967,10 +1004,11 @@ class _UniversalRemoteSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       decoration: BoxDecoration(
-        color: kWebBlack,
-        border: Border(top: BorderSide(color: kWebBorder)),
+        color: tokens.background,
+        border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
       ),
       child: Center(
         child: ConstrainedBox(
@@ -979,10 +1017,13 @@ class _UniversalRemoteSheet extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               _RemoteAnalysisCard(),
-              
+
               // Navigation Grid (3 Columns)
               Container(
-                decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
+                decoration: BoxDecoration(
+                  border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+                  color: tokens.border.withValues(alpha: 0.15),
+                ),
                 child: GridView.count(
                   crossAxisCount: 3,
                   shrinkWrap: true,
@@ -998,7 +1039,7 @@ class _UniversalRemoteSheet extends StatelessWidget {
                     _QuickActionCard(label: 'LEFT', icon: LucideIcons.chevronLeft, onTap: () => _cmd('nav', 'left')),
                     _QuickActionCard(label: 'ENTER', icon: LucideIcons.circle, onTap: () => _cmd('nav', 'enter')),
                     _QuickActionCard(label: 'RIGHT', icon: LucideIcons.chevronRight, onTap: () => _cmd('nav', 'right')),
-                    
+
                     const SizedBox(), // Empty spacer
                     _QuickActionCard(label: 'DOWN', icon: LucideIcons.chevronDown, onTap: () => _cmd('nav', 'down')),
                     const SizedBox(), // Empty spacer
@@ -1008,7 +1049,10 @@ class _UniversalRemoteSheet extends StatelessWidget {
 
               // Media Grid (3 Columns)
               Container(
-                decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), color: kWebBorder),
+                decoration: BoxDecoration(
+                  border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+                  color: tokens.border.withValues(alpha: 0.15),
+                ),
                 child: GridView.count(
                   crossAxisCount: 3,
                   shrinkWrap: true,
@@ -1020,15 +1064,13 @@ class _UniversalRemoteSheet extends StatelessWidget {
                     _QuickActionCard(label: 'PREV', icon: LucideIcons.skipBack, onTap: () => _cmd('media', 'prev')),
                     _QuickActionCard(label: 'PLAY/PAUSE', icon: LucideIcons.play, onTap: () => _cmd('media', 'toggle_play')),
                     _QuickActionCard(label: 'NEXT', icon: LucideIcons.skipForward, onTap: () => _cmd('media', 'next')),
-                    
+
                     _QuickActionCard(label: '-10S', icon: LucideIcons.rewind, onTap: () => _cmd('media', 'seek', -10)),
                     _QuickActionCard(label: 'BACK', icon: LucideIcons.rotateCcw, onTap: () => _cmd('nav', 'back')),
                     _QuickActionCard(label: '+10S', icon: LucideIcons.fastForward, onTap: () => _cmd('media', 'seek', 10)),
                   ],
                 ),
               ),
-              
-              // const SizedBox(height: 48),
             ],
           ),
         ),
@@ -1040,11 +1082,12 @@ class _UniversalRemoteSheet extends StatelessWidget {
 class _RemoteAnalysisCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: kWebSurface,
-        border: Border(bottom: BorderSide(color: kWebBorder)),
+        color: tokens.surface1,
+        border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1052,7 +1095,10 @@ class _RemoteAnalysisCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('COMMAND ANALYSIS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              Text(
+                'COMMAND ANALYSIS',
+                style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+              ),
               const _BlinkingDot(isOnline: true),
             ],
           ),
@@ -1063,9 +1109,12 @@ class _RemoteAnalysisCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('LINK STATUS', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+                    Text('LINK STATUS', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
                     const SizedBox(height: 4),
-                    Text('ACTIVE', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text(
+                      'ACTIVE',
+                      style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
               ),
@@ -1073,9 +1122,12 @@ class _RemoteAnalysisCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('SIGNAL TARGET', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+                    Text('SIGNAL TARGET', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
                     const SizedBox(height: 4),
-                    Text('BROADCAST', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text(
+                      'BROADCAST',
+                      style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
               ),
@@ -1084,11 +1136,8 @@ class _RemoteAnalysisCard extends StatelessWidget {
           const SizedBox(height: 24),
           Stack(
             children: [
-              Container(height: 8, color: kWebSurface2),
-              FractionallySizedBox(
-                widthFactor: 1.0, 
-                child: Container(height: 8, color: kWebWhite),
-              ),
+              Container(height: 8, color: tokens.surface2),
+              FractionallySizedBox(widthFactor: 1.0, child: Container(height: 8, color: tokens.accent)),
             ],
           ),
         ],
@@ -1096,11 +1145,6 @@ class _RemoteAnalysisCard extends StatelessWidget {
     );
   }
 }
-
-// ── DELETE UNUSED REMOTE BUTTON ──
-
-
-// ── DELETE UNUSED SHARING TAB ──
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONNECTION HISTORY
@@ -1124,9 +1168,10 @@ class _ConnectionHistoryScreenState extends State<_ConnectionHistoryScreen> {
     final recent = all.where((c) => now.difference(c.time).inDays <= 1).toList();
     final older = all.where((c) => now.difference(c.time).inDays > 1).toList();
     final isMobile = DS.isMobile(context);
+    final tokens = context.tokens;
 
     return Scaffold(
-      backgroundColor: kWebBlack,
+      backgroundColor: tokens.background,
       body: SafeArea(
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
@@ -1145,19 +1190,16 @@ class _ConnectionHistoryScreenState extends State<_ConnectionHistoryScreen> {
                         ...recent.map((c) => _HistoryCard(record: c, isMobile: isMobile)),
                         const SizedBox(height: 24),
                       ],
-                      if (older.isNotEmpty) ...[
-                        const _TerminalHeader(title: 'ARCHIVED LOGS', icon: LucideIcons.archive),
-                        ...older.map((c) => _HistoryCard(record: c, isMobile: isMobile)),
-                      ],
+                      if (older.isNotEmpty) ...[const _TerminalHeader(title: 'ARCHIVED LOGS', icon: LucideIcons.archive), ...older.map((c) => _HistoryCard(record: c, isMobile: isMobile))],
                       if (all.isEmpty)
                         Center(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 80),
                             child: Column(
                               children: [
-                                Icon(LucideIcons.history, size: 48, color: kWebTextMuted),
+                                Icon(LucideIcons.history, size: 48, color: tokens.textMuted),
                                 const SizedBox(height: 16),
-                                Text('NO LOGS FOUND', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 12, letterSpacing: 4)),
+                                Text('NO LOGS FOUND', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 4)),
                               ],
                             ),
                           ),
@@ -1175,8 +1217,9 @@ class _ConnectionHistoryScreenState extends State<_ConnectionHistoryScreen> {
   }
 
   Widget _buildAppBar(bool isMobile) {
+    final tokens = context.tokens;
     return SliverAppBar(
-      backgroundColor: kWebSurface,
+      backgroundColor: tokens.surface1,
       floating: true,
       elevation: 0,
       pinned: true,
@@ -1194,7 +1237,7 @@ class _ConnectionHistoryScreenState extends State<_ConnectionHistoryScreen> {
         child: Focus(
           onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
           child: IconButton(
-            icon: Icon(LucideIcons.chevronLeft, size: 20, color: kWebWhite),
+            icon: Icon(LucideIcons.chevronLeft, size: 20, color: tokens.textPrimary),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -1207,12 +1250,7 @@ class _ConnectionHistoryScreenState extends State<_ConnectionHistoryScreen> {
             Expanded(
               child: Text(
                 'SYSTEM LOGS',
-                style: GoogleFonts.barlowCondensed(
-                  color: kWebWhite,
-                  fontSize: isMobile ? 20 : 24,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 4,
-                ),
+                style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: isMobile ? 20 : 24, fontWeight: FontWeight.w900, letterSpacing: 4),
               ),
             ),
           ],
@@ -1220,18 +1258,19 @@ class _ConnectionHistoryScreenState extends State<_ConnectionHistoryScreen> {
       ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(color: kWebBorder, height: 1),
+        child: Container(color: tokens.border.withValues(alpha: 0.15), height: 1),
       ),
     );
   }
 
   Widget _buildSearchField() {
+    final tokens = context.tokens;
     return Focus(
       onFocusChange: (v) => handleTVFocusScroll(v, context),
       child: Container(
         decoration: BoxDecoration(
-          color: kWebSurface,
-          border: Border(bottom: BorderSide(color: kWebBorder)),
+          color: tokens.surface1,
+          border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
         ),
         child: Row(
           children: [
@@ -1239,15 +1278,15 @@ class _ConnectionHistoryScreenState extends State<_ConnectionHistoryScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 '>',
-                style: GoogleFonts.dmMono(color: kWebTextMuted, fontWeight: FontWeight.bold),
+                style: GoogleFonts.dmMono(color: tokens.textMuted, fontWeight: FontWeight.bold),
               ),
             ),
             Expanded(
               child: TextField(
-                style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 12),
+                style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 12),
                 decoration: InputDecoration(
                   hintText: 'QUERY IP ADDRESS...',
-                  hintStyle: TextStyle(color: kWebTextMuted),
+                  hintStyle: TextStyle(color: tokens.textMuted),
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 20),
@@ -1279,13 +1318,14 @@ class _HistoryCardState extends State<_HistoryCard> {
   @override
   Widget build(BuildContext context) {
     final state = context.read<ServerViewModel>();
+    final tokens = context.tokens;
     return Focus(
       onFocusChange: (v) => setState(() => _isFocused = v),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
-          color: _isFocused ? kWebWhite.withValues(alpha: 0.05) : kWebSurface,
-          border: Border(bottom: BorderSide(color: kWebBorder)),
+          color: _isFocused ? tokens.textPrimary.withValues(alpha: 0.05) : tokens.surface1,
+          border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1298,10 +1338,10 @@ class _HistoryCardState extends State<_HistoryCard> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: kWebSurface2,
-                      border: Border.all(color: kWebBorder),
+                      color: tokens.surface2,
+                      border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
                     ),
-                    child: Icon(LucideIcons.hardDrive, color: kWebText, size: 18),
+                    child: Icon(LucideIcons.hardDrive, color: tokens.textSecondary, size: 18),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -1312,12 +1352,7 @@ class _HistoryCardState extends State<_HistoryCard> {
                           children: [
                             Text(
                               widget.record.ip,
-                              style: GoogleFonts.barlowCondensed(
-                                color: kWebWhite,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1,
-                              ),
+                              style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
                             ),
                             const SizedBox(width: 12),
                             if (widget.record.isOnline) const _BlinkingDot(isOnline: true),
@@ -1329,23 +1364,19 @@ class _HistoryCardState extends State<_HistoryCard> {
                           '${widget.record.time.month}/${widget.record.time.day} '
                           '${widget.record.time.hour.toString().padLeft(2, '0')}:'
                           '${widget.record.time.minute.toString().padLeft(2, '0')}',
-                          style: GoogleFonts.dmMono(fontSize: 9, color: kWebTextMuted, letterSpacing: 1),
+                          style: GoogleFonts.dmMono(fontSize: 9, color: tokens.textMuted, letterSpacing: 1),
                         ),
                       ],
                     ),
                   ),
                   Text(
                     '${widget.record.transferGB.toStringAsFixed(1)} GB',
-                    style: GoogleFonts.dmMono(
-                      color: kWebWhite,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
             ),
-            Container(height: 1, color: kWebBorder.withValues(alpha: 0.05)),
+            Container(height: 1, color: tokens.border.withValues(alpha: 0.05)),
             Row(
               children: [
                 Expanded(
@@ -1368,8 +1399,8 @@ class _HistoryCardState extends State<_HistoryCard> {
                           duration: const Duration(milliseconds: 150),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           decoration: BoxDecoration(
-                            color: _focusConnect ? kWebWhite : Colors.transparent,
-                            border: Border(right: BorderSide(color: kWebBorder)),
+                            color: _focusConnect ? tokens.textPrimary : Colors.transparent,
+                            border: Border(right: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -1377,13 +1408,13 @@ class _HistoryCardState extends State<_HistoryCard> {
                               Icon(
                                 widget.record.isOnline ? LucideIcons.cloudLightning : LucideIcons.wifiZero,
                                 size: 14,
-                                color: _focusConnect ? kWebBlack : (widget.record.isOnline ? kWebWhite : kWebTextMuted),
+                                color: _focusConnect ? tokens.background : (widget.record.isOnline ? tokens.textPrimary : tokens.textMuted),
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 widget.record.isOnline ? 'CONNECT' : 'OFFLINE',
                                 style: GoogleFonts.dmMono(
-                                  color: _focusConnect ? kWebBlack : (widget.record.isOnline ? kWebWhite : kWebTextMuted),
+                                  color: _focusConnect ? tokens.background : (widget.record.isOnline ? tokens.textPrimary : tokens.textMuted),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 10,
                                   letterSpacing: 2,
@@ -1414,18 +1445,11 @@ class _HistoryCardState extends State<_HistoryCard> {
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 150),
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: _focusPurge ? kWebWhite : Colors.transparent,
-                          ),
+                          decoration: BoxDecoration(color: _focusPurge ? tokens.textPrimary : Colors.transparent),
                           child: Center(
                             child: Text(
                               'PURGE',
-                              style: GoogleFonts.dmMono(
-                                color: _focusPurge ? kWebBlack : kWebTextMuted,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                                letterSpacing: 2,
-                              ),
+                              style: GoogleFonts.dmMono(color: _focusPurge ? tokens.background : tokens.textMuted, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 2),
                             ),
                           ),
                         ),
@@ -1442,10 +1466,11 @@ class _HistoryCardState extends State<_HistoryCard> {
   }
 
   Future<void> _connect(BuildContext context) async {
+    final tokens = context.tokens;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator(color: kWebWhite)),
+      builder: (_) => Center(child: CircularProgressIndicator(color: tokens.textPrimary)),
     );
     final vm = ClientViewModel();
     final ok = await vm.connect(widget.record.ip);
@@ -1552,13 +1577,17 @@ class _FolderPickerScreenState extends State<FolderPickerScreen> {
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.sizeOf(context).width <= DS.bpMobile;
+    final tokens = context.tokens;
 
     return Scaffold(
-      backgroundColor: kWebBlack,
+      backgroundColor: tokens.background,
       appBar: AppBar(
-        backgroundColor: kWebSurface,
+        backgroundColor: tokens.surface1,
         elevation: 0,
-        title: Text('MOUNT DIR', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: isMobile ? 20 : 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
+        title: Text(
+          'MOUNT DIR',
+          style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: isMobile ? 20 : 24, fontWeight: FontWeight.bold, letterSpacing: 2),
+        ),
         leading: Actions(
           actions: {
             ActivateIntent: CallbackAction<ActivateIntent>(
@@ -1571,7 +1600,7 @@ class _FolderPickerScreenState extends State<FolderPickerScreen> {
           child: Focus(
             onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
             child: IconButton(
-              icon: Icon(LucideIcons.arrowLeft, size: isMobile ? 18 : 24, color: kWebWhite),
+              icon: Icon(LucideIcons.arrowLeft, size: isMobile ? 18 : 24, color: tokens.textPrimary),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -1592,7 +1621,7 @@ class _FolderPickerScreenState extends State<FolderPickerScreen> {
                 onPressed: () => Navigator.pop(context, _path),
                 child: Text(
                   'MOUNT',
-                  style: GoogleFonts.dmMono(color: kWebWhite, fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: isMobile ? 11 : 13),
+                  style: GoogleFonts.dmMono(color: tokens.textPrimary, fontWeight: FontWeight.bold, letterSpacing: 1, fontSize: isMobile ? 11 : 13),
                 ),
               ),
             ),
@@ -1600,7 +1629,7 @@ class _FolderPickerScreenState extends State<FolderPickerScreen> {
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(color: kWebBorder, height: 1),
+          child: Container(color: tokens.border.withValues(alpha: 0.15), height: 1),
         ),
       ),
       body: Column(
@@ -1610,10 +1639,13 @@ class _FolderPickerScreenState extends State<FolderPickerScreen> {
           Container(
             width: double.infinity,
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: isMobile ? 12 : 16),
-            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder)), color: kWebSurface),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+              color: tokens.surface1,
+            ),
             child: Text(
               _path.toUpperCase(),
-              style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: isMobile ? 10 : 12),
+              style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: isMobile ? 10 : 12),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -1632,71 +1664,76 @@ class _FolderPickerScreenState extends State<FolderPickerScreen> {
               onKeyEvent: (_, ev) => handleTVSelectKey(ev, _goUp),
               child: ListTile(
                 dense: true,
-                focusColor: kWebWhite,
-                leading: Icon(LucideIcons.arrowUpLeft, color: kWebWhite, size: isMobile ? 16 : 20),
-                title: Text('LEVEL UP', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: isMobile ? 11 : 12, letterSpacing: 1)),
+                focusColor: tokens.textPrimary.withValues(alpha: 0.1),
+                leading: Icon(LucideIcons.arrowUpLeft, color: tokens.textPrimary, size: isMobile ? 16 : 20),
+                title: Text(
+                  'LEVEL UP',
+                  style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: isMobile ? 11 : 12, letterSpacing: 1),
+                ),
                 onTap: _goUp,
               ),
             ),
           ),
 
-          Container(height: 1, color: kWebBorder),
+          Container(height: 1, color: tokens.border.withValues(alpha: 0.15)),
 
           // Directory listing
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: kWebWhite))
+                ? Center(child: CircularProgressIndicator(color: tokens.textPrimary))
                 : _error != null
                 ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'READ ERROR: $_error',
-                  style: GoogleFonts.dmMono(color: Colors.redAccent, fontSize: 10),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            )
-                : _dirs.isEmpty
-                ? Center(child: Text('NO SUBDIRECTORIES', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)))
-                : ListView.builder(
-              itemCount: _dirs.length,
-              itemBuilder: (_, i) {
-                final dirPath = _dirs[i];
-                final name = _lastName(dirPath);
-                return Container(
-                  decoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(color: kWebBorder)),
-                  ),
-                  child: Actions(
-                    actions: {
-                      ActivateIntent: CallbackAction<ActivateIntent>(
-                        onInvoke: (_) {
-                          _navigateInto(dirPath);
-                          return null;
-                        },
-                      ),
-                    },
-                    child: Focus(
-                      onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => _navigateInto(dirPath)),
-                      child: ListTile(
-                        dense: true,
-                        focusColor: kWebWhite.withValues(alpha: 0.1),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                        leading: Icon(LucideIcons.folder, color: kWebWhite, size: isMobile ? 16 : 20),
-                        title: Text(
-                          name.toUpperCase(),
-                          style: GoogleFonts.dmMono(color: kWebWhite, fontSize: isMobile ? 11 : 12),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: Icon(LucideIcons.chevronRight, size: 14, color: kWebTextMuted),
-                        onTap: () => _navigateInto(dirPath),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'READ ERROR: $_error',
+                        style: GoogleFonts.dmMono(color: tokens.error, fontSize: 10),
+                        textAlign: TextAlign.center,
                       ),
                     ),
+                  )
+                : _dirs.isEmpty
+                ? Center(
+                    child: Text('NO SUBDIRECTORIES', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2)),
+                  )
+                : ListView.builder(
+                    itemCount: _dirs.length,
+                    itemBuilder: (_, i) {
+                      final dirPath = _dirs[i];
+                      final name = _lastName(dirPath);
+                      return Container(
+                        decoration: BoxDecoration(
+                          border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+                        ),
+                        child: Actions(
+                          actions: {
+                            ActivateIntent: CallbackAction<ActivateIntent>(
+                              onInvoke: (_) {
+                                _navigateInto(dirPath);
+                                return null;
+                              },
+                            ),
+                          },
+                          child: Focus(
+                            onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => _navigateInto(dirPath)),
+                            child: ListTile(
+                              dense: true,
+                              focusColor: tokens.textPrimary.withValues(alpha: 0.1),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                              leading: Icon(LucideIcons.folder, color: tokens.textPrimary, size: isMobile ? 16 : 20),
+                              title: Text(
+                                name.toUpperCase(),
+                                style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: isMobile ? 11 : 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: Icon(LucideIcons.chevronRight, size: 14, color: tokens.textMuted),
+                              onTap: () => _navigateInto(dirPath),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
         ],
       ),
@@ -1714,19 +1751,22 @@ class _TerminalHeader extends StatelessWidget {
   const _TerminalHeader({required this.title, required this.icon});
 
   @override
-  Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      border: Border(bottom: BorderSide(color: kWebBorder)),
-    ),
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    child: Row(
-      children: [
-        Icon(icon, color: kWebTextMuted, size: 16),
-        const SizedBox(width: 12),
-        Text(title, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, color: tokens.textMuted, size: 16),
+          const SizedBox(width: 12),
+          Text(title, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2)),
+        ],
+      ),
+    );
+  }
 }
 
 class _ActionCard extends StatefulWidget {
@@ -1749,6 +1789,7 @@ class _ActionCardState extends State<_ActionCard> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Actions(
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
@@ -1771,10 +1812,10 @@ class _ActionCardState extends State<_ActionCard> {
             duration: const Duration(milliseconds: 150),
             height: 120,
             decoration: BoxDecoration(
-              color: _isFocused && widget.isActive ? kWebWhite : Colors.transparent,
+              color: _isFocused && widget.isActive ? tokens.textPrimary : Colors.transparent,
               border: Border(
-                right: widget.isRightBorder ? BorderSide(color: kWebBorder) : BorderSide.none,
-                bottom: widget.isBottomBorder ? BorderSide(color: kWebBorder) : BorderSide.none,
+                right: widget.isRightBorder ? BorderSide(color: tokens.border.withValues(alpha: 0.15)) : BorderSide.none,
+                bottom: widget.isBottomBorder ? BorderSide(color: tokens.border.withValues(alpha: 0.15)) : BorderSide.none,
               ),
             ),
             padding: const EdgeInsets.all(16),
@@ -1782,16 +1823,21 @@ class _ActionCardState extends State<_ActionCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(widget.icon, color: _isFocused && widget.isActive ? kWebBlack : (widget.isActive ? kWebWhite : kWebTextMuted), size: 24),
+                Icon(widget.icon, color: _isFocused && widget.isActive ? tokens.background : (widget.isActive ? tokens.textPrimary : tokens.textMuted), size: 24),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       widget.title,
-                      style: GoogleFonts.dmMono(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1, color: _isFocused && widget.isActive ? kWebBlack : (widget.isActive ? kWebWhite : kWebTextMuted)),
+                      style: GoogleFonts.dmMono(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                        color: _isFocused && widget.isActive ? tokens.background : (widget.isActive ? tokens.textPrimary : tokens.textMuted),
+                      ),
                     ),
                     const SizedBox(height: 4),
-                    Text(widget.meta, style: GoogleFonts.dmMono(fontSize: 9, letterSpacing: 1, color: widget.isActive ? kWebTextMuted : Colors.redAccent)),
+                    Text(widget.meta, style: GoogleFonts.dmMono(fontSize: 9, letterSpacing: 1, color: widget.isActive ? tokens.textMuted : tokens.error)),
                   ],
                 ),
               ],
@@ -1810,14 +1856,15 @@ class _BrutalistCheckbox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       width: 20,
       height: 20,
       decoration: BoxDecoration(
-        color: value ? (isFocused ? kWebBlack : kWebWhite) : Colors.transparent,
-        border: Border.all(color: isFocused ? kWebBlack : kWebWhite, width: 2),
+        color: value ? (isFocused ? tokens.background : tokens.textPrimary) : Colors.transparent,
+        border: Border.all(color: isFocused ? tokens.background : tokens.textPrimary, width: 2),
       ),
-      child: value ? Center(child: Icon(LucideIcons.check, size: 14, color: isFocused ? kWebWhite : kWebBlack)) : null,
+      child: value ? Center(child: Icon(LucideIcons.check, size: 14, color: isFocused ? tokens.textPrimary : tokens.background)) : null,
     );
   }
 }
@@ -1841,6 +1888,7 @@ class _ToggleRowState extends State<_ToggleRow> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Actions(
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
@@ -1861,16 +1909,16 @@ class _ToggleRowState extends State<_ToggleRow> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             decoration: BoxDecoration(
-              color: _isFocused ? kWebWhite : Colors.transparent,
-              border: widget.isLast ? null : Border(bottom: BorderSide(color: kWebBorder)),
+              color: _isFocused ? tokens.textPrimary : Colors.transparent,
+              border: widget.isLast ? null : Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Row(
               children: [
-                Icon(widget.icon, color: _isFocused ? kWebBlack : (widget.value ? kWebWhite : kWebTextMuted), size: 18),
+                Icon(widget.icon, color: _isFocused ? tokens.background : (widget.value ? tokens.textPrimary : tokens.textMuted), size: 18),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Text(widget.label, style: GoogleFonts.dmMono(fontSize: 12, letterSpacing: 1, color: _isFocused ? kWebBlack : (widget.value ? kWebWhite : kWebTextMuted))),
+                  child: Text(widget.label, style: GoogleFonts.dmMono(fontSize: 12, letterSpacing: 1, color: _isFocused ? tokens.background : (widget.value ? tokens.textPrimary : tokens.textMuted))),
                 ),
                 _BrutalistCheckbox(value: widget.value, isFocused: _isFocused),
               ],
@@ -1897,6 +1945,7 @@ class _DirRowState extends State<_DirRow> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     int count = 0;
     if (!kIsWeb) {
       try {
@@ -1905,12 +1954,12 @@ class _DirRowState extends State<_DirRow> {
     }
     return Container(
       decoration: BoxDecoration(
-        border: widget.isLast ? null : Border(bottom: BorderSide(color: kWebBorder)),
+        border: widget.isLast ? null : Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Icon(LucideIcons.folder, color: kWebTextMuted, size: 18),
+          Icon(LucideIcons.folder, color: tokens.textMuted, size: 18),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -1918,12 +1967,12 @@ class _DirRowState extends State<_DirRow> {
               children: [
                 Text(
                   widget.path,
-                  style: GoogleFonts.dmMono(fontSize: 11, color: kWebWhite, letterSpacing: 1),
+                  style: GoogleFonts.dmMono(fontSize: 11, color: tokens.textPrimary, letterSpacing: 1),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                Text('$count ITEMS', style: GoogleFonts.dmMono(fontSize: 9, color: kWebTextMuted, letterSpacing: 1)),
+                Text('$count ITEMS', style: GoogleFonts.dmMono(fontSize: 9, color: tokens.textMuted, letterSpacing: 1)),
               ],
             ),
           ),
@@ -1945,10 +1994,10 @@ class _DirRowState extends State<_DirRow> {
                   duration: const Duration(milliseconds: 150),
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: _isFocused ? kWebWhite : Colors.transparent,
-                    border: Border.all(color: _isFocused ? kWebWhite : kWebBorder),
+                    color: _isFocused ? tokens.textPrimary : Colors.transparent,
+                    border: Border.all(color: _isFocused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15)),
                   ),
-                  child: Icon(LucideIcons.x, size: 14, color: _isFocused ? kWebBlack : kWebTextMuted),
+                  child: Icon(LucideIcons.x, size: 14, color: _isFocused ? tokens.background : tokens.textMuted),
                 ),
               ),
             ),
@@ -1978,6 +2027,7 @@ class _StationsTabState extends State<_StationsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 800),
@@ -1986,8 +2036,8 @@ class _StationsTabState extends State<_StationsTab> {
           children: [
             Container(
               decoration: BoxDecoration(
-                border: Border.all(color: kWebBorder),
-                color: kWebSurface,
+                border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
+                color: tokens.surface1,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2001,9 +2051,12 @@ class _StationsTabState extends State<_StationsTab> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('CREATE NEW STATION', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                              Text(
+                                'CREATE NEW STATION',
+                                style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1),
+                              ),
                               const SizedBox(height: 4),
-                              Text('LINEAR PLAYLIST BROADCAST', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+                              Text('LINEAR PLAYLIST BROADCAST', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
                             ],
                           ),
                         ),
@@ -2028,10 +2081,13 @@ class _StationsTabState extends State<_StationsTab> {
                                 duration: const Duration(milliseconds: 150),
                                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                                 decoration: BoxDecoration(
-                                  color: _addFocused ? kWebWhite : Colors.transparent,
-                                  border: Border.all(color: _addFocused ? kWebWhite : kWebWhite),
+                                  color: _addFocused ? tokens.textPrimary : Colors.transparent,
+                                  border: Border.all(color: tokens.textPrimary),
                                 ),
-                                child: Text('+', style: GoogleFonts.dmMono(color: _addFocused ? kWebBlack : kWebWhite, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 2)),
+                                child: Text(
+                                  '+',
+                                  style: GoogleFonts.dmMono(color: _addFocused ? tokens.background : tokens.textPrimary, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 2),
+                                ),
                               ),
                             ),
                           ),
@@ -2047,7 +2103,7 @@ class _StationsTabState extends State<_StationsTab> {
               Center(
                 child: Padding(
                   padding: const EdgeInsets.all(40),
-                  child: Text('NO ACTIVE BROADCASTS', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 4)),
+                  child: Text('NO ACTIVE BROADCASTS', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 4)),
                 ),
               )
             else
@@ -2064,15 +2120,19 @@ class _StationsTabState extends State<_StationsTab> {
     final selectedItems = <MediaItem>[];
     final width = MediaQuery.sizeOf(context).width;
     final isMobile = width < DS.bpMobile;
+    final tokens = context.tokens;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: kWebBlack,
+          backgroundColor: tokens.background,
           insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 40, vertical: 24),
-          shape: Border.all(color: kWebWhite, width: 2),
-          title: Text('NEW STATION', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: isMobile ? 24 : 32, fontWeight: FontWeight.bold, letterSpacing: 2)),
+          shape: Border.all(color: tokens.textPrimary, width: 2),
+          title: Text(
+            'NEW STATION',
+            style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: isMobile ? 24 : 32, fontWeight: FontWeight.bold, letterSpacing: 2),
+          ),
           content: SizedBox(
             width: width * 0.9,
             child: Column(
@@ -2081,59 +2141,84 @@ class _StationsTabState extends State<_StationsTab> {
               children: [
                 TextField(
                   controller: nameCtrl,
-                  style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 13),
+                  style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 13),
                   onChanged: (_) => setDialogState(() {}),
                   decoration: InputDecoration(
                     labelText: 'STATION NAME',
-                    labelStyle: TextStyle(color: kWebTextMuted, fontSize: 11),
-                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: kWebBorder), borderRadius: BorderRadius.zero),
-                    focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: kWebWhite), borderRadius: BorderRadius.zero),
+                    labelStyle: TextStyle(color: tokens.textMuted, fontSize: 11),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: tokens.border.withValues(alpha: 0.15)),
+                      borderRadius: BorderRadius.zero,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: tokens.textPrimary),
+                      borderRadius: BorderRadius.zero,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
-                Text('SELECT MEDIA (${selectedItems.length})', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)),
+                Text('SELECT MEDIA (${selectedItems.length})', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2)),
                 const SizedBox(height: 10),
                 Flexible(
                   child: Container(
-                    decoration: BoxDecoration(border: Border.all(color: kWebBorder)),
+                    decoration: BoxDecoration(border: Border.all(color: tokens.border.withValues(alpha: 0.15))),
                     child: items.isEmpty
-                        ? Center(child: Text('WAITING FOR SCAN...', style: TextStyle(color: kWebTextMuted, fontSize: 10)))
+                        ? Center(
+                            child: Text('WAITING FOR SCAN...', style: TextStyle(color: tokens.textMuted, fontSize: 10)),
+                          )
                         : ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: items.length,
-                      itemBuilder: (ctx, i) {
-                        final item = items[i];
-                        final isSelected = selectedItems.contains(item);
-                        return ListTile(
-                          dense: true,
-                          onTap: () => setDialogState(() => isSelected ? selectedItems.remove(item) : selectedItems.add(item)),
-                          leading: Icon(item.isVideo ? LucideIcons.video : LucideIcons.music, color: isSelected ? kWebWhite : kWebTextMuted, size: 18),
-                          title: Text(item.title, style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          trailing: Icon(isSelected ? LucideIcons.checkSquare : LucideIcons.square, color: isSelected ? kWebWhite : kWebTextMuted, size: 18),
-                        );
-                      },
-                    ),
+                            shrinkWrap: true,
+                            itemCount: items.length,
+                            itemBuilder: (ctx, i) {
+                              final item = items[i];
+                              final isSelected = selectedItems.contains(item);
+                              return ListTile(
+                                dense: true,
+                                onTap: () => setDialogState(() => isSelected ? selectedItems.remove(item) : selectedItems.add(item)),
+                                leading: Icon(item.isVideo ? LucideIcons.video : LucideIcons.music, color: isSelected ? tokens.textPrimary : tokens.textMuted, size: 18),
+                                title: Text(
+                                  item.title,
+                                  style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 11),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: Icon(isSelected ? LucideIcons.checkSquare : LucideIcons.square, color: isSelected ? tokens.textPrimary : tokens.textMuted, size: 18),
+                              );
+                            },
+                          ),
                   ),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: Text('CANCEL', style: TextStyle(color: kWebTextMuted, fontFamily: 'DM Mono', fontSize: 12))),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'CANCEL',
+                style: TextStyle(color: tokens.textMuted, fontFamily: 'DM Mono', fontSize: 12),
+              ),
+            ),
             TextButton(
               onPressed: (nameCtrl.text.isEmpty || selectedItems.isEmpty)
                   ? null
                   : () {
-                widget.state.createStation(nameCtrl.text, selectedItems);
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    backgroundColor: kWebWhite,
-                    content: Text('BROADCAST "${nameCtrl.text.toUpperCase()}" INITIATED', style: const TextStyle(color: kWebBlack, fontWeight: FontWeight.bold, fontFamily: 'DM Mono', fontSize: 12)),
-                  ),
-                );
-              },
-              child: Text('BROADCAST', style: TextStyle(color: (nameCtrl.text.isEmpty || selectedItems.isEmpty) ? kWebTextMuted : kWebWhite, fontFamily: 'DM Mono', fontSize: 12, fontWeight: FontWeight.bold)),
+                      widget.state.createStation(nameCtrl.text, selectedItems);
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: tokens.textPrimary,
+                          content: Text(
+                            'BROADCAST "${nameCtrl.text.toUpperCase()}" INITIATED',
+                            style: TextStyle(color: tokens.background, fontWeight: FontWeight.bold, fontFamily: 'DM Mono', fontSize: 12),
+                          ),
+                        ),
+                      );
+                    },
+              child: Text(
+                'BROADCAST',
+                style: TextStyle(color: (nameCtrl.text.isEmpty || selectedItems.isEmpty) ? tokens.textMuted : tokens.textPrimary, fontFamily: 'DM Mono', fontSize: 12, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
@@ -2150,11 +2235,12 @@ class _StationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        border: Border.all(color: station.isActive ? kWebBorder : kWebBorder.withValues(alpha: 0.05)),
-        color: kWebSurface,
+        border: Border.all(color: station.isActive ? tokens.border.withValues(alpha: 0.3) : tokens.border.withValues(alpha: 0.05)),
+        color: tokens.surface1,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2163,11 +2249,7 @@ class _StationCard extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             child: Row(
               children: [
-                Icon(
-                  station.isActive ? LucideIcons.radio : LucideIcons.radioTower,
-                  color: station.isActive ? kWebWhite : kWebTextMuted,
-                  size: 24,
-                ),
+                Icon(station.isActive ? LucideIcons.radio : LucideIcons.radioTower, color: station.isActive ? tokens.textPrimary : tokens.textMuted, size: 24),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -2176,7 +2258,7 @@ class _StationCard extends StatelessWidget {
                       Text(
                         station.name.toUpperCase(),
                         style: GoogleFonts.barlowCondensed(
-                          color: station.isActive ? kWebWhite : kWebTextMuted,
+                          color: station.isActive ? tokens.textPrimary : tokens.textMuted,
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1,
@@ -2184,31 +2266,17 @@ class _StationCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        '${station.playlist.length} ITEMS // ${station.totalDuration.inMinutes} MINS',
-                        style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1),
-                      ),
+                      Text('${station.playlist.length} ITEMS // ${station.totalDuration.inMinutes} MINS', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
                     ],
                   ),
                 ),
-                if (station.isActive)
-                  _BrutalistIconButton(
-                    icon: station.isPaused ? LucideIcons.play : LucideIcons.pause,
-                    onTap: () => state.toggleStationPlayback(station.id),
-                  ),
-                _BrutalistIconButton(
-                  icon: station.isActive ? LucideIcons.square : LucideIcons.playCircle,
-                  onTap: () => state.toggleStationActive(station.id),
-                ),
-                _BrutalistIconButton(
-                  icon: LucideIcons.trash2,
-                  color: Colors.redAccent,
-                  onTap: () => state.removeStation(station.id),
-                ),
+                if (station.isActive) _BrutalistIconButton(icon: station.isPaused ? LucideIcons.play : LucideIcons.pause, onTap: () => state.toggleStationPlayback(station.id)),
+                _BrutalistIconButton(icon: station.isActive ? LucideIcons.square : LucideIcons.playCircle, onTap: () => state.toggleStationActive(station.id)),
+                _BrutalistIconButton(icon: LucideIcons.trash2, color: tokens.error, onTap: () => state.removeStation(station.id)),
               ],
             ),
           ),
-          Container(height: 1, color: kWebBorder),
+          Container(height: 1, color: tokens.border.withValues(alpha: 0.15)),
           _StationLiveStatus(station: station),
         ],
       ),
@@ -2232,6 +2300,7 @@ class _BrutalistIconButtonState extends State<_BrutalistIconButton> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Actions(
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
@@ -2254,10 +2323,10 @@ class _BrutalistIconButtonState extends State<_BrutalistIconButton> {
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: _isFocused ? kWebWhite : Colors.transparent,
-              border: Border.all(color: _isFocused ? kWebWhite : Colors.transparent),
+              color: _isFocused ? tokens.textPrimary : Colors.transparent,
+              border: Border.all(color: _isFocused ? tokens.textPrimary : Colors.transparent),
             ),
-            child: Icon(widget.icon, color: _isFocused ? kWebBlack : (widget.color ?? kWebWhite), size: 20),
+            child: Icon(widget.icon, color: _isFocused ? tokens.background : (widget.color ?? tokens.textPrimary), size: 20),
           ),
         ),
       ),
@@ -2290,14 +2359,15 @@ class _StationLiveStatusState extends State<_StationLiveStatus> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     if (!widget.station.isActive) {
       return Container(
         padding: const EdgeInsets.all(20),
-        color: kWebSurface2,
+        color: tokens.surface2,
         child: Center(
           child: Text(
             'STATION OFFLINE',
-            style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 4),
+            style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 4),
           ),
         ),
       );
@@ -2313,7 +2383,7 @@ class _StationLiveStatusState extends State<_StationLiveStatus> {
 
     return Container(
       padding: const EdgeInsets.all(20),
-      color: kWebSurface2,
+      color: tokens.surface2,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2322,18 +2392,13 @@ class _StationLiveStatusState extends State<_StationLiveStatus> {
             children: [
               Text(
                 isPaused ? 'PAUSED' : 'LIVE NOW',
-                style: GoogleFonts.dmMono(
-                  color: isPaused ? Colors.orangeAccent : kWebWhite,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 10,
-                  letterSpacing: 2,
-                ),
+                style: GoogleFonts.dmMono(color: isPaused ? tokens.warning : tokens.textPrimary, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 2),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(
                   item.title.toUpperCase(),
-                  style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1),
+                  style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
@@ -2344,13 +2409,10 @@ class _StationLiveStatusState extends State<_StationLiveStatus> {
           const SizedBox(height: 12),
           Stack(
             children: [
-              Container(height: 2, color: kWebBlack),
+              Container(height: 2, color: tokens.background),
               FractionallySizedBox(
                 widthFactor: progress.clamp(0.0, 1.0),
-                child: Container(
-                  height: 2,
-                  color: isPaused ? Colors.orangeAccent : kWebWhite,
-                ),
+                child: Container(height: 2, color: isPaused ? tokens.warning : tokens.textPrimary),
               ),
             ],
           ),
@@ -2385,15 +2447,16 @@ class _BlinkingDotState extends State<_BlinkingDot> with SingleTickerProviderSta
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isOnline) return Container(width: 8, height: 8, color: Colors.white24);
+    final tokens = context.tokens;
+    if (!widget.isOnline) return Container(width: 8, height: 8, color: tokens.textMuted.withValues(alpha: 0.3));
     return FadeTransition(
       opacity: _ctrl,
       child: Container(
         width: 8,
         height: 8,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.white, blurRadius: 4)],
+        decoration: BoxDecoration(
+          color: tokens.success,
+          boxShadow: [BoxShadow(color: tokens.success, blurRadius: 4)],
         ),
       ),
     );

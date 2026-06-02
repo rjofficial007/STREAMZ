@@ -21,10 +21,11 @@ import '../../domain/services/download_service.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 void showDownloadsSheet(BuildContext context) {
+  final tokens = context.tokens;
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: DS.bg,
+    backgroundColor: tokens.background,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
     builder: (_) => ChangeNotifierProvider.value(value: context.read<DownloadService>(), child: const _DownloadsSheet()),
   );
@@ -98,27 +99,28 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
   }
 
   void _confirmDelete(BuildContext ctx, DownloadTask task) {
+    final tokens = ctx.tokens;
     showDialog(
       context: ctx,
       builder: (dlgCtx) => AlertDialog(
-        backgroundColor: DS.surface1,
-        shape: const RoundedRectangleBorder(
-          side: BorderSide(color: DS.borderDefault),
+        backgroundColor: tokens.surface1,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: tokens.border.withValues(alpha: 0.15)),
           borderRadius: BorderRadius.zero,
         ),
-        title: Text('DELETE FILE', style: AppTheme.theme.textTheme.titleMedium?.copyWith(fontSize: 18)),
-        content: Text("CONFIRM REMOVAL OF '${task.title.toUpperCase()}'?", style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 12)),
+        title: Text('DELETE FILE', style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontSize: 18)),
+        content: Text("CONFIRM REMOVAL OF '${task.title.toUpperCase()}'?", style: Theme.of(ctx).textTheme.labelMedium?.copyWith(fontSize: 12)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dlgCtx),
-            child: Text('CANCEL', style: AppTheme.theme.textTheme.labelSmall),
+            child: Text('CANCEL', style: Theme.of(ctx).textTheme.labelSmall),
           ),
           TextButton(
             onPressed: () {
-              context.read<DownloadService>().delete(task);
+              ctx.read<DownloadService>().delete(task);
               Navigator.pop(dlgCtx);
             },
-            child: Text('DELETE', style: AppTheme.theme.textTheme.labelSmall?.copyWith(color: Colors.redAccent)),
+            child: Text('DELETE', style: Theme.of(ctx).textTheme.labelSmall?.copyWith(color: tokens.error)),
           ),
         ],
       ),
@@ -127,6 +129,7 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final svc = context.watch<DownloadService>();
     final all = svc.tasks;
     final filtered = _activeFilter == 'All' ? all : all.where((d) => d.type.toLowerCase() == _activeFilter.toLowerCase()).toList();
@@ -144,26 +147,26 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
       maxChildSize: 0.95,
       expand: false,
       builder: (_, scrollCtrl) => Container(
-        decoration: const BoxDecoration(
-          color: DS.bg,
-          border: Border(top: BorderSide(color: DS.borderDefault, width: 1)),
+        decoration: BoxDecoration(
+          color: tokens.background,
+          border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15), width: 1)),
         ),
         child: Column(
           children: [
             // Header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: DS.s24, vertical: DS.s16),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: DS.borderDefault)),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      const Icon(LucideIcons.download, color: DS.accent, size: 20),
+                      Icon(LucideIcons.download, color: tokens.accent, size: 20),
                       const SizedBox(width: DS.s12),
-                      Text('DOWNLOAD CENTER', style: AppTheme.theme.textTheme.titleMedium?.copyWith(fontSize: 18, letterSpacing: 1.0)),
+                      Text('DOWNLOAD CENTER', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18, letterSpacing: 1.0)),
                     ],
                   ),
                   Row(
@@ -181,7 +184,7 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
                           child: Focus(
                             child: TextButton(
                               onPressed: () => context.read<DownloadService>().clearCompleted(),
-                              child: Text('CLEAR DONE', style: AppTheme.theme.textTheme.labelSmall?.copyWith(color: DS.textMuted, fontSize: 10)),
+                              child: Text('CLEAR DONE', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: tokens.textMuted, fontSize: 10)),
                             ),
                           ),
                         ),
@@ -197,7 +200,7 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
                         child: Focus(
                           onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
                           child: IconButton(
-                            icon: const Icon(LucideIcons.x, color: Colors.white, size: 24),
+                            icon: Icon(LucideIcons.x, color: tokens.textPrimary, size: 24),
                             onPressed: () => Navigator.pop(context),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
@@ -214,7 +217,7 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
             Expanded(
               child: ListView(
                 controller: scrollCtrl,
-                padding: const EdgeInsets.fromLTRB(DS.s24, DS.s24, DS.s24, 60),
+                padding: const EdgeInsets.fromLTRB(0, 0, 0, 60),
                 children: [
                   // Storage card
                   BrutalistBlock(
@@ -222,21 +225,21 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('STORAGE ALLOCATION', style: AppTheme.theme.textTheme.labelSmall),
+                        Text('STORAGE ALLOCATION', style: Theme.of(context).textTheme.labelSmall),
                         const SizedBox(height: DS.s12),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Text('${usedGB.toStringAsFixed(1)} GB', style: AppTheme.theme.textTheme.headlineSmall?.copyWith(fontSize: 32, height: 1.0)),
+                            Text('${usedGB.toStringAsFixed(1)} GB', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontSize: 32, height: 1.0)),
                             const SizedBox(width: DS.s8),
-                            Text('OF ${totalGB.toStringAsFixed(1)} GB', style: AppTheme.theme.textTheme.labelSmall),
+                            Text('OF ${totalGB.toStringAsFixed(1)} GB', style: Theme.of(context).textTheme.labelSmall),
                           ],
                         ),
                         const SizedBox(height: DS.s16),
-                        LinearProgressIndicator(value: progress.clamp(0.0, 1.0), backgroundColor: DS.surface1, valueColor: const AlwaysStoppedAnimation(DS.accent), minHeight: 4),
+                        LinearProgressIndicator(value: progress.clamp(0.0, 1.0), backgroundColor: tokens.surface2, valueColor: AlwaysStoppedAnimation(tokens.accent), minHeight: 4),
                         const SizedBox(height: DS.s8),
-                        Text('${freeGB.toStringAsFixed(1)} GB AVAILABLE', style: AppTheme.theme.textTheme.labelSmall),
+                        Text('${freeGB.toStringAsFixed(1)} GB AVAILABLE', style: Theme.of(context).textTheme.labelSmall),
                       ],
                     ),
                   ),
@@ -260,7 +263,7 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
 
                   // Active transfers
                   if (active.isNotEmpty) ...[
-                    Text('ACTIVE TRANSFERS', style: AppTheme.theme.textTheme.labelSmall),
+                    Text('ACTIVE TRANSFERS', style: Theme.of(context).textTheme.labelSmall),
                     const SizedBox(height: DS.s8),
                     ...active.map((t) => _ActiveCard(task: t, onDelete: () => _confirmDelete(context, t))),
                     const SizedBox(height: DS.s24),
@@ -268,7 +271,7 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
 
                   // Completed
                   if (completed.isNotEmpty) ...[
-                    Text('ARCHIVED', style: AppTheme.theme.textTheme.labelSmall),
+                    Text('ARCHIVED', style: Theme.of(context).textTheme.labelSmall),
                     const SizedBox(height: DS.s8),
                     ...completed.map((t) => _CompletedCard(task: t, onDelete: () => _confirmDelete(context, t))),
                   ],
@@ -280,9 +283,9 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
                       child: Center(
                         child: Column(
                           children: [
-                            const Icon(LucideIcons.download, size: 48, color: DS.borderDefault),
+                            Icon(LucideIcons.download, size: 48, color: tokens.border.withValues(alpha: 0.15)),
                             const SizedBox(height: DS.s16),
-                            Text('NO DOWNLOADS FOUND', style: AppTheme.theme.textTheme.labelSmall),
+                            Text('NO DOWNLOADS FOUND', style: Theme.of(context).textTheme.labelSmall),
                           ],
                         ),
                       ),
@@ -317,6 +320,7 @@ class _FilterChipState extends State<_FilterChip> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Actions(
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
@@ -338,12 +342,12 @@ class _FilterChipState extends State<_FilterChip> {
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(horizontal: DS.s16, vertical: DS.s8),
             decoration: BoxDecoration(
-              color: widget.isActive ? DS.accent : (_isFocused ? DS.surface3 : Colors.transparent),
-              border: Border.all(color: widget.isActive ? DS.accent : (_isFocused ? DS.accent : DS.borderDefault), width: _isFocused ? 2 : 1),
+              color: widget.isActive ? tokens.accent : (_isFocused ? tokens.surface3 : Colors.transparent),
+              border: Border.all(color: widget.isActive ? tokens.accent : (_isFocused ? tokens.accent : tokens.border.withValues(alpha: 0.15)), width: _isFocused ? 2 : 1),
             ),
             child: Text(
               widget.label.toUpperCase(),
-              style: GoogleFonts.dmMono(color: widget.isActive ? Colors.black : Colors.white, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1),
+              style: GoogleFonts.dmMono(color: widget.isActive ? tokens.background : tokens.textPrimary, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1),
             ),
           ),
         ),
@@ -371,26 +375,27 @@ class _ActiveCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return BrutalistBlock(
       padding: const EdgeInsets.all(DS.s12),
       child: Column(
         children: [
           Row(
             children: [
-              Icon(_icon, color: DS.accent, size: 20),
+              Icon(_icon, color: tokens.accent, size: 20),
               const SizedBox(width: DS.s12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(task.title.toUpperCase(), style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(task.title.toUpperCase(), style: Theme.of(context).textTheme.labelMedium?.copyWith(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 4),
                     ValueListenableBuilder<double>(
                       valueListenable: task.progressNotifier,
                       builder: (_, prog, _) => Text(
                         '${(prog * task.totalBytes / 1024 / 1024).toStringAsFixed(1)} MB'
                         ' / ${(task.totalBytes / 1024 / 1024).toStringAsFixed(1)} MB',
-                        style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: 9),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(fontSize: 9),
                       ),
                     ),
                   ],
@@ -408,7 +413,7 @@ class _ActiveCard extends StatelessWidget {
                 child: Focus(
                   onKeyEvent: (_, ev) => handleTVSelectKey(ev, onDelete),
                   child: IconButton(
-                    icon: const Icon(LucideIcons.x, color: Colors.white54, size: 16),
+                    icon: Icon(LucideIcons.x, color: tokens.textMuted, size: 16),
                     onPressed: onDelete,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -420,7 +425,7 @@ class _ActiveCard extends StatelessWidget {
           const SizedBox(height: DS.s12),
           ValueListenableBuilder<double>(
             valueListenable: task.progressNotifier,
-            builder: (_, prog, _) => LinearProgressIndicator(value: prog.clamp(0.0, 1.0), backgroundColor: DS.surface1, valueColor: const AlwaysStoppedAnimation(DS.accent), minHeight: 2),
+            builder: (_, prog, _) => LinearProgressIndicator(value: prog.clamp(0.0, 1.0), backgroundColor: tokens.surface2, valueColor: AlwaysStoppedAnimation(tokens.accent), minHeight: 2),
           ),
         ],
       ),
@@ -440,21 +445,22 @@ class _CompletedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        color: DS.surface1,
-        border: Border.all(color: DS.borderDefault),
+        color: tokens.surface1,
+        border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
       ),
       child: ListTile(
         dense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: DS.s16, vertical: 0),
-        leading: const Icon(LucideIcons.check, color: DS.accent, size: 18),
-        title: Text(task.title.toUpperCase(), style: AppTheme.theme.textTheme.labelMedium?.copyWith(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+        leading: Icon(LucideIcons.check, color: tokens.accent, size: 18),
+        title: Text(task.title.toUpperCase(), style: Theme.of(context).textTheme.labelMedium?.copyWith(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Text(
           '${task.type.toUpperCase()} // '
           '${(task.totalBytes / 1024 / 1024).toStringAsFixed(1)} MB',
-          style: AppTheme.theme.textTheme.labelSmall?.copyWith(fontSize: 9),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(fontSize: 9),
         ),
         trailing: Actions(
           actions: {
@@ -468,7 +474,7 @@ class _CompletedCard extends StatelessWidget {
           child: Focus(
             onKeyEvent: (_, ev) => handleTVSelectKey(ev, onDelete),
             child: IconButton(
-              icon: const Icon(LucideIcons.trash, color: Colors.white54, size: 16),
+              icon: Icon(LucideIcons.trash, color: tokens.textMuted, size: 16),
               onPressed: onDelete,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),

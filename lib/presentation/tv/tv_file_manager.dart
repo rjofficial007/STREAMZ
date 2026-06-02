@@ -12,19 +12,11 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
 import '../client/client_viewmodel.dart';
 import 'tv_player_screen.dart';
 import '../shared/file_item.dart';
-
-// --- Web UI Color Palette & Styles ---
-const Color kWebBlack = Color(0xFF000000);
-const Color kWebSurface = Color(0xFF0A0A0A);
-const Color kWebSurface2 = Color(0xFF111111);
-const Color kWebWhite = Color(0xFFFFFFFF);
-final Color kWebBorder = Colors.white.withValues(alpha: 0.15);
-final Color kWebTextMuted = Colors.white.withValues(alpha: 0.3);
-final Color kWebText = Colors.white.withValues(alpha: 0.6);
 
 const ColorFilter kGreyscale = ColorFilter.matrix(<double>[
   0.2126, 0.7152, 0.0722, 0, 0,
@@ -207,15 +199,16 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
   }
 
   void _triggerDownload(SFileItem item) {
+    final tokens = context.tokens;
     final mediaItem = MediaItem(id: item.path, title: item.name, duration: 0, type: item.mediaType, folder: 'Download');
     context.read<ClientViewModel>().downloadMedia(item: mediaItem, isPathBased: item.isPathBased);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           'CMD // DOWNLOADING ${item.name.toUpperCase()}',
-          style: GoogleFonts.dmMono(color: kWebBlack, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2),
+          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2),
         ),
-        backgroundColor: kWebWhite,
+        backgroundColor: tokens.textPrimary,
         duration: const Duration(seconds: 2),
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       ),
@@ -224,9 +217,10 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
 
   void _showOptionsModal(SFileItem item) {
     final size = MediaQuery.sizeOf(context);
+    final tokens = context.tokens;
     showGeneralDialog(
       context: context,
-      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierColor: tokens.background.withValues(alpha: 0.9),
       barrierDismissible: true,
       barrierLabel: 'Dismiss',
       pageBuilder: (ctx, _, _) => Center(
@@ -235,8 +229,8 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
           child: Container(
             width: (size.width * 0.4).clamp(400.0, 600.0),
             decoration: BoxDecoration(
-              color: kWebSurface,
-              border: Border.all(color: kWebWhite, width: 2),
+              color: tokens.surface1,
+              border: Border.all(color: tokens.textPrimary, width: 2),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -244,10 +238,10 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
               children: [
                 Container(
                   padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
                   child: Text(
                       item.name.toUpperCase(),
-                      style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1),
+                      style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis
                   ),
@@ -290,6 +284,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final isMobile = size.width < 768;
+    final tokens = context.tokens;
 
     return PopScope(
       canPop: false,
@@ -306,15 +301,15 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: kWebBlack,
+        backgroundColor: tokens.background,
         body: Column(
           children: [
-            _buildTopDashboard(size),
+            _buildTopDashboard(context, size),
             Expanded(
               child: Stack(
                 children: [
                   FocusTraversalGroup(
-                    child: _buildContent(size),
+                    child: _buildContent(context, size),
                   ),
                   if (_activePlayIndex >= 0 && _activePlaylist.isNotEmpty)
                     _TVInlinePlayer(
@@ -329,7 +324,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
                 ],
               ),
             ),
-            if (isMobile) _buildBottomNavbar(size),
+            if (isMobile) _buildBottomNavbar(context, size),
           ],
         ),
       ),
@@ -338,14 +333,15 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
 
   // ── Top Dashboard ────────────────────────────────────────────────────────
 
-  Widget _buildTopDashboard(Size size) {
+  Widget _buildTopDashboard(BuildContext context, Size size) {
     final isMobile = size.width < 768;
+    final tokens = context.tokens;
 
     return Container(
       height: isMobile ? 56 : 72,
       decoration: BoxDecoration(
-        color: kWebSurface,
-        border: Border(bottom: BorderSide(color: kWebBorder)),
+        color: tokens.surface1,
+        border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -353,7 +349,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
           if (!isMobile) ...[
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              decoration: BoxDecoration(border: Border(right: BorderSide(color: kWebBorder))),
+              decoration: BoxDecoration(border: Border(right: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
               child: Actions(
                 actions: {
                   ActivateIntent: CallbackAction<ActivateIntent>(
@@ -368,7 +364,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
                     if (!_goBack()) Navigator.pop(context);
                   }),
                   child: IconButton(
-                    icon: const Icon(LucideIcons.chevronLeft, color: kWebWhite, size: 24),
+                    icon: Icon(LucideIcons.chevronLeft, color: tokens.textPrimary, size: 24),
                     onPressed: () {
                       if (!_goBack()) Navigator.pop(context);
                     },
@@ -378,11 +374,10 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 30),
-              decoration: BoxDecoration(border: Border(right: BorderSide(color: kWebBorder))),
+              decoration: BoxDecoration(border: Border(right: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
               child: Row(
                 children: [
-                  Text('STREAMZ', style: GoogleFonts.barlowCondensed(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 4, color: kWebWhite)),
-                 
+                  Text('STREAMZ', style: GoogleFonts.barlowCondensed(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 4, color: tokens.textPrimary)),
                 ],
               ),
             ),
@@ -400,19 +395,18 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
           ],
           Container(
             width: isMobile ? size.width : 300,
-            color: kWebBlack,
+            color: tokens.background,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-
                 Expanded(
                   child: TextField(
                     focusNode: _searchFocusNode,
                     onChanged: (v) => setState(() => _searchQuery = v),
-                    style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, letterSpacing: 1),
+                    style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, letterSpacing: 1),
                     decoration: InputDecoration(
                       hintText: 'SEARCH QUERY...',
-                      hintStyle: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 14),
+                      hintStyle: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 14),
                       border: InputBorder.none,
                       isDense: true,
                     ),
@@ -429,12 +423,13 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
 
   // ── Bottom Navbar ─────────────────────────────────────────────────────────
 
-  Widget _buildBottomNavbar(Size size) {
+  Widget _buildBottomNavbar(BuildContext context, Size size) {
+    final tokens = context.tokens;
     return Container(
       height: 60,
       decoration: BoxDecoration(
-        color: kWebSurface,
-        border: Border(top: BorderSide(color: kWebBorder)),
+        color: tokens.surface1,
+        border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
       ),
       child: Row(
         children: [
@@ -450,19 +445,20 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
 
   // ── Content ───────────────────────────────────────────────────────────────
 
-  Widget _buildContent(Size size) {
-    if (_isLoading) return const Center(child: CircularProgressIndicator(color: kWebWhite, strokeWidth: 2));
+  Widget _buildContent(BuildContext context, Size size) {
+    final tokens = context.tokens;
+    if (_isLoading) return Center(child: CircularProgressIndicator(color: tokens.textPrimary, strokeWidth: 2));
     if (_error != null) {
       return Center(
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 80),
-          decoration: BoxDecoration(border: Border.all(color: kWebBorder, style: BorderStyle.solid)),
+          decoration: BoxDecoration(border: Border.all(color: tokens.border.withValues(alpha: 0.15), style: BorderStyle.solid)),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(LucideIcons.alertTriangle, size: 64, color: kWebTextMuted),
+              Icon(LucideIcons.alertTriangle, size: 64, color: tokens.textMuted),
               const SizedBox(height: 24),
-              Text('SIGNAL ERROR // ${_error?.toUpperCase()}', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, letterSpacing: 2)),
+              Text('SIGNAL ERROR // ${_error?.toUpperCase()}', style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, letterSpacing: 2)),
               const SizedBox(height: 32),
               _HardwareBtn(label: 'RETRY CONNECTION', width: 240, onTap: _loadHome),
             ],
@@ -476,13 +472,13 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
         return Center(
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 80),
-            decoration: BoxDecoration(border: Border.all(color: kWebBorder, style: BorderStyle.solid)),
-            child: Text('NO ACTIVE BROADCASTS', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 16, letterSpacing: 4)),
+            decoration: BoxDecoration(border: Border.all(color: tokens.border.withValues(alpha: 0.15), style: BorderStyle.solid)),
+            child: Text('NO ACTIVE BROADCASTS', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 16, letterSpacing: 4)),
           ),
         );
       }
       return Container(
-        decoration: BoxDecoration(color: kWebBorder),
+        decoration: BoxDecoration(color: tokens.border.withValues(alpha: 0.15)),
         child: CustomScrollView(
           controller: _scrollCtrl,
           physics: const BouncingScrollPhysics(),
@@ -513,8 +509,8 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
       return Center(
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 80),
-          decoration: BoxDecoration(border: Border.all(color: kWebBorder, style: BorderStyle.solid)),
-          child: Text('0 SIGNALS FOUND', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 16, letterSpacing: 4)),
+          decoration: BoxDecoration(border: Border.all(color: tokens.border.withValues(alpha: 0.15), style: BorderStyle.solid)),
+          child: Text('0 SIGNALS FOUND', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 16, letterSpacing: 4)),
         ),
       );
     }
@@ -530,7 +526,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
     }
 
     return Container(
-      decoration: BoxDecoration(color: kWebBorder),
+      decoration: BoxDecoration(color: tokens.border.withValues(alpha: 0.15)),
       child: CustomScrollView(
         controller: _scrollCtrl,
         physics: const BouncingScrollPhysics(),
@@ -636,6 +632,7 @@ class _TVGridCardState extends State<_TVGridCard> with SingleTickerProviderState
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     String? thumbUrl;
     if (widget.item.isPlayable) {
       thumbUrl = widget.item.isPathBased
@@ -672,8 +669,8 @@ class _TVGridCardState extends State<_TVGridCard> with SingleTickerProviderState
             scale: _scale,
             child: Container(
               decoration: BoxDecoration(
-                color: _focused ? kWebWhite : kWebSurface2,
-                border: Border.all(color: _focused ? kWebWhite : kWebBorder, width: _focused ? 1 : 0),
+                color: _focused ? tokens.textPrimary : tokens.surface2,
+                border: Border.all(color: _focused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15), width: _focused ? 1 : 0),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -685,7 +682,7 @@ class _TVGridCardState extends State<_TVGridCard> with SingleTickerProviderState
                       children: [
                         if (thumbUrl != null)
                           Container(
-                            color: kWebBlack,
+                            color: tokens.background,
                             child: ColorFiltered(
                               colorFilter: _focused ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply) : kGreyscale,
                               child: Opacity(
@@ -696,11 +693,11 @@ class _TVGridCardState extends State<_TVGridCard> with SingleTickerProviderState
                           )
                         else
                           Container(
-                            color: isDir ? kWebSurface : kWebSurface2,
+                            color: isDir ? tokens.surface1 : tokens.surface2,
                             child: Center(
                               child: Opacity(
                                 opacity: _focused ? 1.0 : 0.5,
-                                child: Icon(widget.item.icon, color: _focused ? kWebBlack : kWebWhite, size: 40),
+                                child: Icon(widget.item.icon, color: _focused ? tokens.background : tokens.textPrimary, size: 40),
                               ),
                             ),
                           ),
@@ -712,13 +709,13 @@ class _TVGridCardState extends State<_TVGridCard> with SingleTickerProviderState
                     child: Container(
                       alignment: Alignment.centerLeft,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(border: Border(top: BorderSide(color: kWebBorder))),
+                      decoration: BoxDecoration(border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
                       child: Text(
                         widget.item.name.toUpperCase(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.dmMono(
-                          color: _focused ? kWebBlack : kWebText,
+                          color: _focused ? tokens.background : tokens.textSecondary,
                           fontSize: 10,
                           fontWeight: _focused ? FontWeight.bold : FontWeight.normal,
                           letterSpacing: 1,
@@ -756,6 +753,7 @@ class _TopNavBtnState extends State<_TopNavBtn> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Expanded(
       child: Actions(
         actions: {
@@ -774,8 +772,8 @@ class _TopNavBtnState extends State<_TopNavBtn> {
             child: Container(
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: widget.isActive ? kWebWhite : (_focused ? kWebWhite.withValues(alpha: 0.04) : Colors.transparent),
-                border: Border(right: BorderSide(color: kWebBorder)),
+                color: widget.isActive ? tokens.textPrimary : (_focused ? tokens.textPrimary.withValues(alpha: 0.04) : Colors.transparent),
+                border: Border(right: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
               ),
               child: Text(
                 widget.label,
@@ -783,7 +781,7 @@ class _TopNavBtnState extends State<_TopNavBtn> {
                   fontSize: 11,
                   fontWeight: widget.isActive ? FontWeight.bold : FontWeight.normal,
                   letterSpacing: 2,
-                  color: widget.isActive ? kWebBlack : kWebWhite,
+                  color: widget.isActive ? tokens.background : tokens.textPrimary,
                 ),
               ),
             ),
@@ -807,21 +805,22 @@ class _BottomNavBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: isActive ? kWebWhite : Colors.transparent,
-            border: Border(right: BorderSide(color: kWebBorder)),
+            color: isActive ? tokens.textPrimary : Colors.transparent,
+            border: Border(right: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
           ),
           child: Text(
             label,
             style: GoogleFonts.dmMono(
               fontSize: 12,
               fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-              color: isActive ? kWebBlack : kWebWhite,
+              color: isActive ? tokens.background : tokens.textPrimary,
             ),
           ),
         ),
@@ -851,8 +850,9 @@ class _HardwareBtnState extends State<_HardwareBtn> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = widget.isPrimary ? kWebWhite : (_focused ? kWebWhite.withValues(alpha: 0.04) : Colors.transparent);
-    final fg = widget.isPrimary ? kWebBlack : kWebWhite;
+    final tokens = context.tokens;
+    final bg = widget.isPrimary ? tokens.textPrimary : (_focused ? tokens.textPrimary.withValues(alpha: 0.04) : Colors.transparent);
+    final fg = widget.isPrimary ? tokens.background : tokens.textPrimary;
 
     return Actions(
       actions: {
@@ -873,7 +873,7 @@ class _HardwareBtnState extends State<_HardwareBtn> {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: bg,
-              border: Border(left: BorderSide(color: kWebBorder)),
+              border: Border(left: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
             ),
             child: Text(
               widget.label,
@@ -925,6 +925,7 @@ class _TVStationCardState extends State<_TVStationCard> with SingleTickerProvide
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final nowPlaying = widget.station['nowPlaying'];
     final title = widget.station['name'].toString().toUpperCase();
     final itemTitle = nowPlaying != null ? nowPlaying['item']['title'].toString().toUpperCase() : 'AWAITING SIGNAL';
@@ -956,8 +957,8 @@ class _TVStationCardState extends State<_TVStationCard> with SingleTickerProvide
             child: Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: _focused ? kWebWhite : kWebSurface2,
-                border: Border.all(color: _focused ? kWebWhite : kWebBorder, width: _focused ? 4 : 0),
+                color: _focused ? tokens.textPrimary : tokens.surface2,
+                border: Border.all(color: _focused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15), width: _focused ? 4 : 0),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -967,21 +968,21 @@ class _TVStationCardState extends State<_TVStationCard> with SingleTickerProvide
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: Text(title, style: GoogleFonts.barlowCondensed(color: _focused ? kWebBlack : kWebWhite, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1), maxLines: 1),
+                        child: Text(title, style: GoogleFonts.barlowCondensed(color: _focused ? tokens.background : tokens.textPrimary, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1), maxLines: 1),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(border: Border.all(color: _focused ? kWebBlack : kWebWhite)),
-                        child: Text('LIVE', style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: _focused ? kWebBlack : kWebWhite)),
+                        decoration: BoxDecoration(border: Border.all(color: _focused ? tokens.background : tokens.textPrimary)),
+                        child: Text('LIVE', style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: _focused ? tokens.background : tokens.textPrimary)),
                       ),
                     ],
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('STATUS // NOW PLAYING', style: GoogleFonts.dmMono(fontSize: 10, color: _focused ? kWebBlack.withValues(alpha:0.5) : kWebTextMuted, letterSpacing: 1)),
+                      Text('STATUS // NOW PLAYING', style: GoogleFonts.dmMono(fontSize: 10, color: _focused ? tokens.background.withValues(alpha:0.5) : tokens.textMuted, letterSpacing: 1)),
                       const SizedBox(height: 4),
-                      Text(itemTitle, style: GoogleFonts.dmMono(fontSize: 12, color: _focused ? kWebBlack : kWebText), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(itemTitle, style: GoogleFonts.dmMono(fontSize: 12, color: _focused ? tokens.background : tokens.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
                     ],
                   ),
                 ],
@@ -1011,6 +1012,7 @@ class _TVModalBtnState extends State<_TVModalBtn> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Actions(
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
@@ -1029,8 +1031,8 @@ class _TVModalBtnState extends State<_TVModalBtn> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
             decoration: BoxDecoration(
-              color: _focused ? (widget.isDestructive ? Colors.redAccent : kWebWhite) : Colors.transparent,
-              border: Border(bottom: BorderSide(color: kWebBorder)),
+              color: _focused ? (widget.isDestructive ? tokens.error : tokens.textPrimary) : Colors.transparent,
+              border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
             ),
             child: Text(
               widget.label,
@@ -1038,7 +1040,7 @@ class _TVModalBtnState extends State<_TVModalBtn> {
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 2,
-                color: _focused ? kWebBlack : (widget.isDestructive ? Colors.redAccent : kWebWhite),
+                color: _focused ? tokens.background : (widget.isDestructive ? tokens.error : tokens.textPrimary),
               ),
             ),
           ),

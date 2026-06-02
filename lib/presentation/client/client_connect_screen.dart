@@ -16,15 +16,6 @@ import 'client_connect_screen_tv.dart';
 import 'interface_selection_screen.dart';
 import 'qr_scanner_screen.dart';
 
-// --- Web UI Color Palette & Styles (Synced with Server Dashboard) ---
-const Color kWebBlack = Color(0xFF000000);
-const Color kWebSurface = Color(0xFF0A0A0A);
-const Color kWebSurface2 = Color(0xFF111111);
-const Color kWebWhite = Color(0xFFFFFFFF);
-final Color kWebBorder = Colors.white.withValues(alpha: 0.15);
-final Color kWebTextMuted = Colors.white.withValues(alpha: 0.3);
-final Color kWebText = Colors.white.withValues(alpha: 0.6);
-
 class ClientConnectScreen extends StatefulWidget {
   const ClientConnectScreen({super.key});
 
@@ -85,9 +76,10 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
     }
 
     final vm = context.watch<ClientViewModel>();
+    final tokens = context.tokens;
 
     return Scaffold(
-      backgroundColor: kWebBlack,
+      backgroundColor: tokens.background,
       body: SafeArea(
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
@@ -101,8 +93,9 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
   }
 
   Widget _buildSliverAppBar() {
+    final tokens = context.tokens;
     return SliverAppBar(
-      backgroundColor: kWebSurface,
+      backgroundColor: tokens.surface1,
       floating: true,
       elevation: 0,
       pinned: true,
@@ -119,7 +112,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
         child: Focus(
           onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
           child: IconButton(
-            icon: Icon(LucideIcons.chevronLeft, size: 20, color: kWebWhite),
+            icon: Icon(LucideIcons.chevronLeft, size: 20, color: tokens.textPrimary),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -127,7 +120,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
       title: Text(
         'CLIENT NODE',
         style: GoogleFonts.barlowCondensed(
-          color: kWebWhite, 
+          color: tokens.textPrimary, 
           fontSize: 20, 
           fontWeight: FontWeight.w900, 
           letterSpacing: 4
@@ -135,20 +128,21 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
       ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(color: kWebBorder, height: 1),
+        child: Container(color: tokens.border.withValues(alpha: 0.15), height: 1),
       ),
     );
   }
 
   Widget _buildBody(ClientViewModel vm) {
+    final tokens = context.tokens;
     return SliverList(
       delegate: SliverChildListDelegate([
         _HandshakeAnalysisCard(vm: vm),
         
         Container(
           decoration: BoxDecoration(
-            border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), 
-            color: kWebBorder
+            border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))), 
+            color: tokens.border.withValues(alpha: 0.15)
           ),
           child: GridView.count(
             crossAxisCount: 3,
@@ -182,7 +176,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
 
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-          child: Text('RECENT NODES', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 2)),
+          child: Text('RECENT NODES', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2)),
         ),
         
         if (vm.ipHistory.isEmpty)
@@ -200,11 +194,12 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
   }
 
   void _scanQR() async {
+    final tokens = context.tokens;
     if (kIsWeb || (defaultTargetPlatform != TargetPlatform.android && defaultTargetPlatform != TargetPlatform.iOS)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('QR SCAN ONLY AVAILABLE ON MOBILE', style: GoogleFonts.dmMono(color: kWebBlack, fontWeight: FontWeight.bold)),
-          backgroundColor: kWebWhite,
+          content: Text('QR SCAN ONLY AVAILABLE ON MOBILE', style: GoogleFonts.dmMono(color: tokens.background, fontWeight: FontWeight.bold)),
+          backgroundColor: tokens.textPrimary,
         ),
       );
       return;
@@ -217,32 +212,33 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
   }
 
   void _showManualIpSheet() {
+    final tokens = context.tokens;
     showModalBottomSheet(
       context: context,
-      backgroundColor: kWebBlack,
+      backgroundColor: tokens.background,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: Container(
           padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(border: Border(top: BorderSide(color: kWebBorder))),
+          decoration: BoxDecoration(border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('MANUAL HANDSHAKE', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 12, letterSpacing: 4)),
+              Text('MANUAL HANDSHAKE', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 4)),
               const SizedBox(height: 24),
               Container(
-                decoration: BoxDecoration(border: Border.all(color: kWebBorder)),
+                decoration: BoxDecoration(border: Border.all(color: tokens.border.withValues(alpha: 0.15))),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: TextField(
                   controller: _ctrl,
                   autofocus: true,
-                  style: GoogleFonts.dmMono(color: kWebWhite),
+                  style: GoogleFonts.dmMono(color: tokens.textPrimary),
                   decoration: InputDecoration(
                     hintText: 'ENTER IPv4...',
-                    hintStyle: TextStyle(color: kWebTextMuted),
+                    hintStyle: TextStyle(color: tokens.textMuted),
                     border: InputBorder.none,
                   ),
                   keyboardType: TextInputType.number,
@@ -261,9 +257,9 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(color: kWebWhite),
+                  decoration: BoxDecoration(color: tokens.textPrimary),
                   child: Center(
-                    child: Text('INITIATE CONNECTION', style: GoogleFonts.dmMono(color: kWebBlack, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                    child: Text('INITIATE CONNECTION', style: GoogleFonts.dmMono(color: tokens.background, fontWeight: FontWeight.bold, letterSpacing: 2)),
                   ),
                 ),
               ),
@@ -281,11 +277,12 @@ class _HandshakeAnalysisCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: kWebSurface,
-        border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)),
+        color: tokens.surface1,
+        border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,7 +290,7 @@ class _HandshakeAnalysisCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('HANDSHAKE ANALYSIS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              Text('HANDSHAKE ANALYSIS', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
               _BlinkingDot(isOnline: vm.isDiscovering),
             ],
           ),
@@ -304,9 +301,9 @@ class _HandshakeAnalysisCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('SCAN STATUS', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+                    Text('SCAN STATUS', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
                     const SizedBox(height: 4),
-                    Text(vm.isDiscovering ? 'ACTIVE' : 'IDLE', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text(vm.isDiscovering ? 'ACTIVE' : 'IDLE', style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -314,9 +311,9 @@ class _HandshakeAnalysisCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('LAST NODE', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+                    Text('LAST NODE', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
                     const SizedBox(height: 4),
-                    Text(vm.ipHistory.firstOrNull ?? 'NONE', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text(vm.ipHistory.firstOrNull ?? 'NONE', style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -325,7 +322,7 @@ class _HandshakeAnalysisCard extends StatelessWidget {
           const SizedBox(height: 20),
           Stack(
             children: [
-              Container(height: 8, color: kWebSurface2),
+              Container(height: 8, color: tokens.surface2),
               if (vm.isDiscovering)
                 _DiscoveryProgressBar(),
             ],
@@ -333,9 +330,9 @@ class _HandshakeAnalysisCard extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _legend('HISTORY', '${vm.ipHistory.length} NODES', kWebWhite)),
+              Expanded(child: _legend(context, 'HISTORY', '${vm.ipHistory.length} NODES', tokens.textPrimary)),
               const SizedBox(width: 16),
-              Expanded(child: _legend('NETWORK', 'READY', Colors.white70)),
+              Expanded(child: _legend(context, 'NETWORK', 'READY', tokens.textSecondary)),
             ],
           ),
         ],
@@ -343,13 +340,14 @@ class _HandshakeAnalysisCard extends StatelessWidget {
     );
   }
 
-  Widget _legend(String label, String value, Color color) {
+  Widget _legend(BuildContext context, String label, String value, Color color) {
+    final tokens = context.tokens;
     return Row(
       children: [
         Container(width: 8, height: 8, color: color),
         const SizedBox(width: 8),
-        Expanded(child: Text(label, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10))),
-        Text(value, style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: kWebWhite)),
+        Expanded(child: Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10))),
+        Text(value, style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: tokens.textPrimary)),
       ],
     );
   }
@@ -376,11 +374,12 @@ class _DiscoveryProgressBarState extends State<_DiscoveryProgressBar> with Singl
   }
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, _) => FractionallySizedBox(
         widthFactor: _ctrl.value,
-        child: Container(height: 8, color: kWebWhite),
+        child: Container(height: 8, color: tokens.accent),
       ),
     );
   }
@@ -402,6 +401,7 @@ class _QuickActionCardState extends State<_QuickActionCard> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) {
@@ -410,15 +410,15 @@ class _QuickActionCardState extends State<_QuickActionCard> {
       },
       onTapCancel: () => setState(() => _isPressed = false),
       child: Container(
-        color: _isPressed ? kWebWhite.withValues(alpha: 0.1) : kWebSurface2,
+        color: _isPressed ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.surface2,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(widget.icon, color: kWebWhite, size: 24),
+            Icon(widget.icon, color: tokens.textPrimary, size: 24),
             const SizedBox(height: 8),
             Text(
               widget.label,
-              style: GoogleFonts.dmMono(color: kWebText, fontSize: 9, letterSpacing: 1),
+              style: GoogleFonts.dmMono(color: tokens.textSecondary, fontSize: 9, letterSpacing: 1),
               textAlign: TextAlign.center,
             ),
           ],
@@ -444,6 +444,7 @@ class _HistoryTileState extends State<_HistoryTile> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
@@ -453,10 +454,10 @@ class _HistoryTileState extends State<_HistoryTile> {
       onTapCancel: () => setState(() => _pressed = false),
       child: Container(
         decoration: BoxDecoration(
-          color: _pressed ? kWebWhite.withValues(alpha: 0.1) : kWebSurface,
+          color: _pressed ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.surface1,
           border: Border(
-            bottom: BorderSide(color: kWebBorder), 
-            top: widget.isFirst ? BorderSide(color: kWebBorder) : BorderSide.none
+            bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)), 
+            top: widget.isFirst ? BorderSide(color: tokens.border.withValues(alpha: 0.15)) : BorderSide.none
           ),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -465,8 +466,8 @@ class _HistoryTileState extends State<_HistoryTile> {
             Container(
               width: 44,
               height: 44,
-              decoration: BoxDecoration(color: kWebSurface2, border: Border.all(color: kWebBorder)),
-              child: Icon(LucideIcons.hardDrive, color: kWebText, size: 20),
+              decoration: BoxDecoration(color: tokens.surface2, border: Border.all(color: tokens.border.withValues(alpha: 0.15))),
+              child: Icon(LucideIcons.hardDrive, color: tokens.textSecondary, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -475,14 +476,14 @@ class _HistoryTileState extends State<_HistoryTile> {
                 children: [
                   Text(
                     widget.ip.toUpperCase(),
-                    style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
                   ),
                   const SizedBox(height: 3),
-                  Text('STATUS: ARCHIVED NODE', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 9, letterSpacing: 1)),
+                  Text('STATUS: ARCHIVED NODE', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 9, letterSpacing: 1)),
                 ],
               ),
             ),
-            Icon(LucideIcons.chevronRight, color: kWebTextMuted, size: 16),
+            Icon(LucideIcons.chevronRight, color: tokens.textMuted, size: 16),
           ],
         ),
       ),
@@ -496,21 +497,22 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.redAccent.withValues(alpha: 0.1),
-        border: Border.all(color: Colors.redAccent),
+        color: tokens.error.withValues(alpha: 0.1),
+        border: Border.all(color: tokens.error),
       ),
       child: Row(
         children: [
-          const Icon(LucideIcons.alertTriangle, color: Colors.redAccent, size: 20),
+          Icon(LucideIcons.alertTriangle, color: tokens.error, size: 20),
           const SizedBox(width: 16),
           Expanded(
             child: Text(
               'ERR: ${error.toUpperCase()}',
-              style: GoogleFonts.dmMono(color: Colors.redAccent, fontSize: 11),
+              style: GoogleFonts.dmMono(color: tokens.error, fontSize: 11),
             ),
           ),
         ],
@@ -524,15 +526,16 @@ class _EmptyHistoryPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       padding: const EdgeInsets.all(40),
-      decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: kWebBorder))),
+      decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
       child: Center(
         child: Column(
           children: [
-            Icon(LucideIcons.history, size: 40, color: kWebTextMuted),
+            Icon(LucideIcons.history, size: 40, color: tokens.textMuted),
             const SizedBox(height: 12),
-            Text('NO HISTORY DETECTED', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 4)),
+            Text('NO HISTORY DETECTED', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 4)),
           ],
         ),
       ),
@@ -565,15 +568,16 @@ class _BlinkingDotState extends State<_BlinkingDot> with SingleTickerProviderSta
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isOnline) return Container(width: 8, height: 8, color: Colors.white24);
+    final tokens = context.tokens;
+    if (!widget.isOnline) return Container(width: 8, height: 8, color: tokens.textDisabled);
     return FadeTransition(
       opacity: _ctrl,
       child: Container(
         width: 8,
         height: 8,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.white, blurRadius: 4)],
+        decoration: BoxDecoration(
+          color: tokens.success,
+          boxShadow: [BoxShadow(color: tokens.success, blurRadius: 4)],
         ),
       ),
     );

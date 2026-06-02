@@ -12,18 +12,10 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
 import '../client/client_viewmodel.dart';
 import 'player_viewmodel.dart';
-
-// --- UI Color Palette & Styles (Sync with TVPlayerScreen) ---
-const Color kWebBlack = Color(0xFF000000);
-const Color kWebSurface = Color(0xFF0A0A0A);
-const Color kWebSurface2 = Color(0xFF111111);
-const Color kWebWhite = Color(0xFFFFFFFF);
-final Color kWebBorder = Colors.white.withValues(alpha: 0.15);
-final Color kWebTextMuted = Colors.white.withValues(alpha: 0.3);
-final Color kWebText = Colors.white.withValues(alpha: 0.6);
 
 const ColorFilter kGreyscale = ColorFilter.matrix(<double>[
   0.2126, 0.7152, 0.0722, 0, 0,
@@ -168,10 +160,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _showStationModal() {
     final clientVM = context.read<ClientViewModel>();
     final stations = clientVM.stations;
+    final tokens = context.tokens;
 
     showGeneralDialog(
       context: context,
-      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierColor: tokens.background.withValues(alpha: 0.9),
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
@@ -180,15 +173,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
           child: Container(
             width: MediaQuery.sizeOf(context).width * 0.85,
             constraints: const BoxConstraints(maxWidth: 500),
-            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
+            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
                   padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
-                  child: Text('LIVE STATIONS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                  child: Text('LIVE STATIONS', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
                 ),
                 Flexible(
                   child: ListView(
@@ -216,6 +209,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final item = _vm.current;
     if (item?.isVideo == true) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -226,7 +220,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return ChangeNotifierProvider.value(
       value: _vm,
       child: Scaffold(
-        backgroundColor: kWebBlack,
+        backgroundColor: tokens.background,
         body: MouseRegion(
           onHover: (_) => _vm.wakeOSD(),
           child: FocusScope(
@@ -251,15 +245,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _buildMediaLayer(),
-                  _buildGestureFeedback(),
-                  _buildOSD(),
+                  _buildMediaLayer(context),
+                  _buildGestureFeedback(context),
+                  _buildOSD(context),
                   if (_showSidebar)
                     GestureDetector(
                       onTap: () => setState(() => _showSidebar = false),
-                      child: Container(color: kWebBlack.withValues(alpha: 0.6)),
+                      child: Container(color: tokens.background.withValues(alpha: 0.6)),
                     ),
-                  _buildToolsSidebar(),
+                  _buildToolsSidebar(context),
                 ],
               ),
             ),
@@ -271,18 +265,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // ── Media Layers ──────────────────────────────────────────────────────────
 
-  Widget _buildMediaLayer() {
+  Widget _buildMediaLayer(BuildContext context) {
+    final tokens = context.tokens;
     final item = _vm.current;
-    if (item == null) return const Center(child: CircularProgressIndicator(color: kWebWhite));
+    if (item == null) return Center(child: CircularProgressIndicator(color: tokens.accent));
 
-    if (item.isImage) return _buildImageLayout(item);
-    if (item.isAudio) return _buildAudioLayout(item);
-    return _buildVideoLayout(item);
+    if (item.isImage) return _buildImageLayout(context, item);
+    if (item.isAudio) return _buildAudioLayout(context, item);
+    return _buildVideoLayout(context, item);
   }
 
-  Widget _buildVideoLayout(MediaItem item) {
+  Widget _buildVideoLayout(BuildContext context, MediaItem item) {
+    final tokens = context.tokens;
     return Container(
-      color: kWebBlack,
+      color: tokens.background,
       child: Video(
         controller: _vm.videoController,
         controls: NoVideoControls,
@@ -291,13 +287,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  Widget _buildAudioLayout(MediaItem item) {
+  Widget _buildAudioLayout(BuildContext context, MediaItem item) {
+    final tokens = context.tokens;
     return LayoutBuilder(builder: (context, constraints) {
       final isLandscape = constraints.maxWidth > constraints.maxHeight;
       final sz = (isLandscape ? constraints.maxHeight * 0.4 : constraints.maxWidth * 0.5).clamp(120.0, 300.0);
 
       return Container(
-        color: kWebBlack,
+        color: tokens.background,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -306,10 +303,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 width: sz,
                 height: sz,
                 decoration: BoxDecoration(
-                  color: kWebSurface,
-                  border: Border.all(color: kWebWhite, width: 1),
+                  color: tokens.surface1,
+                  border: Border.all(color: tokens.textPrimary, width: 1),
                   boxShadow: [
-                    BoxShadow(color: kWebWhite.withValues(alpha: 0.1), offset: const Offset(4, 4)),
+                    BoxShadow(color: tokens.accent.withValues(alpha: 0.1), offset: const Offset(4, 4)),
                   ],
                 ),
                 child: ColorFiltered(
@@ -327,7 +324,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 child: Text(
                   item.title.toUpperCase(),
                   style: GoogleFonts.barlowCondensed(
-                    color: kWebWhite,
+                    color: tokens.textPrimary,
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1,
@@ -340,7 +337,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               const SizedBox(height: 4),
               Text(
                 'SIGNAL_TYPE // AUDIO_STREAM',
-                style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 8, letterSpacing: 2),
+                style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 8, letterSpacing: 2),
               ),
             ],
           ),
@@ -349,17 +346,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
     });
   }
 
-  Widget _buildImageLayout(MediaItem item) {
+  Widget _buildImageLayout(BuildContext context, MediaItem item) {
+    final tokens = context.tokens;
     return Container(
-      color: kWebBlack,
+      color: tokens.background,
       padding: const EdgeInsets.all(24),
       child: Center(
         child: Container(
-          decoration: BoxDecoration(border: Border.all(color: kWebBorder, width: 1)),
+          decoration: BoxDecoration(border: Border.all(color: tokens.border.withValues(alpha: 0.15), width: 1)),
           child: Image.network(
             _vm.mediaUrl,
             fit: BoxFit.contain,
-            errorBuilder: (_, error, stack) => Icon(LucideIcons.image, color: kWebTextMuted, size: 64),
+            errorBuilder: (_, error, stack) => Icon(LucideIcons.image, color: tokens.textMuted, size: 64),
           ),
         ),
       ),
@@ -368,26 +366,30 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // ── OSD (Mobile VLC Style) ────────────────────────────────────────────────
 
-  Widget _buildOSD() => AnimatedOpacity(
-    opacity: _vm.showOSD ? 1.0 : 0.0,
-    duration: const Duration(milliseconds: 250),
-    child: ExcludeFocus(
-      excluding: !_vm.showOSD,
-      child: Stack(
-        children: [
-          _buildTopBar(),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              _buildVlcBottomControls(),
-            ],
-          ),
-        ],
+  Widget _buildOSD(BuildContext context) {
+    final tokens = context.tokens;
+    return AnimatedOpacity(
+      opacity: _vm.showOSD ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 250),
+      child: ExcludeFocus(
+        excluding: !_vm.showOSD,
+        child: Stack(
+          children: [
+            _buildTopBar(context),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                _buildVlcBottomControls(context),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar(BuildContext context) {
+    final tokens = context.tokens;
     final item = _vm.current;
     return Positioned(
       top: 0,
@@ -399,7 +401,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [kWebBlack.withValues(alpha: 0.8), Colors.transparent],
+            colors: [tokens.background.withValues(alpha: 0.8), Colors.transparent],
           ),
         ),
         child: Row(
@@ -413,13 +415,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 children: [
                   Text(
                     (item?.title ?? '').toUpperCase(),
-                    style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     'CMD // ${_vm.currentIndex + 1} OF ${_vm.playlist.length}',
-                    style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 8, letterSpacing: 1),
+                    style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 8, letterSpacing: 1),
                   ),
                 ],
               ),
@@ -431,7 +433,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  Widget _buildVlcBottomControls() {
+  Widget _buildVlcBottomControls(BuildContext context) {
+    final tokens = context.tokens;
     final item = _vm.current;
     final isBroadcast = item?.isBroadcast ?? false;
 
@@ -441,7 +444,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
-          colors: [kWebBlack.withValues(alpha: 0.9), Colors.transparent],
+          colors: [tokens.background.withValues(alpha: 0.9), Colors.transparent],
         ),
       ),
       child: Column(
@@ -453,13 +456,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
           ],
           Row(
             children: [
-              _MobileIconBtn(icon: LucideIcons.subtitles, size: 28, onTap: () => _showTrackModal('subtitles')),
+              _MobileIconBtn(icon: LucideIcons.subtitles, size: 28, onTap: () => _showTrackModal(context, 'subtitles')),
               const SizedBox(width: 4),
               if (isBroadcast)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  color: Colors.redAccent,
-                  child: Text('LIVE', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 8, fontWeight: FontWeight.bold)),
+                  color: tokens.error,
+                  child: Text('LIVE', style: GoogleFonts.dmMono(color: tokens.background, fontSize: 8, fontWeight: FontWeight.bold)),
                 ),
 
               const Spacer(),
@@ -468,14 +471,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 children: [
                   _MobileIconBtn(icon: LucideIcons.skipBack, size: 28, onTap: _vm.prev),
                   const SizedBox(width: 16),
-                  _buildPlayPauseBtn(),
+                  _buildPlayPauseBtn(context),
                   const SizedBox(width: 16),
                   _MobileIconBtn(icon: LucideIcons.skipForward, size: 28, onTap: _vm.next),
                 ],
               ),
               const Spacer(),
 
-              _MobileIconBtn(icon: LucideIcons.activity, size: 28, onTap: () => _showTrackModal('audio')),
+              _MobileIconBtn(icon: LucideIcons.activity, size: 28, onTap: () => _showTrackModal(context, 'audio')),
             ],
           ),
         ],
@@ -483,7 +486,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  Widget _buildPlayPauseBtn() {
+  Widget _buildPlayPauseBtn(BuildContext context) {
     final item = _vm.current;
     if (item?.isImage == true) return const SizedBox.shrink();
 
@@ -506,7 +509,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // ── Sidebar & Feedbacks ───────────────────────────────────────────────────
 
-  Widget _buildToolsSidebar() {
+  Widget _buildToolsSidebar(BuildContext context) {
+    final tokens = context.tokens;
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutCubic,
@@ -516,21 +520,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
       width: 220,
       child: Container(
         decoration: BoxDecoration(
-          color: kWebSurface,
-          border: Border(left: BorderSide(color: kWebWhite, width: 1)),
-          boxShadow: [BoxShadow(color: kWebBlack, blurRadius: 20)],
+          color: tokens.surface1,
+          border: Border(left: BorderSide(color: tokens.textPrimary, width: 1)),
+          boxShadow: [BoxShadow(color: tokens.background, blurRadius: 20)],
         ),
         child: SafeArea(
           child: Column(
             children: [
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+                decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
                 child: Row(
                   children: [
-                    const Icon(LucideIcons.settings2, color: kWebWhite, size: 16),
+                    Icon(LucideIcons.settings2, color: tokens.textPrimary, size: 16),
                     const SizedBox(width: 8),
-                    Text('TOOLS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    Text('TOOLS', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
                   ],
                 ),
               ),
@@ -539,13 +543,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   padding: EdgeInsets.zero,
                   children: [
                     _MobileSidebarItem(label: 'STATION LIST', icon: LucideIcons.radio, onTap: _showStationModal),
-                    _MobileSidebarItem(label: 'SUBTITLES', icon: LucideIcons.subtitles, onTap: () => _showTrackModal('subtitles')),
-                    _MobileSidebarItem(label: 'AUDIO TRACKS', icon: LucideIcons.activity, onTap: () => _showTrackModal('audio')),
+                    _MobileSidebarItem(label: 'SUBTITLES', icon: LucideIcons.subtitles, onTap: () => _showTrackModal(context, 'subtitles')),
+                    _MobileSidebarItem(label: 'AUDIO TRACKS', icon: LucideIcons.activity, onTap: () => _showTrackModal(context, 'audio')),
                     if (!(_vm.current?.isBroadcast ?? false))
-                      _MobileSidebarItem(label: 'SPEED', icon: LucideIcons.gauge, onTap: _showSpeedModal),
-                    _MobileSidebarItem(label: 'ASPECT', icon: LucideIcons.minimize, onTap: _showFitModal),
-                    _MobileSidebarItem(label: 'SLEEP TIMER', icon: LucideIcons.clock, onTap: _showSleepModal),
-                    _MobileSidebarItem(label: 'SYNC ADJUST', icon: LucideIcons.layers, onTap: _showSyncModal),
+                      _MobileSidebarItem(label: 'SPEED', icon: LucideIcons.gauge, onTap: () => _showSpeedModal(context)),
+                    _MobileSidebarItem(label: 'ASPECT', icon: LucideIcons.minimize, onTap: () => _showFitModal(context)),
+                    _MobileSidebarItem(label: 'SLEEP TIMER', icon: LucideIcons.clock, onTap: () => _showSleepModal(context)),
+                    _MobileSidebarItem(label: 'SYNC ADJUST', icon: LucideIcons.layers, onTap: () => _showSyncModal(context)),
                   ],
                 ),
               ),
@@ -557,17 +561,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  Widget _buildGestureFeedback() {
+  Widget _buildGestureFeedback(BuildContext context) {
+    final tokens = context.tokens;
     return Center(
       child: AnimatedOpacity(
         opacity: _vm.gestureOpacity,
         duration: const Duration(milliseconds: 150),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(color: kWebWhite, border: Border.all(color: kWebBlack, width: 1)),
+          decoration: BoxDecoration(color: tokens.textPrimary, border: Border.all(color: tokens.background, width: 1)),
           child: Text(
             _vm.gestureTxt.toUpperCase(),
-            style: GoogleFonts.dmMono(color: kWebBlack, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2),
+            style: GoogleFonts.dmMono(color: tokens.background, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2),
           ),
         ),
       ),
@@ -576,13 +581,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // ── Modals ────────────────────────────────────────────────────────────────
 
-  void _showTrackModal(String type) {
+  void _showTrackModal(BuildContext context, String type) {
+    final tokens = context.tokens;
     final tracks = type == 'audio' ? _vm.player.state.tracks.audio : _vm.player.state.tracks.subtitle;
     final current = type == 'audio' ? _vm.player.state.track.audio : _vm.player.state.track.subtitle;
 
     showGeneralDialog(
       context: context,
-      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierColor: tokens.background.withValues(alpha: 0.9),
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
@@ -591,15 +597,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
           child: Container(
             width: MediaQuery.sizeOf(context).width * 0.85,
             constraints: const BoxConstraints(maxWidth: 400),
-            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
+            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
-                  child: Text(type.toUpperCase(), style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                  child: Text(type.toUpperCase(), style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2)),
                 ),
                 if (type == 'subtitles')
                   _MobileTrackTile(label: 'DISABLED', isActive: current.id == 'no', onTap: () { _vm.setSubtitleTrack(SubtitleTrack.no()); Navigator.pop(ctx); }),
@@ -619,13 +625,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  void _showSpeedModal() {
+  void _showSpeedModal(BuildContext context) {
+    final tokens = context.tokens;
     final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
     final current = _vm.player.state.rate;
 
     showGeneralDialog(
       context: context,
-      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierColor: tokens.background.withValues(alpha: 0.9),
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
@@ -634,7 +641,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           child: Container(
             width: MediaQuery.sizeOf(context).width * 0.8,
             constraints: const BoxConstraints(maxWidth: 320),
-            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
+            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: speeds.map((s) => _MobileTrackTile(
@@ -649,11 +656,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  void _showFitModal() {
+  void _showFitModal(BuildContext context) {
+    final tokens = context.tokens;
     final fits = {BoxFit.contain: 'CONTAIN', BoxFit.cover: 'COVER', BoxFit.fill: 'STRETCH'};
     showGeneralDialog(
       context: context,
-      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierColor: tokens.background.withValues(alpha: 0.9),
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
@@ -662,7 +670,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           child: Container(
             width: MediaQuery.sizeOf(context).width * 0.8,
             constraints: const BoxConstraints(maxWidth: 320),
-            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
+            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: fits.entries.map((e) => _MobileTrackTile(
@@ -677,11 +685,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  void _showSleepModal() {
+  void _showSleepModal(BuildContext context) {
+    final tokens = context.tokens;
     final options = [0, 5, 15, 30, 60, 120];
     showGeneralDialog(
       context: context,
-      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierColor: tokens.background.withValues(alpha: 0.9),
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
@@ -690,7 +699,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           child: Container(
             width: MediaQuery.sizeOf(context).width * 0.8,
             constraints: const BoxConstraints(maxWidth: 320),
-            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
+            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: options.map((m) => _MobileTrackTile(
@@ -705,10 +714,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  void _showSyncModal() {
+  void _showSyncModal(BuildContext context) {
+    final tokens = context.tokens;
     showGeneralDialog(
       context: context,
-      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierColor: tokens.background.withValues(alpha: 0.9),
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
@@ -717,7 +727,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           child: Container(
             width: MediaQuery.sizeOf(context).width * 0.9,
             constraints: const BoxConstraints(maxWidth: 400),
-            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
+            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
             child: ListenableBuilder(
               listenable: _vm,
               builder: (_, child) => Column(
@@ -750,16 +760,17 @@ class _MobileIconBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: isPrimary ? kWebWhite : Colors.transparent,
-          border: Border.all(color: isDestructive ? Colors.redAccent : kWebBorder),
+          color: isPrimary ? tokens.textPrimary : Colors.transparent,
+          border: Border.all(color: isDestructive ? tokens.error : tokens.border.withValues(alpha: 0.15)),
         ),
-        child: Icon(icon, color: isPrimary ? kWebBlack : (isDestructive ? Colors.redAccent : kWebWhite), size: size * 0.5),
+        child: Icon(icon, color: isPrimary ? tokens.background : (isDestructive ? tokens.error : tokens.textPrimary), size: size * 0.5),
       ),
     );
   }
@@ -775,12 +786,13 @@ class _MobileSidebarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isDestructive ? Colors.redAccent : kWebWhite;
+    final tokens = context.tokens;
+    final color = isDestructive ? tokens.error : tokens.textPrimary;
     return InkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
         child: Row(
           children: [
             Icon(icon, color: color, size: 14),
@@ -802,18 +814,19 @@ class _MobileTrackTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return InkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: isActive ? kWebWhite.withValues(alpha: 0.05) : Colors.transparent,
-          border: Border(bottom: BorderSide(color: kWebBorder)),
+          color: isActive ? tokens.textPrimary.withValues(alpha: 0.05) : Colors.transparent,
+          border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
         ),
         child: Row(
           children: [
-            Expanded(child: Text(label, style: GoogleFonts.dmMono(color: isActive ? kWebWhite : kWebText, fontSize: 11, fontWeight: isActive ? FontWeight.bold : FontWeight.normal))),
-            if (isActive) const Icon(LucideIcons.check, color: kWebWhite, size: 12),
+            Expanded(child: Text(label, style: GoogleFonts.dmMono(color: isActive ? tokens.textPrimary : tokens.textSecondary, fontSize: 11, fontWeight: isActive ? FontWeight.bold : FontWeight.normal))),
+            if (isActive) Icon(LucideIcons.check, color: tokens.textPrimary, size: 12),
           ],
         ),
       ),
@@ -830,18 +843,19 @@ class _MobileSyncTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 8, letterSpacing: 2)),
+          Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 8, letterSpacing: 2)),
           const SizedBox(height: 12),
           Row(
             children: [
               _MobileIconBtn(icon: LucideIcons.minus, size: 32, onTap: () => onChanged(value - 0.1)),
-              Expanded(child: Center(child: Text('${value.toStringAsFixed(1)}S', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 16, fontWeight: FontWeight.bold)))),
+              Expanded(child: Center(child: Text('${value.toStringAsFixed(1)}S', style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)))),
               _MobileIconBtn(icon: LucideIcons.plus, size: 32, onTap: () => onChanged(value + 0.1)),
             ],
           ),

@@ -70,14 +70,15 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Scaffold(
-      backgroundColor: DS.bg,
+      backgroundColor: tokens.background,
       body: Stack(
         children: [
           // Background Grid
-          const Positioned.fill(
+          Positioned.fill(
             child: CustomPaint(
-              painter: GridPainter(spacing: 60, color: DS.borderSubtle),
+              painter: GridPainter(spacing: 60, color: tokens.borderSubtle),
             ),
           ),
 
@@ -86,7 +87,7 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildHeader(),
+                _buildHeader(context),
                 Expanded(
                   child: Center(
                     child: ConstrainedBox(
@@ -119,7 +120,7 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
                     ),
                   ),
                 ),
-                _buildFooter(),
+                _buildFooter(context),
               ],
             ),
           ),
@@ -128,8 +129,9 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     final platform = defaultTargetPlatform.toString().split('.').last.toUpperCase();
+    final tokens = context.tokens;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: DS.s80, vertical: DS.s40),
       child: Row(
@@ -142,14 +144,14 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
                 Text(
                   'STREAMZ NOC // SYSTEM ANALYSIS',
                   style: GoogleFonts.barlowCondensed(
-                    color: DS.textPrimary,
+                    color: tokens.textPrimary,
                     fontSize: 32,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 4,
                   ),
                 ),
                 const SizedBox(height: DS.s8),
-                Container(height: 2, width: 200, color: DS.accent),
+                Container(height: 2, width: 200, color: tokens.accent),
               ],
             ),
           ),
@@ -163,14 +165,15 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
     );
   }
 
-  Widget _buildFooter() {
+  Widget _buildFooter(BuildContext context) {
+    final tokens = context.tokens;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: DS.s80, vertical: DS.s40),
       child: Row(
         children: [
           Text(
             'CORE ARCHITECTURE: BRUTALIST // UDP_DISCOVERY // HTTP_STREAM',
-            style: GoogleFonts.dmMono(color: DS.textMuted, fontSize: 12, letterSpacing: 2),
+            style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 2),
           ),
           const Spacer(),
           const _BlinkingDotTV(),
@@ -187,12 +190,13 @@ class _StatusModule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.dmMono(color: DS.textMuted, fontSize: 10, letterSpacing: 1)),
+        Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
         const SizedBox(height: 4),
-        Text(value, style: GoogleFonts.dmMono(color: DS.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(value, style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
       ],
     );
   }
@@ -224,8 +228,9 @@ class _TVActionCardState extends State<_TVActionCard> {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = _isFocused ? DS.surface3 : DS.surface1;
-    final borderColor = _isFocused ? DS.accent : DS.borderDefault;
+    final tokens = context.tokens;
+    final bgColor = _isFocused ? tokens.surface3 : tokens.surface1;
+    final borderColor = _isFocused ? tokens.accent : tokens.border;
 
     return Focus(
       autofocus: widget.autofocus,
@@ -247,7 +252,7 @@ class _TVActionCardState extends State<_TVActionCard> {
               boxShadow: _isFocused
                   ? [
                       BoxShadow(
-                        color: DS.accent.withValues(alpha: 0.2),
+                        color: tokens.accent.withValues(alpha: 0.2),
                         blurRadius: 20,
                         spreadRadius: 5,
                       )
@@ -261,16 +266,16 @@ class _TVActionCardState extends State<_TVActionCard> {
                   child: CustomPaint(
                     painter: GridPainter(
                       spacing: 20,
-                      color: _isFocused ? DS.accent.withValues(alpha: 0.05) : DS.borderSubtle,
+                      color: _isFocused ? tokens.accent.withValues(alpha: 0.05) : tokens.borderSubtle,
                     ),
                   ),
                 ),
 
                 // Corner Brackets
-                _buildCorner(Alignment.topLeft),
-                _buildCorner(Alignment.topRight),
-                _buildCorner(Alignment.bottomLeft),
-                _buildCorner(Alignment.bottomRight),
+                _buildCorner(context, Alignment.topLeft),
+                _buildCorner(context, Alignment.topRight),
+                _buildCorner(context, Alignment.bottomLeft),
+                _buildCorner(context, Alignment.bottomRight),
 
                 // Content
                 Center(
@@ -280,7 +285,7 @@ class _TVActionCardState extends State<_TVActionCard> {
                       Text(
                         'SYS_TYPE // ${widget.code}',
                         style: GoogleFonts.dmMono(
-                          color: _isFocused ? DS.textPrimary : DS.textMuted,
+                          color: _isFocused ? tokens.textPrimary : tokens.textMuted,
                           fontSize: 12,
                           letterSpacing: 2,
                         ),
@@ -288,14 +293,14 @@ class _TVActionCardState extends State<_TVActionCard> {
                       const SizedBox(height: DS.s40),
                       Icon(
                         widget.icon,
-                        color: _isFocused ? DS.textPrimary : DS.textSecondary,
+                        color: _isFocused ? tokens.textPrimary : tokens.textSecondary,
                         size: 80,
                       ),
                       const SizedBox(height: DS.s40),
                       Text(
                         widget.label,
                         style: GoogleFonts.barlowCondensed(
-                          color: DS.textPrimary,
+                          color: tokens.textPrimary,
                           fontSize: 48,
                           letterSpacing: 4,
                           fontWeight: FontWeight.w900,
@@ -306,7 +311,7 @@ class _TVActionCardState extends State<_TVActionCard> {
                       Text(
                         widget.subLabel,
                         style: GoogleFonts.dmMono(
-                          color: _isFocused ? DS.textPrimary : DS.textMuted,
+                          color: _isFocused ? tokens.textPrimary : tokens.textMuted,
                           fontSize: 14,
                           letterSpacing: 2,
                         ),
@@ -323,7 +328,8 @@ class _TVActionCardState extends State<_TVActionCard> {
     );
   }
 
-  Widget _buildCorner(Alignment alignment) {
+  Widget _buildCorner(BuildContext context, Alignment alignment) {
+    final tokens = context.tokens;
     return Align(
       alignment: alignment,
       child: Container(
@@ -332,18 +338,10 @@ class _TVActionCardState extends State<_TVActionCard> {
         margin: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           border: Border(
-            top: alignment == Alignment.topLeft || alignment == Alignment.topRight
-                ? BorderSide(color: _isFocused ? DS.accent : DS.borderStrong, width: 3)
-                : BorderSide.none,
-            bottom: alignment == Alignment.bottomLeft || alignment == Alignment.bottomRight
-                ? BorderSide(color: _isFocused ? DS.accent : DS.borderStrong, width: 3)
-                : BorderSide.none,
-            left: alignment == Alignment.topLeft || alignment == Alignment.bottomLeft
-                ? BorderSide(color: _isFocused ? DS.accent : DS.borderStrong, width: 3)
-                : BorderSide.none,
-            right: alignment == Alignment.topRight || alignment == Alignment.bottomRight
-                ? BorderSide(color: _isFocused ? DS.accent : DS.borderStrong, width: 3)
-                : BorderSide.none,
+            top: alignment == Alignment.topLeft || alignment == Alignment.topRight ? BorderSide(color: _isFocused ? tokens.accent : tokens.borderStrong, width: 3) : BorderSide.none,
+            bottom: alignment == Alignment.bottomLeft || alignment == Alignment.bottomRight ? BorderSide(color: _isFocused ? tokens.accent : tokens.borderStrong, width: 3) : BorderSide.none,
+            left: alignment == Alignment.topLeft || alignment == Alignment.bottomLeft ? BorderSide(color: _isFocused ? tokens.accent : tokens.borderStrong, width: 3) : BorderSide.none,
+            right: alignment == Alignment.topRight || alignment == Alignment.bottomRight ? BorderSide(color: _isFocused ? tokens.accent : tokens.borderStrong, width: 3) : BorderSide.none,
           ),
         ),
       ),
@@ -375,6 +373,7 @@ class _BlinkingDotTVState extends State<_BlinkingDotTV> with SingleTickerProvide
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return FadeTransition(
       opacity: _ctrl,
       child: Row(
@@ -382,15 +381,15 @@ class _BlinkingDotTVState extends State<_BlinkingDotTV> with SingleTickerProvide
           Container(
             width: 12,
             height: 12,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.white, blurRadius: 10)],
+            decoration: BoxDecoration(
+              color: tokens.success,
+              boxShadow: [BoxShadow(color: tokens.success, blurRadius: 10)],
             ),
           ),
           const SizedBox(width: 12),
           Text(
             'SYSTEM ONLINE',
-            style: GoogleFonts.dmMono(color: DS.textPrimary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2),
+            style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2),
           ),
         ],
       ),

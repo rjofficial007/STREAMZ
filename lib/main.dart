@@ -8,9 +8,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
-
+import 'package:flutter/foundation.dart';
+import 'package:window_manager/window_manager.dart';
 import 'core/di/service_locator.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_service.dart';
 import 'domain/services/download_service.dart';
 import 'domain/services/remote_command_service.dart';
 import 'presentation/home/role_selection_screen.dart';
@@ -18,6 +20,24 @@ import 'presentation/server/server_viewmodel.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Window Manager for Desktop
+  if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows)) {
+    await windowManager.ensureInitialized();
+    WindowOptions windowOptions = const WindowOptions(
+      fullScreen: true,
+      titleBarStyle: TitleBarStyle.hidden,
+      center: true,
+      backgroundColor: Colors.transparent,
+      skipTaskbar: false,
+    );
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+      await windowManager.setFullScreen(true);
+    });
+  }
+
   MediaKit.ensureInitialized();
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.light, systemNavigationBarColor: Colors.transparent));
@@ -27,6 +47,7 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider<ThemeService>(create: (_) => sl<ThemeService>()),
         ChangeNotifierProvider<DownloadService>(create: (_) => sl<DownloadService>()),
         ChangeNotifierProvider<RemoteCommandService>(create: (_) => sl<RemoteCommandService>()),
         ChangeNotifierProvider<ServerViewModel>(create: (_) => ServerViewModel()),
@@ -71,10 +92,11 @@ class _StreamzAppState extends State<StreamzApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final themeService = context.watch<ThemeService>();
     return MaterialApp(
       title: 'STREAMZ',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.theme,
+      theme: AppTheme.themeFor(themeService.currentTheme),
       home: const RoleSelectionScreen(),
       scrollBehavior: const MaterialScrollBehavior().copyWith(dragDevices: {PointerDeviceKind.mouse, PointerDeviceKind.touch, PointerDeviceKind.stylus, PointerDeviceKind.trackpad}),
       // [CRITICAL TV FIX]: Spread WidgetsApp.defaultShortcuts FIRST.

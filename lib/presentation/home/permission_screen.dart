@@ -18,15 +18,6 @@ import '../../core/theme/design_tokens.dart';
 import '../server/server_dashboard.dart';
 import '../server/server_viewmodel.dart';
 
-// --- Web UI Color Palette & Styles (Synced with System Dashboards) ---
-const Color kWebBlack = Color(0xFF000000);
-const Color kWebSurface = Color(0xFF0A0A0A);
-const Color kWebSurface2 = Color(0xFF111111);
-const Color kWebWhite = Color(0xFFFFFFFF);
-final Color kWebBorder = Colors.white.withValues(alpha: 0.15);
-final Color kWebTextMuted = Colors.white.withValues(alpha: 0.3);
-final Color kWebText = Colors.white.withValues(alpha: 0.6);
-
 /// True when this platform needs no runtime permissions.
 bool get _isAutoGrantPlatform =>
     kIsWeb || (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.linux);
@@ -137,10 +128,11 @@ class _PermissionScreenState extends State<PermissionScreen> {
 
   void _showDeniedSnack(String permission, String feature) {
     if (!mounted) return;
+    final tokens = context.tokens;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$permission ACCESS DENIED. OPEN DEVICE SETTINGS TO ENABLE $feature.', style: GoogleFonts.dmMono(color: kWebBlack, fontWeight: FontWeight.bold, fontSize: 11)),
-        backgroundColor: kWebWhite,
+        content: Text('$permission ACCESS DENIED. OPEN DEVICE SETTINGS TO ENABLE $feature.', style: GoogleFonts.dmMono(color: tokens.background, fontWeight: FontWeight.bold, fontSize: 11)),
+        backgroundColor: tokens.textPrimary,
         duration: const Duration(seconds: 4),
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       ),
@@ -151,12 +143,13 @@ class _PermissionScreenState extends State<PermissionScreen> {
 
   Future<void> _proceed() async {
     if (_proceeding) return;
+    final tokens = context.tokens;
 
     if (!_photos && !_isAutoGrantPlatform) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('MEDIA STORAGE ACCESS IS MANDATORY.', style: GoogleFonts.dmMono(color: kWebBlack, fontWeight: FontWeight.bold, fontSize: 11)),
-          backgroundColor: kWebWhite,
+          content: Text('MEDIA STORAGE ACCESS IS MANDATORY.', style: GoogleFonts.dmMono(color: tokens.background, fontWeight: FontWeight.bold, fontSize: 11)),
+          backgroundColor: tokens.textPrimary,
           duration: const Duration(seconds: 3),
           shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         ),
@@ -181,17 +174,18 @@ class _PermissionScreenState extends State<PermissionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     if (_isAutoGrantPlatform) {
-      return const Scaffold(
-        backgroundColor: kWebBlack,
-        body: Center(child: CircularProgressIndicator(color: kWebWhite, strokeWidth: 2)),
+      return Scaffold(
+        backgroundColor: tokens.background,
+        body: Center(child: CircularProgressIndicator(color: tokens.accent, strokeWidth: 2)),
       );
     }
 
     final isMobile = DS.isMobile(context);
 
     return Scaffold(
-      backgroundColor: kWebBlack,
+      backgroundColor: tokens.background,
       body: SafeArea(
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
@@ -205,8 +199,9 @@ class _PermissionScreenState extends State<PermissionScreen> {
   }
 
   Widget _buildSliverAppBar(bool isMobile) {
+    final tokens = context.tokens;
     return SliverAppBar(
-      backgroundColor: kWebSurface,
+      backgroundColor: tokens.surface1,
       floating: true,
       elevation: 0,
       pinned: true,
@@ -223,7 +218,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
         child: Focus(
           onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
           child: IconButton(
-            icon: Icon(LucideIcons.chevronLeft, size: 20, color: kWebWhite),
+            icon: Icon(LucideIcons.chevronLeft, size: 20, color: tokens.textPrimary),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -231,7 +226,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
       title: Text(
         'AUTHORIZATION',
         style: GoogleFonts.barlowCondensed(
-          color: kWebWhite, 
+          color: tokens.textPrimary, 
           fontSize: isMobile ? 20 : 24, 
           fontWeight: FontWeight.w900, 
           letterSpacing: 4
@@ -239,20 +234,21 @@ class _PermissionScreenState extends State<PermissionScreen> {
       ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(color: kWebBorder, height: 1),
+        child: Container(color: tokens.border.withValues(alpha: 0.15), height: 1),
       ),
     );
   }
 
   Widget _buildBody(bool isMobile) {
+    final tokens = context.tokens;
     return SliverList(
       delegate: SliverChildListDelegate([
         _AuthAnalysisCard(isMobile: isMobile, photos: _photos, audio: _audio, background: _background),
         
         Container(
           decoration: BoxDecoration(
-            border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)), 
-            color: kWebBorder
+            border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))), 
+            color: tokens.border.withValues(alpha: 0.15)
           ),
           child: GridView.count(
             crossAxisCount: 3,
@@ -312,16 +308,16 @@ class _PermissionScreenState extends State<PermissionScreen> {
                 child: Container(
                   height: 64,
                   decoration: BoxDecoration(
-                    color: _photos ? kWebWhite : kWebSurface2,
-                    border: Border.all(color: _photos ? kWebWhite : kWebBorder),
+                    color: _photos ? tokens.textPrimary : tokens.surface2,
+                    border: Border.all(color: _photos ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15)),
                   ),
                   child: Center(
                     child: _proceeding 
-                      ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: kWebBlack, strokeWidth: 2))
+                      ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: tokens.background, strokeWidth: 2))
                       : Text(
                         'INITIALIZE BROADCAST ENGINE', 
                         style: GoogleFonts.dmMono(
-                          color: _photos ? kWebBlack : kWebTextMuted, 
+                          color: _photos ? tokens.background : tokens.textMuted, 
                           fontWeight: FontWeight.bold, 
                           letterSpacing: 2,
                           fontSize: isMobile ? 12 : 14,
@@ -350,6 +346,7 @@ class _AuthAnalysisCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     int granted = 0;
     if (photos) granted++;
     if (audio) granted++;
@@ -359,8 +356,8 @@ class _AuthAnalysisCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
-        color: kWebSurface,
-        border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)),
+        color: tokens.surface1,
+        border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,7 +365,7 @@ class _AuthAnalysisCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('AUTHORIZATION ANALYSIS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              Text('AUTHORIZATION ANALYSIS', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
               _BlinkingDot(isOnline: photos),
             ],
           ),
@@ -379,9 +376,9 @@ class _AuthAnalysisCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('MANDATORY AUTH', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+                    Text('MANDATORY AUTH', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
                     const SizedBox(height: 4),
-                    Text(photos ? 'GRANTED' : 'REQUIRED', style: GoogleFonts.dmMono(color: photos ? DS.success : Colors.redAccent, fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text(photos ? 'GRANTED' : 'REQUIRED', style: GoogleFonts.dmMono(color: photos ? tokens.success : tokens.error, fontSize: 14, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -389,9 +386,9 @@ class _AuthAnalysisCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('TOTAL MODULES', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10, letterSpacing: 1)),
+                    Text('TOTAL MODULES', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
                     const SizedBox(height: 4),
-                    Text('$granted / 3', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text('$granted / 3', style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -400,19 +397,19 @@ class _AuthAnalysisCard extends StatelessWidget {
           SizedBox(height: isMobile ? 20 : 24),
           Stack(
             children: [
-              Container(height: 8, color: kWebSurface2),
+              Container(height: 8, color: tokens.surface2),
               FractionallySizedBox(
                 widthFactor: progress.clamp(0.01, 1.0), 
-                child: Container(height: 8, color: kWebWhite),
+                child: Container(height: 8, color: tokens.accent),
               ),
             ],
           ),
           SizedBox(height: isMobile ? 16 : 20),
           Row(
             children: [
-              Expanded(child: _legend('CORE', photos ? 'READY' : 'WAITING', kWebWhite)),
+              Expanded(child: _legend(context, 'CORE', photos ? 'READY' : 'WAITING', tokens.textPrimary)),
               const SizedBox(width: 16),
-              Expanded(child: _legend('EXTENSIONS', audio ? 'ACTIVE' : 'OPTIONAL', Colors.white70)),
+              Expanded(child: _legend(context, 'EXTENSIONS', audio ? 'ACTIVE' : 'OPTIONAL', tokens.textSecondary)),
             ],
           ),
         ],
@@ -420,13 +417,14 @@ class _AuthAnalysisCard extends StatelessWidget {
     );
   }
 
-  Widget _legend(String label, String value, Color color) {
+  Widget _legend(BuildContext context, String label, String value, Color color) {
+    final tokens = context.tokens;
     return Row(
       children: [
         Container(width: 8, height: 8, color: color),
         const SizedBox(width: 8),
-        Expanded(child: Text(label, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 10))),
-        Text(value, style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: kWebWhite)),
+        Expanded(child: Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10))),
+        Text(value, style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: tokens.textPrimary)),
       ],
     );
   }
@@ -450,6 +448,7 @@ class _QuickActionCardState extends State<_QuickActionCard> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     final active = _isPressed || _isFocused;
     return Actions(
       actions: {
@@ -474,15 +473,15 @@ class _QuickActionCardState extends State<_QuickActionCard> {
           },
           onTapCancel: () => setState(() => _isPressed = false),
           child: Container(
-            color: active ? kWebWhite.withValues(alpha: 0.1) : kWebBlack,
+            color: active ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.background,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(widget.icon, color: widget.isActive ? DS.success : (active ? kWebWhite : kWebTextMuted), size: 24),
+                Icon(widget.icon, color: widget.isActive ? tokens.success : (active ? tokens.textPrimary : tokens.textMuted), size: 24),
                 const SizedBox(height: 8),
                 Text(
                   widget.label,
-                  style: GoogleFonts.dmMono(color: active ? kWebWhite : kWebText, fontSize: 9, letterSpacing: 1),
+                  style: GoogleFonts.dmMono(color: active ? tokens.textPrimary : tokens.textSecondary, fontSize: 9, letterSpacing: 1),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -511,6 +510,7 @@ class _ArchitectureTileState extends State<_ArchitectureTile> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Focus(
       onFocusChange: (v) {
         setState(() => _focused = v);
@@ -518,10 +518,10 @@ class _ArchitectureTileState extends State<_ArchitectureTile> {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: _focused ? kWebWhite.withValues(alpha: 0.05) : kWebSurface,
+          color: _focused ? tokens.textPrimary.withValues(alpha: 0.05) : tokens.surface1,
           border: Border(
-            bottom: BorderSide(color: kWebBorder), 
-            top: widget.isFirst ? BorderSide(color: kWebBorder) : BorderSide.none
+            bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)), 
+            top: widget.isFirst ? BorderSide(color: tokens.border.withValues(alpha: 0.15)) : BorderSide.none
           ),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -530,8 +530,8 @@ class _ArchitectureTileState extends State<_ArchitectureTile> {
             Container(
               width: 44,
               height: 44,
-              decoration: BoxDecoration(color: kWebSurface2, border: Border.all(color: _focused ? kWebWhite : kWebBorder)),
-              child: Icon(widget.icon, color: _focused ? kWebWhite : kWebText, size: 20),
+              decoration: BoxDecoration(color: tokens.surface2, border: Border.all(color: _focused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15))),
+              child: Icon(widget.icon, color: _focused ? tokens.textPrimary : tokens.textSecondary, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -540,14 +540,14 @@ class _ArchitectureTileState extends State<_ArchitectureTile> {
                 children: [
                   Text(
                     widget.title.toUpperCase(),
-                    style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
                   ),
                   const SizedBox(height: 3),
-                  Text(widget.subtitle, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 9, letterSpacing: 1)),
+                  Text(widget.subtitle, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 9, letterSpacing: 1)),
                 ],
               ),
             ),
-            if (_focused) Icon(LucideIcons.chevronRight, color: kWebWhite, size: 16),
+            if (_focused) Icon(LucideIcons.chevronRight, color: tokens.textPrimary, size: 16),
           ],
         ),
       ),
@@ -580,15 +580,16 @@ class _BlinkingDotState extends State<_BlinkingDot> with SingleTickerProviderSta
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isOnline) return Container(width: 8, height: 8, color: Colors.white24);
+    final tokens = context.tokens;
+    if (!widget.isOnline) return Container(width: 8, height: 8, color: tokens.textDisabled);
     return FadeTransition(
       opacity: _ctrl,
       child: Container(
         width: 8,
         height: 8,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.white, blurRadius: 4)],
+        decoration: BoxDecoration(
+          color: tokens.success,
+          boxShadow: [BoxShadow(color: tokens.success, blurRadius: 4)],
         ),
       ),
     );

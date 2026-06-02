@@ -12,18 +12,10 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
 import '../client/client_viewmodel.dart';
 import '../player/player_viewmodel.dart';
-
-// --- TV UI Color Palette & Styles ---
-const Color kWebBlack = Color(0xFF000000);
-const Color kWebSurface = Color(0xFF0A0A0A);
-const Color kWebSurface2 = Color(0xFF111111);
-const Color kWebWhite = Color(0xFFFFFFFF);
-final Color kWebBorder = Colors.white.withValues(alpha: 0.15);
-final Color kWebTextMuted = Colors.white.withValues(alpha: 0.3);
-final Color kWebText = Colors.white.withValues(alpha: 0.6);
 
 const ColorFilter kGreyscale = ColorFilter.matrix(<double>[
   0.2126, 0.7152, 0.0722, 0, 0,
@@ -200,10 +192,11 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
   void _showStationModal() {
     final clientVM = context.read<ClientViewModel>();
     final stations = clientVM.stations;
+    final tokens = context.tokens;
 
     showGeneralDialog(
       context: context,
-      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierColor: tokens.background.withValues(alpha: 0.9),
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
@@ -211,20 +204,20 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
           color: Colors.transparent,
           child: Container(
             width: 540,
-            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
+            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
                   padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
-                  child: Text('LIVE BROADCAST STATIONS', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                  child: Text('LIVE BROADCAST STATIONS', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
                 ),
                 if (stations.isEmpty)
                   Padding(
                     padding: const EdgeInsets.all(40),
-                    child: Text('NO ACTIVE BROADCASTS FOUND', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 16, letterSpacing: 2), textAlign: TextAlign.center),
+                    child: Text('NO ACTIVE BROADCASTS FOUND', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 16, letterSpacing: 2), textAlign: TextAlign.center),
                   ),
                 ...stations.map((s) => _TVTrackTile(
                   label: s['name'].toString().toUpperCase(),
@@ -246,10 +239,11 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return ChangeNotifierProvider.value(
       value: _vm,
       child: Scaffold(
-        backgroundColor: kWebBlack,
+        backgroundColor: tokens.background,
         body: MouseRegion(
           onHover: (_) => _vm.wakeOSD(),
           child: FocusScope(
@@ -258,15 +252,15 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                _buildMediaLayer(),
-                _buildGestureFeedback(),
-                _buildOSD(),
+                _buildMediaLayer(context),
+                _buildGestureFeedback(context),
+                _buildOSD(context),
                 if (_showSidebar)
                   GestureDetector(
                     onTap: () => setState(() => _showSidebar = false),
-                    child: Container(color: kWebBlack.withValues(alpha: 0.6)),
+                    child: Container(color: tokens.background.withValues(alpha: 0.6)),
                   ),
-                _buildToolsSidebar(),
+                _buildToolsSidebar(context),
               ],
             ),
           ),
@@ -277,18 +271,20 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
 
   // ── Media Layers ──────────────────────────────────────────────────────────
 
-  Widget _buildMediaLayer() {
+  Widget _buildMediaLayer(BuildContext context) {
+    final tokens = context.tokens;
     final item = _vm.current;
-    if (item == null) return const Center(child: CircularProgressIndicator(color: kWebWhite));
+    if (item == null) return Center(child: CircularProgressIndicator(color: tokens.accent));
 
-    if (item.isImage) return _buildImageLayout(item);
-    if (item.isAudio) return _buildAudioLayout(item);
-    return _buildVideoLayout(item);
+    if (item.isImage) return _buildImageLayout(context, item);
+    if (item.isAudio) return _buildAudioLayout(context, item);
+    return _buildVideoLayout(context, item);
   }
 
-  Widget _buildVideoLayout(MediaItem item) {
+  Widget _buildVideoLayout(BuildContext context, MediaItem item) {
+    final tokens = context.tokens;
     return Container(
-      color: kWebBlack,
+      color: tokens.background,
       child: Video(
         controller: _vm.videoController,
         controls: NoVideoControls,
@@ -297,9 +293,10 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     );
   }
 
-  Widget _buildAudioLayout(MediaItem item) {
+  Widget _buildAudioLayout(BuildContext context, MediaItem item) {
+    final tokens = context.tokens;
     return Container(
-      color: kWebBlack,
+      color: tokens.background,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -308,10 +305,10 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
               width: 380,
               height: 380,
               decoration: BoxDecoration(
-                color: kWebSurface,
-                border: Border.all(color: kWebWhite, width: 2),
+                color: tokens.surface1,
+                border: Border.all(color: tokens.textPrimary, width: 2),
                 boxShadow: [
-                  BoxShadow(color: kWebWhite.withValues(alpha: 0.1), offset: const Offset(12, 12)),
+                  BoxShadow(color: tokens.accent.withValues(alpha: 0.1), offset: const Offset(12, 12)),
                 ],
               ),
               child: ColorFiltered(
@@ -327,7 +324,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
             Text(
               item.title.toUpperCase(),
               style: GoogleFonts.barlowCondensed(
-                color: kWebWhite,
+                color: tokens.textPrimary,
                 fontSize: 40,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 2,
@@ -338,7 +335,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
             Text(
               'SIGNAL_TYPE // AUDIO_STREAM',
               style: GoogleFonts.dmMono(
-                color: kWebTextMuted,
+                color: tokens.textMuted,
                 fontSize: 14,
                 letterSpacing: 4,
               ),
@@ -349,19 +346,20 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     );
   }
 
-  Widget _buildImageLayout(MediaItem item) {
+  Widget _buildImageLayout(BuildContext context, MediaItem item) {
+    final tokens = context.tokens;
     return Container(
-      color: kWebBlack,
+      color: tokens.background,
       padding: const EdgeInsets.all(60),
       child: Center(
         child: Container(
           decoration: BoxDecoration(
-            border: Border.all(color: kWebBorder, width: 1),
+            border: Border.all(color: tokens.border.withValues(alpha: 0.15), width: 1),
           ),
           child: Image.network(
             _vm.mediaUrl,
             fit: BoxFit.contain,
-            errorBuilder: (_, error, stack) => Icon(LucideIcons.image, color: kWebTextMuted, size: 100),
+            errorBuilder: (_, error, stack) => Icon(LucideIcons.image, color: tokens.textMuted, size: 100),
           ),
         ),
       ),
@@ -370,31 +368,35 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
 
   // ── OSD (VLC Inspired) ────────────────────────────────────────────────────
 
-  Widget _buildOSD() => AnimatedOpacity(
-    opacity: _vm.showOSD ? 1.0 : 0.0,
-    duration: const Duration(milliseconds: 250),
-    child: ExcludeFocus(
-      excluding: !_vm.showOSD,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [kWebBlack.withValues(alpha: 0.9), Colors.transparent],
-            stops: const [0.0, 0.4],
+  Widget _buildOSD(BuildContext context) {
+    final tokens = context.tokens;
+    return AnimatedOpacity(
+      opacity: _vm.showOSD ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 250),
+      child: ExcludeFocus(
+        excluding: !_vm.showOSD,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [tokens.background.withValues(alpha: 0.9), Colors.transparent],
+              stops: const [0.0, 0.4],
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _buildVlcBottomControls(context),
+            ],
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            _buildVlcBottomControls(),
-          ],
-        ),
       ),
-    ),
-  );
+    );
+  }
 
-  Widget _buildVlcBottomControls() {
+  Widget _buildVlcBottomControls(BuildContext context) {
+    final tokens = context.tokens;
     final item = _vm.current;
     final isBroadcast = item?.isBroadcast ?? false;
 
@@ -421,16 +423,16 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                       children: [
                         Text(
                           'STREAMZ // ${_vm.currentIndex + 1} OF ${_vm.playlist.length}',
-                          style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 12, letterSpacing: 3),
+                          style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 3),
                         ),
                         if (isBroadcast) ...[
                           const SizedBox(width: 12),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            color: Colors.redAccent,
+                            color: tokens.error,
                             child: Text(
                               'LIVE',
-                              style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                              style: GoogleFonts.dmMono(color: tokens.background, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
                             ),
                           ),
                         ],
@@ -440,7 +442,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                     Text(
                       (item?.title ?? '').toUpperCase(),
                       style: GoogleFonts.barlowCondensed(
-                        color: kWebWhite,
+                        color: tokens.textPrimary,
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 1,
@@ -458,7 +460,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                 children: [
                   _TVVlcBtn(icon: LucideIcons.skipBack, size: 48, onTap: _vm.prev),
                   const SizedBox(width: 16),
-                  _buildPlayPauseBtn(),
+                  _buildPlayPauseBtn(context),
                   const SizedBox(width: 16),
                   _TVVlcBtn(icon: LucideIcons.skipForward, size: 48, onTap: _vm.next),
                 ],
@@ -485,7 +487,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     );
   }
 
-  Widget _buildPlayPauseBtn() {
+  Widget _buildPlayPauseBtn(BuildContext context) {
     final item = _vm.current;
     if (item?.isImage == true) return const SizedBox.shrink();
 
@@ -509,7 +511,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
 
   // ── Sidebar & Components ──────────────────────────────────────────────────
 
-  Widget _buildToolsSidebar() {
+  Widget _buildToolsSidebar(BuildContext context) {
+    final tokens = context.tokens;
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutCubic,
@@ -519,22 +522,22 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       width: 420,
       child: Container(
         decoration: BoxDecoration(
-          color: kWebSurface,
-          border: Border(left: BorderSide(color: kWebWhite, width: 2)),
+          color: tokens.surface1,
+          border: Border(left: BorderSide(color: tokens.textPrimary, width: 2)),
           boxShadow: [
-            BoxShadow(color: kWebBlack, blurRadius: 40, offset: const Offset(-20, 0)),
+            BoxShadow(color: tokens.background, blurRadius: 40, offset: const Offset(-20, 0)),
           ],
         ),
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.all(40),
-              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.settings2, color: kWebWhite, size: 28),
+                  Icon(LucideIcons.settings2, color: tokens.textPrimary, size: 28),
                   const SizedBox(width: 20),
-                  Text('SYSTEM_CONFIG', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  Text('SYSTEM_CONFIG', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
                 ],
               ),
             ),
@@ -560,7 +563,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     );
   }
 
-  Widget _buildGestureFeedback() {
+  Widget _buildGestureFeedback(BuildContext context) {
+    final tokens = context.tokens;
     return Center(
       child: AnimatedOpacity(
         opacity: _vm.gestureOpacity,
@@ -568,12 +572,12 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
           decoration: BoxDecoration(
-            color: kWebWhite,
-            border: Border.all(color: kWebBlack, width: 4),
+            color: tokens.textPrimary,
+            border: Border.all(color: tokens.background, width: 4),
           ),
           child: Text(
             _vm.gestureTxt.toUpperCase(),
-            style: GoogleFonts.dmMono(color: kWebBlack, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 4),
+            style: GoogleFonts.dmMono(color: tokens.background, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 4),
           ),
         ),
       ),
@@ -583,12 +587,13 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
   // ── Modals ────────────────────────────────────────────────────────────────
 
   void _showTrackModal(String type) {
+    final tokens = context.tokens;
     final tracks = type == 'audio' ? _vm.player.state.tracks.audio : _vm.player.state.tracks.subtitle;
     final current = type == 'audio' ? _vm.player.state.track.audio : _vm.player.state.track.subtitle;
 
     showGeneralDialog(
       context: context,
-      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierColor: tokens.background.withValues(alpha: 0.9),
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
@@ -596,15 +601,15 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
           color: Colors.transparent,
           child: Container(
             width: 540,
-            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
+            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
                   padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
-                  child: Text('${type.toUpperCase()} SIGNAL SELECT', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                  child: Text('${type.toUpperCase()} SIGNAL SELECT', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
                 ),
                 if (type == 'subtitles')
                   _TVTrackTile(label: 'DISABLE SUBTITLES', isActive: current.id == 'no', onTap: () { _vm.setSubtitleTrack(SubtitleTrack.no()); Navigator.pop(ctx); }),
@@ -625,12 +630,13 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
   }
 
   void _showSpeedModal() {
+    final tokens = context.tokens;
     final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
     final current = _vm.player.state.rate;
 
     showGeneralDialog(
       context: context,
-      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierColor: tokens.background.withValues(alpha: 0.9),
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
@@ -638,15 +644,15 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
           color: Colors.transparent,
           child: Container(
             width: 440,
-            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
+            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
                   padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
-                  child: Text('PLAYBACK RATE', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                  child: Text('PLAYBACK RATE', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
                 ),
                 ...speeds.map((s) => _TVTrackTile(
                   label: '${s}X SPEED',
@@ -662,10 +668,11 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
   }
 
   void _showFitModal() {
+    final tokens = context.tokens;
     final fits = {BoxFit.contain: 'CONTAIN', BoxFit.cover: 'FILL_COVER', BoxFit.fill: 'STRETCH_FILL'};
     showGeneralDialog(
       context: context,
-      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierColor: tokens.background.withValues(alpha: 0.9),
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
@@ -673,15 +680,15 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
           color: Colors.transparent,
           child: Container(
             width: 440,
-            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
+            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
                   padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
-                  child: Text('ASPECT_CALIBRATION', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                  child: Text('ASPECT_CALIBRATION', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
                 ),
                 ...fits.entries.map((e) => _TVTrackTile(
                   label: e.value,
@@ -697,10 +704,11 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
   }
 
   void _showSleepModal() {
+    final tokens = context.tokens;
     final options = [0, 5, 15, 30, 60, 120];
     showGeneralDialog(
       context: context,
-      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierColor: tokens.background.withValues(alpha: 0.9),
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
@@ -708,15 +716,15 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
           color: Colors.transparent,
           child: Container(
             width: 440,
-            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
+            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
                   padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
-                  child: Text('AUTO_SHUTDOWN', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                  child: Text('AUTO_SHUTDOWN', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
                 ),
                 ...options.map((m) => _TVTrackTile(
                   label: m == 0 ? 'DISABLED' : '$m MINUTES',
@@ -732,9 +740,10 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
   }
 
   void _showSyncModal() {
+    final tokens = context.tokens;
     showGeneralDialog(
       context: context,
-      barrierColor: kWebBlack.withValues(alpha: 0.9),
+      barrierColor: tokens.background.withValues(alpha: 0.9),
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
@@ -742,15 +751,15 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
           color: Colors.transparent,
           child: Container(
             width: 440,
-            decoration: BoxDecoration(color: kWebSurface, border: Border.all(color: kWebWhite, width: 2)),
+            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
                   padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
-                  child: Text('SYNC_ADJUSTMENT', style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                  child: Text('SYNC_ADJUSTMENT', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
                 ),
                 ListenableBuilder(
                   listenable: _vm,
@@ -793,8 +802,9 @@ class _TVVlcBtnState extends State<_TVVlcBtn> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = _focused ? (widget.isDestructive ? Colors.redAccent : kWebWhite) : (widget.isPrimary ? kWebSurface2 : Colors.transparent);
-    final fg = _focused ? kWebBlack : (widget.isDestructive ? Colors.redAccent : kWebWhite);
+    final tokens = context.tokens;
+    final bg = _focused ? (widget.isDestructive ? tokens.error : tokens.textPrimary) : (widget.isPrimary ? tokens.surface2 : Colors.transparent);
+    final fg = _focused ? tokens.background : (widget.isDestructive ? tokens.error : tokens.textPrimary);
 
     return Focus(
       focusNode: widget.focusNode,
@@ -808,7 +818,7 @@ class _TVVlcBtnState extends State<_TVVlcBtn> {
           height: widget.size,
           decoration: BoxDecoration(
             color: bg,
-            border: Border.all(color: _focused ? kWebWhite : kWebBorder, width: _focused ? 4 : 1),
+            border: Border.all(color: _focused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15), width: _focused ? 4 : 1),
           ),
           child: Icon(widget.icon, color: fg, size: widget.size * 0.5),
         ),
@@ -834,6 +844,7 @@ class _TVSidebarItemState extends State<_TVSidebarItem> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Focus(
       onFocusChange: (v) => setState(() => _focused = v),
       onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
@@ -842,12 +853,12 @@ class _TVSidebarItemState extends State<_TVSidebarItem> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
           decoration: BoxDecoration(
-            color: _focused ? (widget.isDestructive ? Colors.redAccent : kWebWhite) : Colors.transparent,
-            border: Border(bottom: BorderSide(color: kWebBorder)),
+            color: _focused ? (widget.isDestructive ? tokens.error : tokens.textPrimary) : Colors.transparent,
+            border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
           ),
           child: Row(
             children: [
-              Icon(widget.icon, color: _focused ? kWebBlack : (widget.isDestructive ? Colors.redAccent : kWebWhite), size: 24),
+              Icon(widget.icon, color: _focused ? tokens.background : (widget.isDestructive ? tokens.error : tokens.textPrimary), size: 24),
               const SizedBox(width: 24),
               Expanded(
                 child: Text(
@@ -855,7 +866,7 @@ class _TVSidebarItemState extends State<_TVSidebarItem> {
                   style: GoogleFonts.dmMono(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: _focused ? kWebBlack : (widget.isDestructive ? Colors.redAccent : kWebWhite),
+                    color: _focused ? tokens.background : (widget.isDestructive ? tokens.error : tokens.textPrimary),
                     letterSpacing: 2,
                   ),
                 ),
@@ -884,6 +895,7 @@ class _TVTrackTileState extends State<_TVTrackTile> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Focus(
       onFocusChange: (v) => setState(() => _focused = v),
       onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
@@ -892,8 +904,8 @@ class _TVTrackTileState extends State<_TVTrackTile> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
           decoration: BoxDecoration(
-            color: _focused ? kWebWhite : (widget.isActive ? kWebWhite.withValues(alpha: 0.05) : Colors.transparent),
-            border: Border(bottom: BorderSide(color: kWebBorder)),
+            color: _focused ? tokens.textPrimary : (widget.isActive ? tokens.textPrimary.withValues(alpha: 0.05) : Colors.transparent),
+            border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
           ),
           child: Row(
             children: [
@@ -903,12 +915,12 @@ class _TVTrackTileState extends State<_TVTrackTile> {
                   style: GoogleFonts.dmMono(
                     fontSize: 16,
                     fontWeight: _focused || widget.isActive ? FontWeight.bold : FontWeight.normal,
-                    color: _focused ? kWebBlack : (widget.isActive ? kWebWhite : kWebText),
+                    color: _focused ? tokens.background : (widget.isActive ? tokens.textPrimary : tokens.textSecondary),
                     letterSpacing: 2,
                   ),
                 ),
               ),
-              if (widget.isActive) Icon(LucideIcons.check, color: _focused ? kWebBlack : kWebWhite, size: 24),
+              if (widget.isActive) Icon(LucideIcons.check, color: _focused ? tokens.background : tokens.textPrimary, size: 24),
             ],
           ),
         ),
@@ -926,13 +938,14 @@ class _TVSyncTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     return Container(
       padding: const EdgeInsets.all(40),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 14, letterSpacing: 2)),
+          Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 14, letterSpacing: 2)),
           const SizedBox(height: 24),
           Row(
             children: [
@@ -941,7 +954,7 @@ class _TVSyncTile extends StatelessWidget {
                 child: Center(
                   child: Text(
                     '${value.toStringAsFixed(1)}S',
-                    style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 32, fontWeight: FontWeight.bold),
+                    style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 32, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),

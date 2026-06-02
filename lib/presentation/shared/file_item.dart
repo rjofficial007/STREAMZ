@@ -126,11 +126,4 @@ class SFileItem {
         return ext.isNotEmpty ? ext.toUpperCase() : 'FILE';
     }
   }
-
-  Color iconColor(bool focused) {
-    if (type == SFileType.folder) {
-      return focused ? Colors.black : Colors.white;
-    }
-    return focused ? Colors.black : Colors.white54;
-  }
 }
