@@ -20,7 +20,7 @@ abstract final class AppTheme {
 
   static ThemeData themeFor(StreamzTheme streamzTheme) {
     final tokens = streamzTheme.tokens;
-    final isDark = streamzTheme.identity != ThemeIdentity.whiteout;
+    final isDark = true;
 
     return (isDark ? ThemeData.dark() : ThemeData.light()).copyWith(
       scaffoldBackgroundColor: tokens.background,

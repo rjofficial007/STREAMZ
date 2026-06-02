@@ -26,7 +26,6 @@ final Color kWebBorder = Colors.white.withValues(alpha: 0.15);
 final Color kWebTextMuted = Colors.white.withValues(alpha: 0.3);
 final Color kWebText = Colors.white.withValues(alpha: 0.6);
 
-const ColorFilter kGreyscale = ColorFilter.matrix(<double>[0.2126, 0.7152, 0.0722, 0, 0, 0.2126, 0.7152, 0.0722, 0, 0, 0.2126, 0.7152, 0.0722, 0, 0, 0, 0, 0, 1, 0]);
 
 class TVHomeScreen extends StatefulWidget {
   const TVHomeScreen({super.key});
@@ -389,10 +388,7 @@ class _HeroSectionState extends State<_HeroSection> {
                       child: Container(
                         width: double.infinity,
                         color: kWebSurface2,
-                        child: ColorFiltered(
-                          colorFilter: _hasFocus ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply) : kGreyscale,
-                          child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: item.isAudio ? LucideIcons.music : LucideIcons.video),
-                        ),
+                        child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: item.isAudio ? LucideIcons.music : LucideIcons.video),
                       ),
                     ),
                     // Brutalist Bottom Bar
@@ -746,10 +742,7 @@ class _TVRailCardState extends State<_TVRailCard> with SingleTickerProviderState
                     flex: 78,
                     child: Container(
                       color: kWebBlack,
-                      child: ColorFiltered(
-                        colorFilter: widget.isFocused ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply) : kGreyscale,
-                        child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: widget.item.isAudio ? LucideIcons.music : LucideIcons.video),
-                      ),
+                      child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: widget.item.isAudio ? LucideIcons.music : LucideIcons.video),
                     ),
                   ),
 
@@ -1302,10 +1295,7 @@ class _TVSearchGridCardState extends State<_TVSearchGridCard> with SingleTickerP
                     flex: 78,
                     child: Container(
                       color: kWebBlack,
-                      child: ColorFiltered(
-                        colorFilter: widget.isFocused ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply) : kGreyscale,
-                        child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: widget.item.isAudio ? LucideIcons.music : LucideIcons.video),
-                      ),
+                      child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: widget.item.isAudio ? LucideIcons.music : LucideIcons.video),
                     ),
                   ),
                   Expanded(

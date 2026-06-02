@@ -12,17 +12,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
 import '../client/client_viewmodel.dart';
 import '../player/player_screen.dart';
 
-const ColorFilter kGreyscale = ColorFilter.matrix(<double>[
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0,      0,      0,      1, 0,
-]);
 
 class ModernMobileUIScreen extends StatefulWidget {
   const ModernMobileUIScreen({super.key});
@@ -278,10 +271,7 @@ class _HeroSectionState extends State<_HeroSection> {
                         child: Container(
                           width: double.infinity,
                           color: tokens.surface2,
-                          child: ColorFiltered(
-                            colorFilter: kGreyscale,
-                            child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: item.isAudio ? LucideIcons.music : LucideIcons.video),
-                          ),
+                          child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: item.isAudio ? LucideIcons.music : LucideIcons.video),
                         ),
                       ),
                       // Data Bottom
@@ -473,13 +463,10 @@ class _MobileRailCardState extends State<_MobileRailCard> {
                 flex: 78,
                 child: Container(
                   color: tokens.background,
-                  child: ColorFiltered(
-                    colorFilter: (_isFocused || _isPressed) ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply) : kGreyscale,
-                    child: NetworkImageFade(
-                      url: thumbUrl,
-                      fit: BoxFit.cover,
-                      fallbackIcon: widget.item.isAudio ? LucideIcons.music : LucideIcons.video,
-                    ),
+                  child: NetworkImageFade(
+                    url: thumbUrl,
+                    fit: BoxFit.cover,
+                    fallbackIcon: widget.item.isAudio ? LucideIcons.music : LucideIcons.video,
                   ),
                 ),
               ),

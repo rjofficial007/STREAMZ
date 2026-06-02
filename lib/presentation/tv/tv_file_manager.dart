@@ -12,18 +12,11 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
 import '../client/client_viewmodel.dart';
 import 'tv_player_screen.dart';
 import '../shared/file_item.dart';
 
-const ColorFilter kGreyscale = ColorFilter.matrix(<double>[
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0,      0,      0,      1, 0,
-]);
 
 class TVFileManagerScreen extends StatefulWidget {
   const TVFileManagerScreen({super.key});
@@ -683,12 +676,9 @@ class _TVGridCardState extends State<_TVGridCard> with SingleTickerProviderState
                         if (thumbUrl != null)
                           Container(
                             color: tokens.background,
-                            child: ColorFiltered(
-                              colorFilter: _focused ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply) : kGreyscale,
-                              child: Opacity(
-                                opacity: _focused ? 1.0 : 0.5,
-                                child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: widget.item.icon),
-                              ),
+                            child: Opacity(
+                              opacity: _focused ? 1.0 : 0.5,
+                              child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: widget.item.icon),
                             ),
                           )
                         else

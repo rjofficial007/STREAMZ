@@ -11,19 +11,12 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
 import '../client/client_viewmodel.dart';
 import '../player/player_screen.dart';
 import '../shared/file_item.dart';
 import 'downloads_sheet.dart';
 
-const ColorFilter kGreyscale = ColorFilter.matrix(<double>[
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0,      0,      0,      1, 0,
-]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CATEGORY DEFINITIONS
@@ -964,10 +957,7 @@ class _FileListTileState extends State<_FileListTile> {
                 width: iconBoxSz,
                 height: iconBoxSz,
                 decoration: BoxDecoration(border: Border.all(color: tokens.border.withValues(alpha: 0.15)), color: tokens.background),
-                child: ColorFiltered(
-                  colorFilter: _isFocused ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply) : kGreyscale,
-                  child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: widget.item.icon),
-                ),
+                child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: widget.item.icon),
               )
             else
               Container(
@@ -1091,10 +1081,7 @@ class _FileGridCardState extends State<_FileGridCard> {
                   if (thumbUrl != null)
                     Container(
                       color: tokens.background,
-                      child: ColorFiltered(
-                        colorFilter: (_isFocused || _isPressed) ? const ColorFilter.mode(Colors.transparent, BlendMode.multiply) : kGreyscale,
-                        child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: widget.item.icon),
-                      ),
+                      child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: widget.item.icon),
                     )
                   else
                     Container(

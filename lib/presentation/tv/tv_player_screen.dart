@@ -12,17 +12,10 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
 import '../client/client_viewmodel.dart';
 import '../player/player_viewmodel.dart';
 
-const ColorFilter kGreyscale = ColorFilter.matrix(<double>[
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0.2126, 0.7152, 0.0722, 0, 0,
-  0,      0,      0,      1, 0,
-]);
 
 class TVPlayerScreen extends StatefulWidget {
   final List<MediaItem> items;
@@ -311,13 +304,10 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                   BoxShadow(color: tokens.accent.withValues(alpha: 0.1), offset: const Offset(12, 12)),
                 ],
               ),
-              child: ColorFiltered(
-                colorFilter: kGreyscale,
-                child: NetworkImageFade(
-                  url: _vm.thumbUrl,
-                  fit: BoxFit.cover,
-                  fallbackIcon: LucideIcons.music,
-                ),
+              child: NetworkImageFade(
+                url: _vm.thumbUrl,
+                fit: BoxFit.cover,
+                fallbackIcon: LucideIcons.music,
               ),
             ),
             const SizedBox(height: 60),
