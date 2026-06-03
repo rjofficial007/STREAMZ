@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/design_tokens.dart';
+import '../shared/noc_decorations.dart';
 import 'client_viewmodel.dart';
 import 'interface_selection_screen.dart';
 
@@ -80,8 +81,9 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
         children: [
           // Background Grid
           Positioned.fill(
-            child: CustomPaint(
-              painter: GridPainter(spacing: 60, color: tokens.borderSubtle),
+            child: NocGridBackground(
+              spacing: 60,
+              color: tokens.borderSubtle,
             ),
           ),
 
@@ -438,11 +440,9 @@ class _TVConnectCardState extends State<_TVConnectCard> {
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: CustomPaint(
-                    painter: GridPainter(
-                      spacing: 20,
-                      color: _isFocused ? tokens.accent.withValues(alpha: 0.05) : tokens.borderSubtle,
-                    ),
+                  child: NocGridBackground(
+                    spacing: 20,
+                    color: _isFocused ? tokens.accent.withValues(alpha: 0.05) : tokens.borderSubtle,
                   ),
                 ),
                 _buildCorner(context, Alignment.topLeft, borderColor),

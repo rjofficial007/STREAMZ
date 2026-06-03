@@ -14,7 +14,9 @@ enum ThemeIdentity {
   forest,
   slate,
   onyx,
-  phantom
+  phantom,
+  android17,
+  ios26
 }
 
 class StreamzTheme {
@@ -324,6 +326,67 @@ class StreamzTheme {
     ),
   );
 
+
+  static final StreamzTheme android17 = StreamzTheme(
+    name: 'ANDROID 17',
+    identity: ThemeIdentity.android17,
+    tokens: const StreamzThemeExtension(
+      background: Color(0xFF001F2B),
+      surface1: Color(0xFF002A3A),
+      surface2: Color(0xFF003549),
+      surface3: Color(0xFF004058),
+      surface4: Color(0xFF004C68),
+      primary: Color(0xFF76D1FF),
+      accent: Color(0xFF76D1FF),
+      border: Color(0xFF76D1FF),
+      borderSubtle: Color(0x3376D1FF),
+      borderStrong: Color(0x6676D1FF),
+      success: Color(0xFFB4F1B4),
+      warning: Color(0xFFFFD966),
+      error: Color(0xFFFFB4AB),
+      telemetry: Color(0xFF76D1FF),
+      broadcast: Color(0xFF76D1FF),
+      textPrimary: Color(0xFFE1F4FF),
+      textSecondary: Color(0xB3E1F4FF),
+      textMuted: Color(0x80E1F4FF),
+      textDisabled: Color(0x4DE1F4FF),
+      focusColor: Color(0xFF76D1FF),
+      focusShadow: Color(0x4076D1FF),
+      borderRadius: 24,
+      useGradient: true,
+    ),
+  );
+
+  static final StreamzTheme ios26 = StreamzTheme(
+    name: 'iOS 26',
+    identity: ThemeIdentity.ios26,
+    tokens: const StreamzThemeExtension(
+      background: Color(0xFF000000),
+      surface1: Color(0xFF1C1C1E),
+      surface2: Color(0xFF2C2C2E),
+      surface3: Color(0xFF3A3A3C),
+      surface4: Color(0xFF48484A),
+      primary: Color(0xFF0A84FF),
+      accent: Color(0xFFFFFFFF),
+      border: Color(0xFF38383A),
+      borderSubtle: Color(0x20FFFFFF),
+      borderStrong: Color(0x40FFFFFF),
+      success: Color(0xFF30D158),
+      warning: Color(0xFFFFD60A),
+      error: Color(0xFFFF453A),
+      telemetry: Color(0xFF0A84FF),
+      broadcast: Color(0xFFBF5AF2),
+      textPrimary: Color(0xFFFFFFFF),
+      textSecondary: Color(0x99FFFFFF),
+      textMuted: Color(0x66FFFFFF),
+      textDisabled: Color(0x3DFFFFFF),
+      focusColor: Color(0xFF0A84FF),
+      focusShadow: Color(0x800A84FF),
+      borderRadius: 14,
+      useGradient: true,
+    ),
+  );
+
   static List<StreamzTheme> get all => [
         pureBlack,
         midnight,
@@ -334,7 +397,9 @@ class StreamzTheme {
         forest,
         slate,
         onyx,
-        phantom
+        phantom,
+        android17,
+        ios26
       ];
 
   static StreamzTheme fromIdentity(ThemeIdentity identity) {

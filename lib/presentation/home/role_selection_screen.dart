@@ -78,7 +78,10 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     return Scaffold(
       backgroundColor: tokens.background,
       body: SafeArea(
-        child: CustomScrollView(physics: const BouncingScrollPhysics(), slivers: [_buildSliverAppBar(), _buildBody()]),
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [_buildSliverAppBar(), _buildBody()],
+        ),
       ),
     );
   }

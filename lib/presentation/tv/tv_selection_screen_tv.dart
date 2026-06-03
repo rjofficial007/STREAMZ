@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/design_tokens.dart';
+import '../shared/noc_decorations.dart';
 import '../client/client_viewmodel.dart';
 import '../player/player_screen.dart';
 import '../../domain/models/media_item.dart';
@@ -54,8 +55,9 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: CustomPaint(
-              painter: GridPainter(spacing: 60, color: tokens.borderSubtle),
+            child: NocGridBackground(
+              spacing: 60,
+              color: tokens.borderSubtle,
             ),
           ),
           SafeArea(
@@ -316,11 +318,9 @@ class _TVModeCardState extends State<_TVModeCard> {
             child: Stack(
               children: [
                 Positioned.fill(
-                  child: CustomPaint(
-                    painter: GridPainter(
-                      spacing: 20,
-                      color: _isFocused ? (widget.isWarning ? tokens.error : tokens.accent).withValues(alpha: 0.05) : tokens.borderSubtle,
-                    ),
+                  child: NocGridBackground(
+                    spacing: 20,
+                    color: _isFocused ? (widget.isWarning ? tokens.error : tokens.accent).withValues(alpha: 0.05) : tokens.borderSubtle,
                   ),
                 ),
                 _buildCorner(context, Alignment.topLeft, borderColor),

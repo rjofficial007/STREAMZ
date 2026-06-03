@@ -27,8 +27,8 @@ import '../../domain/models/stream_session.dart';
 import '../../domain/services/station_service.dart';
 import '../client/client_viewmodel.dart';
 import '../mobile/mobile_selection_screen.dart';
-import '../tv/tv_selection_screen.dart';
 import '../shared/theme_settings_screen.dart';
+import '../tv/tv_selection_screen.dart';
 import 'server_viewmodel.dart';
 
 class ServerDashboard extends StatefulWidget {
@@ -227,11 +227,8 @@ class _ServerDashboardState extends State<ServerDashboard> {
 
     if (_currentPath == 'network') {
       return [
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(vertical: 24),
-          sliver: SliverToBoxAdapter(
-            child: _NetworkTab(state: state, pad: 16, isMobile: isMobile),
-          ),
+        SliverToBoxAdapter(
+          child: _NetworkTab(state: state, pad: 16, isMobile: isMobile),
         ),
       ];
     }
@@ -266,26 +263,23 @@ class _ServerDashboardState extends State<ServerDashboard> {
 
     if (_currentPath == 'filters') {
       return [
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(vertical: 24),
-          sliver: SliverToBoxAdapter(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 800),
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
-                    color: tokens.surface1,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const _TerminalHeader(title: 'BROADCAST FILTERS', icon: LucideIcons.slidersHorizontal),
-                      _ToggleRow(label: 'VIDEO PAYLOADS', icon: LucideIcons.video, value: state.shareVideos, isMobile: isMobile, onChanged: state.setShareVideos),
-                      _ToggleRow(label: 'AUDIO PAYLOADS', icon: LucideIcons.music, value: state.shareMusic, isMobile: isMobile, onChanged: state.setShareMusic),
-                      _ToggleRow(label: 'IMAGE PAYLOADS', icon: LucideIcons.image, value: state.shareImages, isMobile: isMobile, onChanged: state.setShareImages, isLast: true),
-                    ],
-                  ),
+        SliverToBoxAdapter(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
+                  color: tokens.surface1,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const _TerminalHeader(title: 'BROADCAST FILTERS', icon: LucideIcons.slidersHorizontal),
+                    _ToggleRow(label: 'VIDEO PAYLOADS', icon: LucideIcons.video, value: state.shareVideos, isMobile: isMobile, onChanged: state.setShareVideos),
+                    _ToggleRow(label: 'AUDIO PAYLOADS', icon: LucideIcons.music, value: state.shareMusic, isMobile: isMobile, onChanged: state.setShareMusic),
+                    _ToggleRow(label: 'IMAGE PAYLOADS', icon: LucideIcons.image, value: state.shareImages, isMobile: isMobile, onChanged: state.setShareImages, isLast: true),
+                  ],
                 ),
               ),
             ),
@@ -296,50 +290,47 @@ class _ServerDashboardState extends State<ServerDashboard> {
 
     if (_currentPath == 'directories') {
       return [
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(vertical: 24),
-          sliver: SliverToBoxAdapter(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 800),
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
-                    color: tokens.surface1,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(LucideIcons.folderOpen, color: tokens.textPrimary, size: 16),
-                                const SizedBox(width: 12),
-                                Text('MOUNTED DIRECTORIES', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 11, letterSpacing: 1)),
-                              ],
-                            ),
-                            if (!kIsWeb) _MountButton(onMounted: (path) => state.addSharedFolder(path)),
-                          ],
-                        ),
+        SliverToBoxAdapter(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
+                  color: tokens.surface1,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
                       ),
-                      if (state.sharedFolders.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Center(
-                            child: Text('NO DIRECTORIES MOUNTED', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(LucideIcons.folderOpen, color: tokens.textPrimary, size: 16),
+                              const SizedBox(width: 12),
+                              Text('MOUNTED DIRECTORIES', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 11, letterSpacing: 1)),
+                            ],
                           ),
-                        )
-                      else
-                        ...state.sharedFolders.asMap().entries.map((e) => _DirRow(path: e.value, isLast: e.key == state.sharedFolders.length - 1, onRemove: () => state.removeSharedFolder(e.value))),
-                    ],
-                  ),
+                          if (!kIsWeb) _MountButton(onMounted: (path) => state.addSharedFolder(path)),
+                        ],
+                      ),
+                    ),
+                    if (state.sharedFolders.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Center(
+                          child: Text('NO DIRECTORIES MOUNTED', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2)),
+                        ),
+                      )
+                    else
+                      ...state.sharedFolders.asMap().entries.map((e) => _DirRow(path: e.value, isLast: e.key == state.sharedFolders.length - 1, onRemove: () => state.removeSharedFolder(e.value))),
+                  ],
                 ),
               ),
             ),
@@ -350,11 +341,8 @@ class _ServerDashboardState extends State<ServerDashboard> {
 
     if (_currentPath == 'stations') {
       return [
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(vertical: 24),
-          sliver: SliverToBoxAdapter(
-            child: _StationsTab(state: state, pad: 16, isMobile: isMobile),
-          ),
+        SliverToBoxAdapter(
+          child: _StationsTab(state: state, pad: 16, isMobile: isMobile),
         ),
       ];
     }
@@ -640,9 +628,8 @@ class _EngineAnalysisCardState extends State<_EngineAnalysisCard> {
               Expanded(child: _legend(context, 'SPEED', '${widget.state.currentSpeedMb.toStringAsFixed(1)} MB/S', tokens.telemetry)),
             ],
           ),
+
           SizedBox(height: widget.isMobile ? 16 : 24),
-          Container(height: 1, color: tokens.border.withValues(alpha: 0.15)),
-          SizedBox(height: widget.isMobile ? 12 : 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -672,10 +659,12 @@ class _EngineAnalysisCardState extends State<_EngineAnalysisCard> {
                           border: Border.all(color: tokens.textPrimary),
                         ),
                         child: Center(
-                          child: Text(
-                            widget.state.isInitializing ? 'INITIALIZING...' : (widget.state.isRunning ? 'STOP ENGINE' : 'START ENGINE'),
-                            style: GoogleFonts.dmMono(color: _btnFocused ? tokens.background : tokens.textPrimary, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2),
-                          ),
+                          child: widget.state.isInitializing
+                              ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              : Text(
+                                  widget.state.isRunning ? 'STOP ENGINE' : 'START ENGINE',
+                                  style: GoogleFonts.dmMono(color: _btnFocused ? tokens.background : tokens.textPrimary, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2),
+                                ),
                         ),
                       ),
                     ),
@@ -1755,14 +1744,34 @@ class _TerminalHeader extends StatelessWidget {
     final tokens = context.tokens;
     return Container(
       decoration: BoxDecoration(
+        color: tokens.surface2.withValues(alpha: 0.5),
         border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
-          Icon(icon, color: tokens.textMuted, size: 16),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              border: Border.all(color: tokens.textMuted.withValues(alpha: 0.3)),
+            ),
+            child: Icon(icon, color: tokens.textMuted, size: 12),
+          ),
           const SizedBox(width: 12),
-          Text(title, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2)),
+          Text(
+            title,
+            style: GoogleFonts.dmMono(
+              color: tokens.textPrimary,
+              fontSize: 10,
+              letterSpacing: 2,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            'LOG_0x${(title.hashCode % 0xFFFF).toRadixString(16).padLeft(4, '0').toUpperCase()}',
+            style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 8),
+          ),
         ],
       ),
     );
@@ -2042,7 +2051,6 @@ class _StationsTabState extends State<_StationsTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const _TerminalHeader(title: 'BROADCAST STATIONS', icon: LucideIcons.radio),
                   Container(
                     padding: const EdgeInsets.all(24),
                     child: Row(
@@ -2098,7 +2106,7 @@ class _StationsTabState extends State<_StationsTab> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            // const SizedBox(height: 24),
             if (widget.state.stations.isEmpty)
               Center(
                 child: Padding(
@@ -2237,7 +2245,7 @@ class _StationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      // margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         border: Border.all(color: station.isActive ? tokens.border.withValues(alpha: 0.3) : tokens.border.withValues(alpha: 0.05)),
         color: tokens.surface1,

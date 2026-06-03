@@ -206,18 +206,30 @@ class ServerViewModel extends ChangeNotifier {
 
   /// User-initiated stop. Releases all keep-alive mechanisms.
   Future<void> stopServer() async {
+    logger.i('[ServerVM] Stopping server...');
     _speedTimer?.cancel();
     _sessionPruneTimer?.cancel();
     _networkWatchdog?.cancel();
     _networkWatchdog = null;
 
-    await _httpServer.stop();
-    _broadcaster.stop();
+    try {
+      // Timeout guard: don't let a hung socket block the UI forever.
+      await Future.any([
+        Future.wait([
+          _httpServer.stop(),
+          Future.microtask(() => _broadcaster.stop()),
+        ]),
+        Future.delayed(const Duration(seconds: 3), () => logger.w('[ServerVM] Stop timeout, forcing UI update')),
+      ]);
+    } catch (e) {
+      logger.e('[ServerVM] Error during stop', error: e);
+    }
+
     _activeSessions.clear();
     await _serverRepo.markAllOffline();
-
     await _lifecycleService.releaseKeepAlive();
 
+    logger.i('[ServerVM] Server stopped');
     notifyListeners();
   }
 

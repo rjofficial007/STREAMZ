@@ -26,6 +26,7 @@ class ThemeSettingsScreen extends StatelessWidget {
           slivers: [
             _buildSliverAppBar(context, isMobile),
             _buildThemeGrid(context, themeService, isMobile),
+            _buildSystemSettings(context, themeService, isMobile),
             const SliverToBoxAdapter(child: SizedBox(height: 100)),
           ],
         ),
@@ -91,7 +92,7 @@ class ThemeSettingsScreen extends StatelessWidget {
                   shrinkWrap: true,
                   padding: EdgeInsets.zero,
                   physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: isMobile ? 2 : 3, childAspectRatio: 1.0, crossAxisSpacing: 1, mainAxisSpacing: 1),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 1.0, crossAxisSpacing: 1, mainAxisSpacing: 1),
                   itemCount: StreamzTheme.all.length,
                   itemBuilder: (context, index) {
                     final theme = StreamzTheme.all[index];
@@ -122,6 +123,45 @@ class ThemeSettingsScreen extends StatelessWidget {
           const SizedBox(width: 12),
           Text(title, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSystemSettings(BuildContext context, ThemeService themeService, bool isMobile) {
+    final tokens = context.tokens;
+    return SliverToBoxAdapter(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSectionHeader(context, 'SYSTEM CONFIGURATION', LucideIcons.settings),
+              Container(
+                decoration: BoxDecoration(
+                  color: tokens.surface1,
+                  border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+                ),
+                child: SwitchListTile(
+                  activeColor: tokens.accent,
+                  activeTrackColor: tokens.accent.withValues(alpha: 0.2),
+                  inactiveThumbColor: tokens.textMuted,
+                  inactiveTrackColor: tokens.surface2,
+                  title: Text(
+                    'REDUCED MOTION',
+                    style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 12, letterSpacing: 1, fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    'DISABLE SCANNING LINES & GLITCH EFFECTS',
+                    style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10),
+                  ),
+                  value: themeService.reducedMotion,
+                  onChanged: (val) => themeService.setReducedMotion(val),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -161,26 +201,22 @@ class _ThemeActionCardState extends State<_ThemeActionCard> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 24,
+                      height: 24,
                       decoration: BoxDecoration(
                         color: themeTokens.background,
                         border: Border.all(color: themeTokens.textPrimary, width: 1.5),
                       ),
                       child: Center(child: Icon(LucideIcons.shield, size: 20, color: themeTokens.textPrimary)),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                     Text(
                       widget.theme.name.toUpperCase(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.barlowCondensed(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1, color: tokens.textPrimary),
+                      style: GoogleFonts.barlowCondensed(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1, color: tokens.textPrimary),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.isSelected ? 'ACTIVE IDENTITY' : 'AVAILABLE NODE',
-                      style: GoogleFonts.dmMono(fontSize: 9, letterSpacing: 1, color: widget.isSelected ? tokens.success : tokens.textMuted),
-                    ),
+
                   ],
                 ),
               ),

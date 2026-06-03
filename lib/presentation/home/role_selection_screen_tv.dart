@@ -12,9 +12,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../core/theme/theme_service.dart';
 import '../client/client_connect_screen.dart';
 import '../client/client_viewmodel.dart';
 import '../server/server_dashboard.dart';
+import '../shared/noc_decorations.dart';
 import 'permission_screen.dart';
 
 class RoleSelectionScreenTV extends StatefulWidget {
@@ -71,16 +73,27 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final themeService = context.watch<ThemeService>();
+
     return Scaffold(
       backgroundColor: tokens.background,
       body: Stack(
         children: [
           // Background Grid
           Positioned.fill(
-            child: CustomPaint(
-              painter: GridPainter(spacing: 60, color: tokens.borderSubtle),
+            child: NocGridBackground(
+              spacing: 60,
+              color: tokens.borderSubtle,
             ),
           ),
+
+          if (!themeService.reducedMotion)
+            Positioned.fill(
+              child: NocScanningLine(
+                color: tokens.accent.withValues(alpha: 0.03),
+                reducedMotion: themeService.reducedMotion,
+              ),
+            ),
 
           // Main Content
           SafeArea(
@@ -263,11 +276,9 @@ class _TVActionCardState extends State<_TVActionCard> {
               children: [
                 // Inner Grid for Card
                 Positioned.fill(
-                  child: CustomPaint(
-                    painter: GridPainter(
-                      spacing: 20,
-                      color: _isFocused ? tokens.accent.withValues(alpha: 0.05) : tokens.borderSubtle,
-                    ),
+                  child: NocGridBackground(
+                    spacing: 20,
+                    color: _isFocused ? tokens.accent.withValues(alpha: 0.05) : tokens.borderSubtle,
                   ),
                 ),
 

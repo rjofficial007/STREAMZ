@@ -7,20 +7,24 @@ import 'streamz_theme.dart';
 
 class ThemeService extends ChangeNotifier {
   static const String _themeKey = 'streamz_theme_identity';
+  static const String _motionKey = 'streamz_reduced_motion';
   final SharedPreferences _prefs;
 
   late StreamzTheme _currentTheme;
+  late bool _reducedMotion;
 
   ThemeService(this._prefs) {
-    _loadTheme();
+    _loadSettings();
   }
 
   StreamzTheme get currentTheme => _currentTheme;
+  bool get reducedMotion => _reducedMotion;
 
-  void _loadTheme() {
+  void _loadSettings() {
     final identityIndex = _prefs.getInt(_themeKey) ?? ThemeIdentity.pureBlack.index;
     final identity = ThemeIdentity.values[identityIndex.clamp(0, ThemeIdentity.values.length - 1)];
     _currentTheme = StreamzTheme.fromIdentity(identity);
+    _reducedMotion = _prefs.getBool(_motionKey) ?? false;
     notifyListeners();
   }
 
@@ -29,6 +33,13 @@ class ThemeService extends ChangeNotifier {
 
     _currentTheme = StreamzTheme.fromIdentity(identity);
     await _prefs.setInt(_themeKey, identity.index);
+    notifyListeners();
+  }
+
+  Future<void> setReducedMotion(bool value) async {
+    if (_reducedMotion == value) return;
+    _reducedMotion = value;
+    await _prefs.setBool(_motionKey, value);
     notifyListeners();
   }
 
