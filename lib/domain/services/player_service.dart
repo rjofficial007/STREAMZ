@@ -14,19 +14,23 @@
 // ============================================================================
 
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 
+import '../../core/di/service_locator.dart';
 import '../../data/repositories/media_repository.dart';
 import '../../domain/models/media_item.dart';
 import '../../domain/models/remote_command.dart';
+import '../services/device_id_service.dart';
 import '../services/remote_command_service.dart';
 
 class PlayerService extends ChangeNotifier {
   final Player player;
   final MediaRepository _repo;
   final RemoteCommandService _remote;
+  final DeviceIdService _deviceId = sl<DeviceIdService>();
 
   List<MediaItem> _playlist = [];
   int _currentIndex = 0;
@@ -34,9 +38,15 @@ class PlayerService extends ChangeNotifier {
   String _sessionId = '';
   bool _isStopped = false;
 
+  bool isSyncMaster = false;
+  bool isSyncSlave = false;
+
   Timer? _saveTimer;
   Timer? _statusTimer;
+  Timer? _syncTimer;
   StreamSubscription<RemoteCommand>? _cmdSub;
+
+  Future<String?> Function()? snapshotCallback;
 
   // Simple version-based cancellation token for async operations.
   int _loadVersion = 0;
@@ -56,6 +66,12 @@ class PlayerService extends ChangeNotifier {
 
   // FIX: hasPrev must also check playlist is non-empty.
   bool get hasPrev => _playlist.isNotEmpty && _currentIndex > 0;
+
+  List<Color>? get vibeColors {
+    final item = current;
+    if (item == null) return null;
+    return _getVibeColors(item).map((h) => Color(int.parse(h.replaceFirst('#', 'FF'), radix: 16))).toList();
+  }
 
   String get mediaUrl {
     final item = current;
@@ -207,12 +223,29 @@ class PlayerService extends ChangeNotifier {
     _statusTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       _reportStatus();
     });
+
+    _syncTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (isSyncMaster && !_isStopped) {
+        _remote.send(RemoteCommand('media', 'sync_state', player.state.position.inMilliseconds));
+      }
+    });
   }
 
   void _listenCommands() {
     _cmdSub = _remote.commands.listen((cmd) {
+      if (cmd.targetId != null && cmd.targetId != _deviceId.id) return;
+
       if (cmd.type == 'media') {
         switch (cmd.action) {
+          case 'sync_state':
+            if (isSyncSlave && cmd.value is int) {
+              final targetMs = cmd.value as int;
+              final currentMs = player.state.position.inMilliseconds;
+              if ((targetMs - currentMs).abs() > 800) {
+                player.seek(Duration(milliseconds: targetMs));
+              }
+            }
+            break;
           case 'play':
           case 'station_resume':
             player.play();
@@ -238,6 +271,33 @@ class PlayerService extends ChangeNotifier {
             break;
           case 'prev':
             prev();
+            break;
+          case 'teleport':
+            if (cmd.value is Map<String, dynamic>) {
+              final data = cmd.value as Map<String, dynamic>;
+              final id = data['mediaId']?.toString();
+              final pos = data['progress'] as num?;
+              if (id != null) {
+                // We need to fetch the full MediaItem or just try to open the URL
+                // For simplicity, let's assume we can construct a MediaItem or use a simplified open.
+                // In a real app, we'd query the library for the full item.
+                final item = MediaItem(id: id, title: 'TELEPORTED', duration: 0, type: 'video', folder: 'SYS');
+                load(items: [item], startIndex: 0, startOffset: pos != null ? Duration(seconds: pos.toInt()) : null);
+              }
+            }
+            break;
+          case 'set_sync_mode':
+            if (cmd.value == 'master') {
+              isSyncMaster = true;
+              isSyncSlave = false;
+            } else if (cmd.value == 'slave') {
+              isSyncMaster = false;
+              isSyncSlave = true;
+            } else {
+              isSyncMaster = false;
+              isSyncSlave = false;
+            }
+            notifyListeners();
             break;
         }
       }
@@ -265,13 +325,40 @@ class PlayerService extends ChangeNotifier {
     if (pos > 0) _repo.saveProgress(item.id, pos);
   }
 
-  void _reportStatus() {
+  void _reportStatus() async {
     final item = current;
     if (item == null || _isStopped) return;
     final dur = player.state.duration.inSeconds;
     final pos = player.state.position.inSeconds;
     final prog = dur > 0 ? (pos / dur).clamp(0.0, 1.0) : 0.0;
-    _remote.reportStatus(clientId: 'device', sessionId: _sessionId, title: item.title, progress: prog, mediaType: item.type, isStopped: false);
+
+    String? snapshot;
+    // Only capture snapshot occasionally to save bandwidth/CPU
+    if (DateTime.now().second % 10 == 0 && snapshotCallback != null) {
+      snapshot = await snapshotCallback!();
+    }
+
+    _remote.reportStatus(
+      clientId: _deviceId.id,
+      sessionId: _sessionId,
+      title: item.title,
+      mediaId: item.id,
+      progress: prog,
+      position: pos,
+      mediaType: item.type,
+      isStopped: false,
+      snapshot: snapshot,
+      vibeColors: _getVibeColors(item),
+    );
+  }
+
+  List<String> _getVibeColors(MediaItem item) {
+    // Brutalist Vibe Palette
+    final colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#800080'];
+    final hash = item.title.hashCode.abs();
+    final c1 = colors[hash % colors.length];
+    final c2 = colors[(hash + 3) % colors.length];
+    return [c1, c2, '#000000'];
   }
 
   Future<void> stop() async {
@@ -280,11 +367,12 @@ class PlayerService extends ChangeNotifier {
     _saveCurrentProgress();
     _saveTimer?.cancel();
     _statusTimer?.cancel();
+    _syncTimer?.cancel();
     _cmdSub?.cancel();
 
     final item = current;
     if (item != null) {
-      _remote.reportStatus(clientId: 'device', sessionId: _sessionId, title: item.title, progress: 0, mediaType: item.type, isStopped: true);
+      _remote.reportStatus(clientId: _deviceId.id, sessionId: _sessionId, title: item.title, mediaId: item.id, progress: 0, mediaType: item.type, isStopped: true);
     }
     await player.stop();
   }

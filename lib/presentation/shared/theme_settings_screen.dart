@@ -143,7 +143,7 @@ class ThemeSettingsScreen extends StatelessWidget {
                   border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
                 ),
                 child: SwitchListTile(
-                  activeColor: tokens.accent,
+                  activeThumbColor: tokens.accent,
                   activeTrackColor: tokens.accent.withValues(alpha: 0.2),
                   inactiveThumbColor: tokens.textMuted,
                   inactiveTrackColor: tokens.surface2,

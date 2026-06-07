@@ -152,11 +152,23 @@ class RemoteCommandService extends ChangeNotifier {
     }
   }
 
-  void reportStatus({required String clientId, required String sessionId, required String title, required double progress, required String mediaType, required bool isStopped}) {
+  void reportStatus({required String clientId, required String sessionId, required String title, required String mediaId, required double progress, int? position, required String mediaType, required bool isStopped, String? snapshot, List<String>? vibeColors}) {
     // FIX: Same null guard as send().
     if (_channel == null || !_connected) return;
     try {
-      _channel!.sink.add(jsonEncode({'type': 'report_status', 'clientId': clientId, 'sessionId': sessionId, 'title': title, 'progress': progress, 'mediaType': mediaType, 'isStopped': isStopped}));
+      _channel!.sink.add(jsonEncode({
+        'type': 'report_status',
+        'clientId': clientId,
+        'sessionId': sessionId,
+        'title': title,
+        'mediaId': mediaId,
+        'progress': progress,
+        if (position != null) 'position': position,
+        'mediaType': mediaType,
+        'isStopped': isStopped,
+        if (snapshot != null) 'snapshot': snapshot,
+        if (vibeColors != null) 'vibeColors': vibeColors,
+      }));
     } catch (e) {
       debugPrint('[WS] reportStatus error: $e');
     }

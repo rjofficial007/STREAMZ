@@ -15,6 +15,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
 import '../client/client_viewmodel.dart';
+import '../shared/atmospheric_background.dart';
 import 'tv_player_screen.dart';
 
 // --- Web UI Color Palette & Styles ---
@@ -89,9 +90,10 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
       child: Scaffold(
         backgroundColor: kWebBlack,
         extendBodyBehindAppBar: true,
-        body: allMedia.isEmpty
-            ? const Center(child: _EmptyState())
-            : CustomScrollView(
+        body: AtmosphericBackground(
+          child: allMedia.isEmpty
+              ? const Center(child: _EmptyState())
+              : CustomScrollView(
                 controller: _scrollController,
                 physics: const ClampingScrollPhysics(), // Prevent bounce on TVs
                 slivers: [
@@ -273,7 +275,7 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
                 ],
               ),
       ),
-    );
+    ));
   }
 
   int _calcRailIndex(List continueWatching, List videos, int base) {
@@ -601,7 +603,7 @@ class _TVContentRailState extends State<_TVContentRail> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final sidePadding = (size.width * 0.03).clamp(16.0, 48.0);
+    final sidePadding = (size.width * 0.015).clamp(16.0, 48.0);
 
     // Dynamic Rail Dimensions
     final double cardW = (size.width * 0.15).clamp(200.0, 380.0);
@@ -856,7 +858,7 @@ class _TVStationRailState extends State<_TVStationRail> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final sidePadding = (size.width * 0.03).clamp(16.0, 48.0);
+    final sidePadding = (size.width * 0.015).clamp(16.0, 48.0);
     final double cardW = (size.width * 0.15).clamp(200.0, 380.0);
     final double cardH = cardW;
 

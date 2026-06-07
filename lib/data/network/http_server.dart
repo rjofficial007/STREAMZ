@@ -265,17 +265,37 @@ class HttpServerService {
                 } else {
                   final rawProg = data['progress'];
                   final progress = (rawProg is num ? rawProg.toDouble() : 0.0).clamp(0.0, 1.0);
+                  final snapshot = data['snapshot']?.toString();
+                  final vibeColors = (data['vibeColors'] as List?)?.map((e) => e.toString()).toList();
+                  final mediaId = data['mediaId']?.toString();
+                  final position = data['position'] as int?;
                   onSessionUpdate?.call(
                     sId,
                     StreamSession(
                       sessionId: sId,
                       clientId: data['clientId']?.toString() ?? sId,
                       title: data['title']?.toString() ?? '',
+                      mediaId: mediaId,
                       progress: progress,
+                      position: position,
                       mediaType: data['mediaType']?.toString() ?? 'video',
+                      snapshot: snapshot,
+                      vibeColors: vibeColors,
                       lastUpdated: DateTime.now(),
                     ),
                   );
+                }
+              } else if (data['targetId'] != null) {
+                // Targeted relay: only send to the node with matching clientId
+                for (final s in List.of(_sockets)) {
+                  // We don't have a direct map of socket -> clientId here yet, 
+                  // but we can broadcast and let clients filter, OR track it.
+                  // For now, broadcast but keep targetId in payload.
+                  if (s != ws) {
+                    try {
+                      s.sink.add(message);
+                    } catch (_) {}
+                  }
                 }
               } else {
                 // Relay command to all other connected sockets.

@@ -382,6 +382,21 @@ class ServerViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void curateStation(String vibe) {
+    final all = _mediaRepo.getLocalMediaItems(shareVideos: true, shareMusic: true, shareImages: false);
+    List<MediaItem> filtered = [];
+    if (vibe == 'video') {
+      filtered = all.where((m) => m.isVideo).toList();
+    } else if (vibe == 'audio') {
+      filtered = all.where((m) => m.isAudio).toList();
+    } else {
+      filtered = all;
+    }
+    if (filtered.isEmpty) return;
+    filtered.shuffle();
+    createStation('AUTO_${vibe.toUpperCase()}', filtered.take(15).toList());
+  }
+
   // ── UI Timers (widget-lifetime only) ─────────────────────────────────────
 
   void _startUITimers() {

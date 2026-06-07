@@ -330,9 +330,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   Widget _buildVideoLayout(BuildContext context, MediaItem item) {
-    final tokens = context.tokens;
     return Container(
-      color: tokens.background,
+      color: Colors.black,
       child: Video(
         controller: _vm.videoController,
         controls: NoVideoControls,

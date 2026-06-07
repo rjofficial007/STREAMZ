@@ -13,9 +13,10 @@ STREAMZ is a premium, cross-platform local media broadcasting system. Built with
 *   **Network Resilience:** Integrated watchdog detects IP changes every 15s and hot-restarts the HTTP engine automatically to ensure zero downtime during network handovers.
 *   **UDP Auto-Discovery:** Broadcasts its presence across the local subnet (`239.1.2.3` multicast) for instant client pairing.
 *   **Media Indexing:** Deep scans device storage for Videos, Audio, and Images using `photo_manager`, `on_audio_query`, and raw filesystem crawlers.
-*   **Linear Broadcast Stations:** Create virtual "TV Channels" from local media. The server maintains a synchronized playlist cycle, allowing multiple clients to "tune in" to the exact same moment in a broadcast.
-*   **Live Telemetry:** Real-time dashboard tracking connected nodes, outbound bandwidth (MB/s), and active playback progress via WebSockets.
-*   **Universal Remote:** Built-in D-Pad and media controls to hijack and command any connected client screen.
+*   **Linear Broadcast Stations:** Create virtual "TV Channels" from local media. The server maintains a synchronized playlist cycle, allowing multiple clients to "tune in" to the exact same moment in a broadcast. Synchronized starts ensure slaves are ready before the master signal begins.
+*   **Unified Remote Telemetry:** Real-time dashboard tracking connected nodes, outbound bandwidth (MB/s), and active playback progress via WebSockets. Each node is uniquely identified via a persistent `clientId` to prevent session collisions.
+*   **Targeted Remote Control:** Built-in D-Pad and CLI commands to hijack and command any connected client screen. Supports targeted messaging (e.g., `/stop --to=NODE_ID`) to control specific nodes independently.
+*   **Remote Play Initiation:** Command any client to start playing a specific media item remotely via the `/play [title]` CLI command.
 
 ### **CLIENT NODE**
 *   **Multi-Modal Interfaces:**
@@ -59,8 +60,8 @@ lib/
 │   ├── network/          # HttpServer, UdpDiscovery, MediaApiClient, Web HTML
 │   └── repositories/     # MediaRepository, ServerRepository
 ├── domain/
-│   ├── models/           # MediaItem, StreamSession, ConnectionRecord, BroadcastStation
-│   └── services/         # PlayerService, DownloadService, RemoteCommandService, StationService
+│   ├── models/           # MediaItem, StreamSession, ConnectionRecord, BroadcastStation, RemoteCommand
+│   └── services/         # PlayerService, DownloadService, RemoteCommandService, StationService, DeviceIdService
 └── presentation/
     ├── client/           # Client Connection, ViewModels
     ├── home/             # Role Selection, Permissions

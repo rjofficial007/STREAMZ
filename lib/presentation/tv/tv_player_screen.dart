@@ -3,7 +3,11 @@
 // STREAMZ — TV Dedicated Media Player (VLC-Inspired Brutalist Edition)
 // ============================================================================
 
+import 'dart:convert';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -15,6 +19,7 @@ import '../../core/theme/app_theme.dart';
 import '../../domain/models/media_item.dart';
 import '../client/client_viewmodel.dart';
 import '../player/player_viewmodel.dart';
+import '../shared/atmospheric_background.dart';
 
 
 class TVPlayerScreen extends StatefulWidget {
@@ -41,6 +46,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
   late final PlayerViewModel _vm;
   final FocusScopeNode _osdFocusScope = FocusScopeNode();
   final FocusNode _playPauseFocusNode = FocusNode();
+  final GlobalKey _repaintKey = GlobalKey();
 
   bool _wasOSDVisible = true;
   bool _showSidebar = false;
@@ -58,8 +64,22 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     ).then((_) {
       _playPauseFocusNode.requestFocus();
     });
+    _vm.snapshotCallback = _captureSnapshot;
     _wasOSDVisible = _vm.showOSD;
     _vm.addListener(_onVMChange);
+  }
+
+  Future<String?> _captureSnapshot() async {
+    try {
+      final boundary = _repaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return null;
+      final image = await boundary.toImage(pixelRatio: 0.15); // Low res for speed
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return null;
+      return base64Encode(byteData.buffer.asUint8List());
+    } catch (_) {
+      return null;
+    }
   }
 
   void _onVMChange() {
@@ -291,24 +311,30 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       value: _vm,
       child: Scaffold(
         backgroundColor: tokens.background,
-        body: MouseRegion(
-          onHover: (_) => _vm.wakeOSD(),
-          child: FocusScope(
-            node: _osdFocusScope,
-            onKeyEvent: _onKey,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _buildMediaLayer(context),
-                _buildGestureFeedback(context),
-                _buildOSD(context),
-                if (_showSidebar)
-                  GestureDetector(
-                    onTap: () => setState(() => _showSidebar = false),
-                    child: Container(color: tokens.background.withValues(alpha: 0.6)),
-                  ),
-                _buildToolsSidebar(context),
-              ],
+        body: AtmosphericBackground(
+          colors: _vm.vibeColors,
+          child: MouseRegion(
+            onHover: (_) => _vm.wakeOSD(),
+            child: FocusScope(
+              node: _osdFocusScope,
+              onKeyEvent: _onKey,
+              child: RepaintBoundary(
+                key: _repaintKey,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _buildMediaLayer(context),
+                    _buildGestureFeedback(context),
+                    _buildOSD(context),
+                    if (_showSidebar)
+                      GestureDetector(
+                        onTap: () => setState(() => _showSidebar = false),
+                        child: Container(color: tokens.background.withValues(alpha: 0.6)),
+                      ),
+                    _buildToolsSidebar(context),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

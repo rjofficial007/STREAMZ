@@ -28,10 +28,12 @@ import 'package:path_provider/path_provider.dart';
 import '../../core/di/service_locator.dart';
 import '../../domain/models/download_task.dart';
 import '../../domain/models/media_item.dart';
+import 'device_id_service.dart';
 import 'remote_command_service.dart';
 
 class DownloadService extends ChangeNotifier {
   final List<DownloadTask> _tasks = [];
+  final DeviceIdService _deviceId = sl<DeviceIdService>();
 
   List<DownloadTask> get tasks => List.unmodifiable(_tasks);
   List<DownloadTask> get active => _tasks.where((t) => t.isActive).toList();
@@ -79,7 +81,7 @@ class DownloadService extends ChangeNotifier {
         if (await file.exists()) await file.delete();
         task.status = DownloadStatus.cancelled;
         _tasks.remove(task);
-        remote.reportStatus(clientId: 'LOCAL_NODE', sessionId: sessionId, title: task.title, progress: 0.0, mediaType: 'download', isStopped: true);
+        remote.reportStatus(clientId: _deviceId.id, sessionId: sessionId, title: task.title, mediaId: task.id, progress: 0.0, mediaType: 'download', isStopped: true);
         notifyListeners();
       };
 
@@ -95,7 +97,7 @@ class DownloadService extends ChangeNotifier {
             task.downloadedBytes = downloaded;
             final prog = task.totalBytes > 0 ? (downloaded / task.totalBytes).clamp(0.0, 1.0) : 0.0;
             task.progressNotifier.value = prog;
-            remote.reportStatus(clientId: 'LOCAL_NODE', sessionId: sessionId, title: task.title, progress: prog, mediaType: 'download', isStopped: false);
+            remote.reportStatus(clientId: _deviceId.id, sessionId: sessionId, title: task.title, mediaId: task.id, progress: prog, mediaType: 'download', isStopped: false);
             lastUiUpdate = now;
           }
         },
@@ -105,7 +107,7 @@ class DownloadService extends ChangeNotifier {
           task.downloadedBytes = task.totalBytes > 0 ? task.totalBytes : downloaded;
           task.progressNotifier.value = 1.0;
           task.status = DownloadStatus.completed;
-          remote.reportStatus(clientId: 'LOCAL_NODE', sessionId: sessionId, title: task.title, progress: 1.0, mediaType: 'download', isStopped: true);
+          remote.reportStatus(clientId: _deviceId.id, sessionId: sessionId, title: task.title, mediaId: task.id, progress: 1.0, mediaType: 'download', isStopped: true);
           notifyListeners();
         },
         onError: (Object e) async {
@@ -114,7 +116,7 @@ class DownloadService extends ChangeNotifier {
           debugPrint('[DownloadService] Stream error: $e');
           task.status = DownloadStatus.failed;
           _tasks.remove(task);
-          remote.reportStatus(clientId: 'LOCAL_NODE', sessionId: sessionId, title: task.title, progress: 0.0, mediaType: 'download', isStopped: true);
+          remote.reportStatus(clientId: _deviceId.id, sessionId: sessionId, title: task.title, mediaId: task.id, progress: 0.0, mediaType: 'download', isStopped: true);
           notifyListeners();
         },
       );

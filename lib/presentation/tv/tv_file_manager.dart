@@ -17,6 +17,7 @@ import '../../domain/models/media_item.dart';
 import '../client/client_viewmodel.dart';
 import 'tv_player_screen.dart';
 import '../shared/file_item.dart';
+import '../shared/atmospheric_background.dart';
 
 // --- Web UI Color Palette & Styles (Sync with TVHomeScreen) ---
 const Color kWebBlack = Color(0xFF000000);
@@ -313,9 +314,10 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
       child: Scaffold(
         backgroundColor: kWebBlack,
         extendBodyBehindAppBar: true,
-        body: Stack(
-          children: [
-            CustomScrollView(
+        body: AtmosphericBackground(
+          child: Stack(
+            children: [
+              CustomScrollView(
               controller: _scrollController,
               physics: const ClampingScrollPhysics(),
               slivers: [
@@ -456,7 +458,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildSliverContent(BuildContext context, Size size, double sidePadding) {
@@ -828,7 +830,7 @@ class _HardwareBtnState extends State<_HardwareBtn> {
               widget.label,
               style: GoogleFonts.dmMono(
                 fontSize: 12,
-                fontWeight: widget.isPrimary || _focused ? FontWeight.bold : FontWeight.normal,
+                fontWeight: FontWeight.bold,
                 letterSpacing: 2,
                 color: fg,
               ),

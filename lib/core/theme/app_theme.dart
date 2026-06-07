@@ -20,9 +20,8 @@ abstract final class AppTheme {
 
   static ThemeData themeFor(StreamzTheme streamzTheme) {
     final tokens = streamzTheme.tokens;
-    final isDark = true;
 
-    return (isDark ? ThemeData.dark() : ThemeData.light()).copyWith(
+    return ThemeData.dark().copyWith(
       scaffoldBackgroundColor: tokens.background,
       primaryColor: tokens.primary,
       canvasColor: tokens.surface1,
@@ -42,7 +41,7 @@ abstract final class AppTheme {
         titleTextStyle: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2),
         contentTextStyle: GoogleFonts.dmMono(color: tokens.textSecondary, fontSize: 14),
       ),
-      colorScheme: (isDark ? const ColorScheme.dark() : const ColorScheme.light()).copyWith(primary: tokens.primary, secondary: tokens.accent, surface: tokens.surface1, onSurface: tokens.textPrimary),
+      colorScheme: (const ColorScheme.dark()).copyWith(primary: tokens.primary, secondary: tokens.accent, surface: tokens.surface1, onSurface: tokens.textPrimary),
       textTheme: TextTheme(
         displayLarge: GoogleFonts.barlowCondensed(fontSize: 80, fontWeight: FontWeight.w900, color: tokens.textPrimary, letterSpacing: -2, height: 0.9),
         displayMedium: GoogleFonts.barlowCondensed(fontSize: 48, fontWeight: FontWeight.w900, color: tokens.textPrimary, letterSpacing: -1, height: 1.0),

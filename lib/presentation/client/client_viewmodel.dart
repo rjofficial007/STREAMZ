@@ -4,15 +4,17 @@ import 'dart:async';
 
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart'; // Required for FocusManager, TraversalDirection, Actions
 
+import '../player/player_screen.dart';
 import '../../core/di/service_locator.dart';
 import '../../data/network/media_api_client.dart';
 import '../../data/network/udp_discovery.dart';
 import '../../data/repositories/media_repository.dart';
 import '../../data/repositories/server_repository.dart';
 import '../../domain/models/media_item.dart';
+import '../../domain/services/device_id_service.dart';
 import '../../domain/services/download_service.dart';
 import '../../domain/services/remote_command_service.dart';
 
@@ -21,6 +23,7 @@ class ClientViewModel extends ChangeNotifier {
   final ServerRepository _serverRepo = sl<ServerRepository>();
   final UdpDiscovery _discovery = sl<UdpDiscovery>();
   final RemoteCommandService remote = sl<RemoteCommandService>();
+  final DeviceIdService _deviceId = sl<DeviceIdService>();
 
   String _targetIp = '';
   bool _isLoading = false;
@@ -54,6 +57,9 @@ class ClientViewModel extends ChangeNotifier {
   ClientViewModel() {
     // Global Navigation Hook: Translates Remote WS Commands into Flutter UI Focus movements
     _cmdSub = remote.commands.listen((cmd) {
+      // FIX: Targeted command filtering
+      if (cmd.targetId != null && cmd.targetId != _deviceId.id) return;
+
       if (cmd.type == 'nav') {
         final focus = FocusManager.instance.primaryFocus;
         if (focus == null) return;
@@ -94,6 +100,17 @@ class ClientViewModel extends ChangeNotifier {
               Navigator.of(focus.context!).popUntil((route) => route.isFirst);
             }
             break;
+        }
+      }
+
+      if (cmd.type == 'media') {
+        if (cmd.action == 'play' && cmd.value is String) {
+          final query = (cmd.value as String).toLowerCase();
+          final match = _remoteMedia.firstWhere((m) => m.title.toLowerCase().contains(query), orElse: () => _remoteMedia.first);
+          final focus = FocusManager.instance.primaryFocus;
+          if (focus?.context != null) {
+            Navigator.push(focus!.context!, MaterialPageRoute(builder: (_) => PlayerScreen(items: [match], startIndex: 0)));
+          }
         }
       }
 

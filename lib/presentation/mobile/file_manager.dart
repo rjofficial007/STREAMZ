@@ -72,7 +72,6 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
   late ClientViewModel _vm;
 
   // Aesthetic zero outer padding config
-  final double _hPad = 0.0;
   final double _textPad = 16.0;
 
   String get _title {
@@ -1043,7 +1042,7 @@ class _FileGridCard extends StatefulWidget {
 }
 
 class _FileGridCardState extends State<_FileGridCard> {
-  bool _isFocused = false;
+  final bool _isFocused = false;
   bool _isPressed = false;
 
   @override

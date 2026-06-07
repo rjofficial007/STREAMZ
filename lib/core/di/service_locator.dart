@@ -15,6 +15,7 @@ import '../../data/network/http_server.dart';
 import '../../data/network/udp_discovery.dart';
 import '../../data/repositories/media_repository.dart';
 import '../../data/repositories/server_repository.dart';
+import '../../domain/services/device_id_service.dart';
 import '../../domain/services/download_service.dart';
 import '../../domain/services/lifecycle_service.dart';
 import '../../domain/services/media_service.dart';
@@ -63,6 +64,7 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton<ServerRepository>(() => ServerRepository(sl<SharedPreferences>()));
 
   // ── Domain services ───────────────────────────────────────────────────────
+  sl.registerLazySingleton<DeviceIdService>(() => DeviceIdService(sl<SharedPreferences>()));
   sl.registerLazySingleton<DownloadService>(() => DownloadService());
   sl.registerLazySingleton<RemoteCommandService>(() => RemoteCommandService());
   sl.registerLazySingleton<StationService>(() => StationService());

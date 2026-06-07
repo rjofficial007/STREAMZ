@@ -56,6 +56,7 @@ class PlayerViewModel extends ChangeNotifier {
   double get subDelay => _subDelay;
   bool get isLocked => _isLocked;
   bool get isStopped => _playerService.isStopped;
+  List<Color>? get vibeColors => _playerService.vibeColors;
 
   Player get player => _playerService.player;
   MediaItem? get current => _playerService.current;
@@ -65,6 +66,8 @@ class PlayerViewModel extends ChangeNotifier {
   bool get hasPrev => _playerService.hasPrev;
   String get mediaUrl => _playerService.mediaUrl;
   String get thumbUrl => _playerService.thumbUrl;
+
+  set snapshotCallback(Future<String?> Function()? cb) => _playerService.snapshotCallback = cb;
 
   PlayerViewModel() {
     _playerService = PlayerService(repo: _repo, remote: _remote);
