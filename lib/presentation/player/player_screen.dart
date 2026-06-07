@@ -97,7 +97,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final key = event.logicalKey;
     final item = _vm.current;
 
-    if (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.browserBack || key == LogicalKeyboardKey.goBack) {
+    // 1. GLOBAL NAVIGATION & EXIT
+    if (key == LogicalKeyboardKey.escape ||
+        key == LogicalKeyboardKey.browserBack ||
+        key == LogicalKeyboardKey.goBack ||
+        key == LogicalKeyboardKey.exit) {
       if (_showSidebar) {
         setState(() => _showSidebar = false);
         return KeyEventResult.handled;
@@ -110,10 +114,62 @@ class _PlayerScreenState extends State<PlayerScreen> {
       return KeyEventResult.handled;
     }
 
-    // Universal Wake
-    _vm.wakeOSD();
+    // 2. VOLUME CONTROL
+    if (key == LogicalKeyboardKey.audioVolumeUp) {
+      _vm.adjustVolume(5);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.audioVolumeDown) {
+      _vm.adjustVolume(-5);
+      return KeyEventResult.handled;
+    }
 
+    // 3. DEDICATED MEDIA KEYS
+    if (key == LogicalKeyboardKey.mediaPlay) {
+      _vm.player.play();
+      _vm.wakeOSD();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaPause) {
+      _vm.player.pause();
+      _vm.wakeOSD();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaPlayPause) {
+      _vm.player.playOrPause();
+      _vm.wakeOSD();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaStop) {
+      Navigator.pop(context);
+      return KeyEventResult.handled;
+    }
+    if (item?.isVideo == true && item?.isBroadcast != true) {
+      if (key == LogicalKeyboardKey.mediaFastForward) {
+        _vm.seekRelative(const Duration(seconds: 10));
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.mediaRewind) {
+        _vm.seekRelative(const Duration(seconds: -10));
+        return KeyEventResult.handled;
+      }
+    }
+
+    // 4. INFO & SIDEBAR
+    if (key == LogicalKeyboardKey.info || key == LogicalKeyboardKey.guide) {
+      _vm.wakeOSD();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.contextMenu) {
+      setState(() => _showSidebar = true);
+      _vm.wakeOSD();
+      return KeyEventResult.handled;
+    }
+
+    // 5. OSD-HIDDEN SPECIFIC KEYS
     if (!_vm.showOSD) {
+      _vm.wakeOSD();
+
       if (item?.isVideo == true && item?.isBroadcast != true) {
         if (key == LogicalKeyboardKey.arrowRight) {
           _vm.seekRelative(const Duration(seconds: 10));
@@ -124,8 +180,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
           return KeyEventResult.handled;
         }
       }
+      // On non-TV, we might want Select/Enter to toggle play/pause even if OSD is hidden,
+      // but to keep it consistent and less jarring, let's just wake OSD first.
+      return KeyEventResult.handled;
     }
 
+    // 6. OSD-VISIBLE KEYS (Delegate to Focus System)
+    _vm.wakeOSD();
     return KeyEventResult.ignored;
   }
 

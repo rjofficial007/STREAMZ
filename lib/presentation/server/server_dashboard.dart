@@ -1060,6 +1060,31 @@ class _UniversalRemoteSheet extends StatelessWidget {
                   ],
                 ),
               ),
+
+              // System & Extra Navigation Grid (3 Columns)
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+                  color: tokens.border.withValues(alpha: 0.15),
+                ),
+                child: GridView.count(
+                  crossAxisCount: 3,
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 1,
+                  crossAxisSpacing: 1,
+                  children: [
+                    _QuickActionCard(label: 'VOL UP', icon: LucideIcons.volume2, onTap: () => _cmd('system', 'volume_up')),
+                    _QuickActionCard(label: 'HOME', icon: LucideIcons.home, onTap: () => _cmd('nav', 'home')),
+                    _QuickActionCard(label: 'VOL DOWN', icon: LucideIcons.volume1, onTap: () => _cmd('system', 'volume_down')),
+
+                    _QuickActionCard(label: 'MUTE', icon: LucideIcons.volumeX, onTap: () => _cmd('system', 'mute')),
+                    _QuickActionCard(label: 'STOP', icon: LucideIcons.square, onTap: () => _cmd('media', 'stop')),
+                    _QuickActionCard(label: 'SHUTDOWN', icon: LucideIcons.power, onTap: () => _cmd('system', 'shutdown')),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

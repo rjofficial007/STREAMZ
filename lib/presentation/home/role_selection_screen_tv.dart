@@ -75,6 +75,8 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
     final tokens = context.tokens;
     final themeService = context.watch<ThemeService>();
 
+    final size = MediaQuery.sizeOf(context);
+
     return Scaffold(
       backgroundColor: tokens.background,
       body: Stack(
@@ -82,7 +84,7 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
           // Background Grid
           Positioned.fill(
             child: NocGridBackground(
-              spacing: 60,
+              spacing: (size.width * 0.04).clamp(30.0, 60.0),
               color: tokens.borderSubtle,
             ),
           ),
@@ -145,8 +147,12 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
   Widget _buildHeader(BuildContext context) {
     final platform = defaultTargetPlatform.toString().split('.').last.toUpperCase();
     final tokens = context.tokens;
+    final size = MediaQuery.sizeOf(context);
+    final horizontalPad = (size.width * 0.05).clamp(24.0, 80.0);
+    final verticalPad = (size.height * 0.04).clamp(16.0, 40.0);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: DS.s80, vertical: DS.s40),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPad, vertical: verticalPad),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -158,20 +164,20 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
                   'STREAMZ NOC // SYSTEM ANALYSIS',
                   style: GoogleFonts.barlowCondensed(
                     color: tokens.textPrimary,
-                    fontSize: 32,
+                    fontSize: (size.width * 0.02).clamp(20.0, 32.0),
                     fontWeight: FontWeight.w900,
                     letterSpacing: 4,
                   ),
                 ),
                 const SizedBox(height: DS.s8),
-                Container(height: 2, width: 200, color: tokens.accent),
+                Container(height: 2, width: (size.width * 0.1).clamp(100.0, 200.0), color: tokens.accent),
               ],
             ),
           ),
           _StatusModule(label: 'PLATFORM', value: platform),
-          const SizedBox(width: DS.s48),
+          SizedBox(width: (size.width * 0.03).clamp(16.0, 48.0)),
           const _StatusModule(label: 'STATUS', value: 'READY'),
-          const SizedBox(width: DS.s48),
+          SizedBox(width: (size.width * 0.03).clamp(16.0, 48.0)),
           const _StatusModule(label: 'VERSION', value: 'v2.0.4-PROD'),
         ],
       ),
@@ -180,13 +186,17 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
 
   Widget _buildFooter(BuildContext context) {
     final tokens = context.tokens;
+    final size = MediaQuery.sizeOf(context);
+    final horizontalPad = (size.width * 0.05).clamp(24.0, 80.0);
+    final verticalPad = (size.height * 0.04).clamp(16.0, 40.0);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: DS.s80, vertical: DS.s40),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPad, vertical: verticalPad),
       child: Row(
         children: [
           Text(
             'CORE ARCHITECTURE: BRUTALIST // UDP_DISCOVERY // HTTP_STREAM',
-            style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 2),
+            style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: (size.width * 0.008).clamp(9.0, 12.0), letterSpacing: 2),
           ),
           const Spacer(),
           const _BlinkingDotTV(),
@@ -244,6 +254,7 @@ class _TVActionCardState extends State<_TVActionCard> {
     final tokens = context.tokens;
     final bgColor = _isFocused ? tokens.surface3 : tokens.surface1;
     final borderColor = _isFocused ? tokens.accent : tokens.border;
+    final size = MediaQuery.sizeOf(context);
 
     return Focus(
       autofocus: widget.autofocus,
@@ -258,7 +269,7 @@ class _TVActionCardState extends State<_TVActionCard> {
           scale: _isFocused ? 1.02 : 1.0,
           duration: const Duration(milliseconds: 150),
           child: Container(
-            height: 400,
+            height: (size.height * 0.5).clamp(280.0, 450.0),
             decoration: BoxDecoration(
               color: bgColor,
               border: Border.all(color: borderColor, width: _isFocused ? 4 : 1),
@@ -297,22 +308,22 @@ class _TVActionCardState extends State<_TVActionCard> {
                         'SYS_TYPE // ${widget.code}',
                         style: GoogleFonts.dmMono(
                           color: _isFocused ? tokens.textPrimary : tokens.textMuted,
-                          fontSize: 12,
+                          fontSize: (size.width * 0.008).clamp(9.0, 12.0),
                           letterSpacing: 2,
                         ),
                       ),
-                      const SizedBox(height: DS.s40),
+                      SizedBox(height: (size.height * 0.04).clamp(16.0, 40.0)),
                       Icon(
                         widget.icon,
                         color: _isFocused ? tokens.textPrimary : tokens.textSecondary,
-                        size: 80,
+                        size: (size.width * 0.05).clamp(40.0, 80.0),
                       ),
-                      const SizedBox(height: DS.s40),
+                      SizedBox(height: (size.height * 0.04).clamp(16.0, 40.0)),
                       Text(
                         widget.label,
                         style: GoogleFonts.barlowCondensed(
                           color: tokens.textPrimary,
-                          fontSize: 48,
+                          fontSize: (size.width * 0.025).clamp(24.0, 48.0),
                           letterSpacing: 4,
                           fontWeight: FontWeight.w900,
                         ),
@@ -323,7 +334,7 @@ class _TVActionCardState extends State<_TVActionCard> {
                         widget.subLabel,
                         style: GoogleFonts.dmMono(
                           color: _isFocused ? tokens.textPrimary : tokens.textMuted,
-                          fontSize: 14,
+                          fontSize: (size.width * 0.009).clamp(10.0, 14.0),
                           letterSpacing: 2,
                         ),
                         textAlign: TextAlign.center,

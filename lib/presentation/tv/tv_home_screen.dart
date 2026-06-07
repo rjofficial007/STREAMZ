@@ -75,8 +75,8 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
     // Dynamic TV Scaling constraints
     final size = MediaQuery.sizeOf(context);
     const double safePad = 0; // Removed for edge-to-edge look
-    const double sidePadding = 24.0; // Minimal padding for functional items (icons/text)
-    final vSpacing = (size.height * 0.04).clamp(24.0, 48.0);
+    final double sidePadding = (size.width * 0.03).clamp(16.0, 48.0);
+    final vSpacing = (size.height * 0.03).clamp(16.0, 40.0);
 
     // Grab up to 5 items to feature in the Hero Slider
     final featuredItems = [...continueWatching, ...videos].take(5).toList();
@@ -101,10 +101,10 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
                     floating: true,
                     elevation: 0,
                     pinned: true,
-                    toolbarHeight: (size.height * 0.1).clamp(60.0, 100.0),
+                    toolbarHeight: (size.height * 0.08).clamp(50.0, 80.0),
                     leadingWidth: sidePadding + 48,
                     leading: Padding(
-                      padding: const EdgeInsets.only(left: sidePadding),
+                      padding: EdgeInsets.only(left: sidePadding),
                       child: Actions(
                         actions: {
                           ActivateIntent: CallbackAction<ActivateIntent>(
@@ -120,7 +120,7 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
                           },
                           onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
                           child: IconButton(
-                            icon: Icon(LucideIcons.arrowLeft, color: kWebWhite, size: (size.width * 0.02).clamp(24.0, 32.0)),
+                            icon: Icon(LucideIcons.arrowLeft, color: kWebWhite, size: (size.width * 0.015).clamp(20.0, 28.0)),
                             onPressed: () => Navigator.pop(context),
                           ),
                         ),
@@ -128,25 +128,25 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
                     ),
                     title: Text(
                       'STREAMZ // STUDIO',
-                      style: GoogleFonts.barlowCondensed(fontSize: (size.width * 0.018).clamp(20.0, 32.0), letterSpacing: 4, color: kWebWhite, fontWeight: FontWeight.w900),
+                      style: GoogleFonts.barlowCondensed(fontSize: (size.width * 0.015).clamp(18.0, 28.0), letterSpacing: 4, color: kWebWhite, fontWeight: FontWeight.w900),
                     ),
                     centerTitle: false,
                     actions: [
                       Center(
                         child: Row(
                           children: [
-                            Container(width: 8, height: 8, color: kWebWhite),
-                            const SizedBox(width: DS.s12),
+                            Container(width: 6, height: 6, color: kWebWhite),
+                            const SizedBox(width: DS.s8),
                             Text(
                               'TGT // ${vm.targetIp}',
-                              style: GoogleFonts.dmMono(color: kWebText, fontSize: (size.width * 0.01).clamp(10.0, 14.0)),
+                              style: GoogleFonts.dmMono(color: kWebText, fontSize: (size.width * 0.008).clamp(9.0, 12.0)),
                             ),
-                            const SizedBox(width: DS.s32),
+                            const SizedBox(width: DS.s24),
                           ],
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.only(right: sidePadding),
+                        padding: EdgeInsets.only(right: sidePadding),
                         child: Actions(
                           actions: {
                             ActivateIntent: CallbackAction<ActivateIntent>(
@@ -162,7 +162,7 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
                             },
                             onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => _openSearch(context, allMedia)),
                             child: IconButton(
-                              icon: Icon(LucideIcons.search, color: kWebWhite, size: (size.width * 0.02).clamp(24.0, 32.0)),
+                              icon: Icon(LucideIcons.search, color: kWebWhite, size: (size.width * 0.015).clamp(20.0, 28.0)),
                               onPressed: () => _openSearch(context, allMedia),
                             ),
                           ),
@@ -243,7 +243,6 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
                         title: 'AUDIO MATRIX',
                         subTitle: 'PATH // ROOT/AUDIO',
                         items: audio,
-                        isSquare: true,
                         railIndex: _calcRailIndex(continueWatching, videos, 2),
                         focusedRail: _railFocus,
                         onRailFocus: (i) => setState(() => _railFocus = i),
@@ -261,7 +260,6 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
                         title: 'PHOTO DB',
                         subTitle: 'PATH // ROOT/IMAGES',
                         items: images,
-                        isSquare: true,
                         railIndex: _calcRailIndex(continueWatching, videos, 3),
                         focusedRail: _railFocus,
                         onRailFocus: (i) => setState(() => _railFocus = i),
@@ -362,8 +360,8 @@ class _HeroSectionState extends State<_HeroSection> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final titleFs = (size.width * 0.035).clamp(32.0, 72.0);
-    final btnWidth = (size.width * 0.12).clamp(160.0, 240.0);
+    final titleFs = (size.width * 0.025).clamp(24.0, 56.0);
+    final btnWidth = (size.width * 0.1).clamp(140.0, 200.0);
 
     return Focus(
       onFocusChange: (v) => setState(() => _hasFocus = v),
@@ -393,7 +391,7 @@ class _HeroSectionState extends State<_HeroSection> {
                     ),
                     // Brutalist Bottom Bar
                     Container(
-                      height: (size.height * 0.2).clamp(100.0, 180.0),
+                      height: (size.height * 0.18).clamp(90.0, 150.0),
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       decoration: BoxDecoration(
                         color: kWebSurface,
@@ -409,21 +407,21 @@ class _HeroSectionState extends State<_HeroSection> {
                                 Row(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                       color: kWebWhite,
                                       child: Text(
                                         'FEATURED',
-                                        style: GoogleFonts.dmMono(color: kWebBlack, fontSize: (size.width * 0.01).clamp(10.0, 14.0), fontWeight: FontWeight.bold, letterSpacing: 2),
+                                        style: GoogleFonts.dmMono(color: kWebBlack, fontSize: (size.width * 0.008).clamp(9.0, 12.0), fontWeight: FontWeight.bold, letterSpacing: 2),
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
+                                    const SizedBox(width: 8),
                                     Text(
                                       'STATUS // ${item.type.toUpperCase()}',
-                                      style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: (size.width * 0.01).clamp(10.0, 14.0), letterSpacing: 2),
+                                      style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: (size.width * 0.008).clamp(9.0, 12.0), letterSpacing: 2),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 4),
                                 Text(
                                   item.title.toUpperCase(),
                                   maxLines: 1,
@@ -433,9 +431,9 @@ class _HeroSectionState extends State<_HeroSection> {
                               ],
                             ),
                           ),
-                          const SizedBox(width: 32),
+                          const SizedBox(width: 24),
                           _TVHeroButton(icon: LucideIcons.play, label: 'PLAY', width: btnWidth, isPrimary: true, onFocus: _recordInteraction, onTap: () => _play(context, item)),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 12),
                           _TVHeroButton(icon: LucideIcons.info, label: 'INFO', width: btnWidth, isPrimary: false, onFocus: _recordInteraction, onTap: () {}),
                         ],
                       ),
@@ -545,7 +543,6 @@ class _TVContentRail extends StatefulWidget {
   final String subTitle;
   final List<MediaItem> items;
   final bool showProgress;
-  final bool isSquare;
   final int railIndex;
   final int focusedRail;
   final void Function(int) onRailFocus;
@@ -562,7 +559,6 @@ class _TVContentRail extends StatefulWidget {
     required this.safePad,
     required this.vm,
     this.showProgress = false,
-    this.isSquare = false,
   });
 
   @override
@@ -605,28 +601,28 @@ class _TVContentRailState extends State<_TVContentRail> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    const double sidePadding = 24.0;
+    final sidePadding = (size.width * 0.03).clamp(16.0, 48.0);
 
     // Dynamic Rail Dimensions
-    final double cardW = widget.isSquare ? (size.width * 0.12).clamp(160.0, 320.0) : (size.width * 0.16).clamp(240.0, 480.0);
-    final double cardH = widget.isSquare ? cardW : cardW * (9 / 16);
+    final double cardW = (size.width * 0.15).clamp(200.0, 380.0);
+    final double cardH = cardW;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(sidePadding, 0, sidePadding, 12),
+          padding: EdgeInsets.fromLTRB(sidePadding, 0, sidePadding, 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 widget.title.toUpperCase(),
-                style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: (size.width * 0.018).clamp(20.0, 32.0), fontWeight: FontWeight.bold, letterSpacing: 2),
+                style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: (size.width * 0.015).clamp(18.0, 28.0), fontWeight: FontWeight.bold, letterSpacing: 2),
               ),
               const SizedBox(height: 2),
               Text(
                 widget.subTitle.toUpperCase(),
-                style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: (size.width * 0.01).clamp(10.0, 14.0), letterSpacing: 2),
+                style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: (size.width * 0.008).clamp(9.0, 12.0), letterSpacing: 2),
               ),
             ],
           ),
@@ -860,26 +856,26 @@ class _TVStationRailState extends State<_TVStationRail> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    const double sidePadding = 24.0;
-    final double cardW = (size.width * 0.16).clamp(240.0, 400.0);
-    final double cardH = (size.height * 0.15).clamp(100.0, 160.0);
+    final sidePadding = (size.width * 0.03).clamp(16.0, 48.0);
+    final double cardW = (size.width * 0.15).clamp(200.0, 380.0);
+    final double cardH = cardW;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(sidePadding, 0, sidePadding, 12),
+          padding: EdgeInsets.fromLTRB(sidePadding, 0, sidePadding, 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'NETWORK BROADCASTS',
-                style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: (size.width * 0.018).clamp(20.0, 32.0), fontWeight: FontWeight.bold, letterSpacing: 2),
+                style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: (size.width * 0.015).clamp(18.0, 28.0), fontWeight: FontWeight.bold, letterSpacing: 2),
               ),
               const SizedBox(height: 2),
               Text(
                 'PATH // ROOT/LIVE',
-                style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: (size.width * 0.01).clamp(10.0, 14.0), letterSpacing: 2),
+                style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: (size.width * 0.008).clamp(9.0, 12.0), letterSpacing: 2),
               ),
             ],
           ),
@@ -1111,14 +1107,14 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
           children: [
             // Search input (Top bar)
             Container(
-              height: (size.height * 0.12).clamp(80.0, 120.0),
+              height: (size.height * 0.1).clamp(70.0, 100.0),
               decoration: BoxDecoration(
                 color: kWebSurface,
                 border: Border(bottom: BorderSide(color: kWebBorder)),
               ),
               child: Row(
                 children: [
-                  const SizedBox(width: sidePadding),
+                  SizedBox(width: sidePadding),
                   Actions(
                     actions: {
                       ActivateIntent: CallbackAction<ActivateIntent>(
@@ -1134,19 +1130,19 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
                       },
                       onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
                       child: IconButton(
-                        icon: Icon(LucideIcons.arrowLeft, color: kWebText, size: 32),
+                        icon: Icon(LucideIcons.arrowLeft, color: kWebText, size: (size.width * 0.02).clamp(24.0, 32.0)),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 24),
-                  Text('CMD>', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 24)),
                   const SizedBox(width: 16),
+                  Text('CMD>', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: (size.width * 0.015).clamp(16.0, 24.0))),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
                       controller: _ctrl,
                       focusNode: _focus,
-                      style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 24, letterSpacing: 2),
+                      style: GoogleFonts.dmMono(color: kWebWhite, fontSize: (size.width * 0.015).clamp(16.0, 24.0), letterSpacing: 2),
                       cursorColor: kWebWhite,
                       decoration: InputDecoration(
                         hintText: 'SEARCH QUERY...',
@@ -1163,8 +1159,8 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
                   ),
                   if (_query.isNotEmpty) ...[
                     const SizedBox(width: 16),
-                    Text('${results.length} SIGNALS FOUND', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 16, letterSpacing: 2)),
-                    const SizedBox(width: sidePadding),
+                    Text('${results.length} SIGNALS FOUND', style: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: (size.width * 0.01).clamp(12.0, 16.0), letterSpacing: 2)),
+                    SizedBox(width: sidePadding),
                   ],
                 ],
               ),
@@ -1197,7 +1193,7 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
                       child: GridView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: sidePadding, vertical: sidePadding),
                         // 5 columns for TV layout
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, childAspectRatio: 16 / 9, crossAxisSpacing: 1, mainAxisSpacing: 1),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5, childAspectRatio: 1.0, crossAxisSpacing: 1, mainAxisSpacing: 1),
                         itemCount: results.length,
                         itemBuilder: (_, i) {
                           final item = results[i];

@@ -74,6 +74,8 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
   Widget build(BuildContext context) {
     final vm = context.watch<ClientViewModel>();
     final tokens = context.tokens;
+    final size = MediaQuery.sizeOf(context);
+    final horizontalPad = (size.width * 0.05).clamp(24.0, 80.0);
 
     return Scaffold(
       backgroundColor: tokens.background,
@@ -82,7 +84,7 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
           // Background Grid
           Positioned.fill(
             child: NocGridBackground(
-              spacing: 60,
+              spacing: (size.width * 0.04).clamp(30.0, 60.0),
               color: tokens.borderSubtle,
             ),
           ),
@@ -95,7 +97,7 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
                 _buildHeader(context, vm),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: DS.s80),
+                    padding: EdgeInsets.symmetric(horizontal: horizontalPad),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -110,10 +112,10 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
                         if (vm.connectionError != null)
                           _buildErrorBanner(context, vm.connectionError!),
 
-                        const SizedBox(height: DS.s48),
+                        SizedBox(height: (size.height * 0.05).clamp(24.0, 48.0)),
                         Text(
                           'RECENT NODES // ARCHIVED HANDSHAKES',
-                          style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 2),
+                          style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: (size.width * 0.008).clamp(9.0, 12.0), letterSpacing: 2),
                         ),
                         const SizedBox(height: DS.s16),
                         if (vm.ipHistory.isEmpty)
@@ -122,9 +124,9 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
                           GridView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              childAspectRatio: 4,
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: size.width > 1200 ? 2 : 1,
+                              childAspectRatio: size.width > 1200 ? 4 : 5,
                               crossAxisSpacing: DS.s24,
                               mainAxisSpacing: DS.s16,
                             ),
@@ -174,8 +176,10 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
 
   Widget _buildIntegratedInput(BuildContext context) {
     final tokens = context.tokens;
+    final size = MediaQuery.sizeOf(context);
+
     return Container(
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all((size.width * 0.025).clamp(16.0, 32.0)),
       decoration: BoxDecoration(
         color: tokens.surface1,
         border: Border.all(color: tokens.accent, width: 2),
@@ -183,8 +187,8 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('MANUAL HANDSHAKE', style: GoogleFonts.dmMono(color: tokens.textSecondary, fontSize: 14, letterSpacing: 4)),
-          const SizedBox(height: 24),
+          Text('MANUAL HANDSHAKE', style: GoogleFonts.dmMono(color: tokens.textSecondary, fontSize: (size.width * 0.009).clamp(10.0, 14.0), letterSpacing: 4)),
+          SizedBox(height: (size.height * 0.03).clamp(16.0, 24.0)),
           Row(
             children: [
               Expanded(
@@ -201,7 +205,7 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
                     child: TextField(
                       controller: _ctrl,
                       focusNode: _focusNode,
-                      style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 24),
+                      style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: (size.width * 0.015).clamp(18.0, 24.0)),
                       decoration: InputDecoration(
                         hintText: 'ENTER IPv4 ADDRESS...',
                         hintStyle: TextStyle(color: tokens.textMuted),
@@ -263,8 +267,12 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
 
   Widget _buildHeader(BuildContext context, ClientViewModel vm) {
     final tokens = context.tokens;
+    final size = MediaQuery.sizeOf(context);
+    final horizontalPad = (size.width * 0.05).clamp(24.0, 80.0);
+    final verticalPad = (size.height * 0.04).clamp(16.0, 40.0);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: DS.s80, vertical: DS.s40),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPad, vertical: verticalPad),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -276,20 +284,20 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
                   'CLIENT NODE // HANDSHAKE ANALYSIS',
                   style: GoogleFonts.barlowCondensed(
                     color: tokens.textPrimary,
-                    fontSize: 32,
+                    fontSize: (size.width * 0.02).clamp(20.0, 32.0),
                     fontWeight: FontWeight.w900,
                     letterSpacing: 4,
                   ),
                 ),
                 const SizedBox(height: DS.s8),
-                Container(height: 2, width: 200, color: tokens.accent),
+                Container(height: 2, width: (size.width * 0.1).clamp(100.0, 200.0), color: tokens.accent),
               ],
             ),
           ),
           _StatusModule(label: 'SCAN STATUS', value: vm.isDiscovering ? 'ACTIVE' : 'IDLE'),
-          const SizedBox(width: DS.s48),
+          SizedBox(width: (size.width * 0.03).clamp(16.0, 48.0)),
           _StatusModule(label: 'LAST NODE', value: vm.ipHistory.firstOrNull ?? 'NONE'),
-          const SizedBox(width: DS.s48),
+          SizedBox(width: (size.width * 0.03).clamp(16.0, 48.0)),
           _StatusModule(label: 'HISTORY', value: '${vm.ipHistory.length} NODES'),
         ],
       ),
@@ -298,13 +306,17 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
 
   Widget _buildFooter(BuildContext context) {
     final tokens = context.tokens;
+    final size = MediaQuery.sizeOf(context);
+    final horizontalPad = (size.width * 0.05).clamp(24.0, 80.0);
+    final verticalPad = (size.height * 0.04).clamp(16.0, 40.0);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: DS.s80, vertical: DS.s40),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPad, vertical: verticalPad),
       child: Row(
         children: [
           Text(
             'PROTOCOL: TCP/UDP // MODE: DISTRIBUTED // AUTH: TOKEN',
-            style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 2),
+            style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: (size.width * 0.008).clamp(9.0, 12.0), letterSpacing: 2),
           ),
           const Spacer(),
           const _BlinkingDotTV(),
@@ -409,6 +421,7 @@ class _TVConnectCardState extends State<_TVConnectCard> {
     final tokens = context.tokens;
     final bgColor = _isFocused ? tokens.surface3 : tokens.surface1;
     final borderColor = _isFocused ? tokens.accent : tokens.border;
+    final size = MediaQuery.sizeOf(context);
 
     return Focus(
       autofocus: widget.autofocus,
@@ -423,7 +436,7 @@ class _TVConnectCardState extends State<_TVConnectCard> {
           scale: _isFocused ? 1.02 : 1.0,
           duration: const Duration(milliseconds: 150),
           child: Container(
-            height: 240,
+            height: (size.height * 0.3).clamp(180.0, 300.0),
             decoration: BoxDecoration(
               color: bgColor,
               border: Border.all(color: borderColor, width: _isFocused ? 4 : 1),
@@ -457,22 +470,22 @@ class _TVConnectCardState extends State<_TVConnectCard> {
                         'SYS_TYPE // ${widget.code}',
                         style: GoogleFonts.dmMono(
                           color: _isFocused ? tokens.textPrimary : tokens.textMuted,
-                          fontSize: 10,
+                          fontSize: (size.width * 0.008).clamp(9.0, 12.0),
                           letterSpacing: 2,
                         ),
                       ),
-                      const SizedBox(height: DS.s24),
+                      SizedBox(height: (size.height * 0.02).clamp(12.0, 24.0)),
                       Icon(
                         widget.icon,
                         color: _isFocused ? tokens.textPrimary : tokens.textSecondary,
-                        size: 48,
+                        size: (size.width * 0.035).clamp(32.0, 56.0),
                       ),
-                      const SizedBox(height: DS.s24),
+                      SizedBox(height: (size.height * 0.02).clamp(12.0, 24.0)),
                       Text(
                         widget.label,
                         style: GoogleFonts.barlowCondensed(
                           color: tokens.textPrimary,
-                          fontSize: 28,
+                          fontSize: (size.width * 0.018).clamp(20.0, 32.0),
                           letterSpacing: 4,
                           fontWeight: FontWeight.w900,
                         ),
@@ -483,7 +496,7 @@ class _TVConnectCardState extends State<_TVConnectCard> {
                         widget.subLabel,
                         style: GoogleFonts.dmMono(
                           color: _isFocused ? tokens.textPrimary : tokens.textMuted,
-                          fontSize: 11,
+                          fontSize: (size.width * 0.008).clamp(9.0, 12.0),
                           letterSpacing: 1,
                         ),
                         textAlign: TextAlign.center,

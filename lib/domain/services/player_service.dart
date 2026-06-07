@@ -211,34 +211,49 @@ class PlayerService extends ChangeNotifier {
 
   void _listenCommands() {
     _cmdSub = _remote.commands.listen((cmd) {
-      if (cmd.type != 'media') return;
-      switch (cmd.action) {
-        case 'play':
-        case 'station_resume':
-          player.play();
-          break;
-        case 'pause':
-        case 'station_pause':
-          player.pause();
-          break;
-        case 'toggle_play':
-          player.playOrPause();
-          break;
-        case 'stop':
-        case 'station_stop':
-          stop();
-          break;
-        case 'seek':
-          if (cmd.value is num) {
-            seekRelative(Duration(seconds: (cmd.value as num).toInt()));
-          }
-          break;
-        case 'next':
-          next();
-          break;
-        case 'prev':
-          prev();
-          break;
+      if (cmd.type == 'media') {
+        switch (cmd.action) {
+          case 'play':
+          case 'station_resume':
+            player.play();
+            break;
+          case 'pause':
+          case 'station_pause':
+            player.pause();
+            break;
+          case 'toggle_play':
+            player.playOrPause();
+            break;
+          case 'stop':
+          case 'station_stop':
+            stop();
+            break;
+          case 'seek':
+            if (cmd.value is num) {
+              seekRelative(Duration(seconds: (cmd.value as num).toInt()));
+            }
+            break;
+          case 'next':
+            next();
+            break;
+          case 'prev':
+            prev();
+            break;
+        }
+      }
+
+      if (cmd.type == 'system') {
+        switch (cmd.action) {
+          case 'volume_up':
+            player.setVolume((player.state.volume + 10.0).clamp(0.0, 100.0));
+            break;
+          case 'volume_down':
+            player.setVolume((player.state.volume - 10.0).clamp(0.0, 100.0));
+            break;
+          case 'mute':
+            player.setVolume(player.state.volume > 0 ? 0.0 : 100.0);
+            break;
+        }
       }
     });
   }

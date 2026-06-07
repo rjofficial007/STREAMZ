@@ -49,6 +49,8 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
   Widget build(BuildContext context) {
     final vm = context.watch<ClientViewModel>();
     final tokens = context.tokens;
+    final size = MediaQuery.sizeOf(context);
+    final horizontalPad = (size.width * 0.05).clamp(24.0, 80.0);
 
     return Scaffold(
       backgroundColor: tokens.background,
@@ -56,7 +58,7 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
         children: [
           Positioned.fill(
             child: NocGridBackground(
-              spacing: 60,
+              spacing: (size.width * 0.04).clamp(30.0, 60.0),
               color: tokens.borderSubtle,
             ),
           ),
@@ -67,7 +69,7 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
                 _buildHeader(context, vm),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: DS.s80),
+                    padding: EdgeInsets.symmetric(horizontal: horizontalPad),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -120,10 +122,10 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: DS.s48),
+                        SizedBox(height: (size.height * 0.05).clamp(24.0, 48.0)),
                         Text(
                           'LIVE SIGNALS // DETECTED BROADCASTS',
-                          style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 2),
+                          style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: (size.width * 0.008).clamp(9.0, 12.0), letterSpacing: 2),
                         ),
                         const SizedBox(height: DS.s16),
                         if (vm.stations.isEmpty)
@@ -132,9 +134,9 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
                           GridView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              childAspectRatio: 4,
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: size.width > 1200 ? 2 : 1,
+                              childAspectRatio: size.width > 1200 ? 4 : 5,
                               crossAxisSpacing: DS.s24,
                               mainAxisSpacing: DS.s16,
                             ),
@@ -163,8 +165,12 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
 
   Widget _buildHeader(BuildContext context, ClientViewModel vm) {
     final tokens = context.tokens;
+    final size = MediaQuery.sizeOf(context);
+    final horizontalPad = (size.width * 0.05).clamp(24.0, 80.0);
+    final verticalPad = (size.height * 0.04).clamp(16.0, 40.0);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: DS.s80, vertical: DS.s40),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPad, vertical: verticalPad),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -176,20 +182,20 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
                   'TV INTERFACE // SESSION ANALYSIS',
                   style: GoogleFonts.barlowCondensed(
                     color: tokens.textPrimary,
-                    fontSize: 32,
+                    fontSize: (size.width * 0.02).clamp(20.0, 32.0),
                     fontWeight: FontWeight.w900,
                     letterSpacing: 4,
                   ),
                 ),
                 const SizedBox(height: DS.s8),
-                Container(height: 2, width: 200, color: tokens.accent),
+                Container(height: 2, width: (size.width * 0.1).clamp(100.0, 200.0), color: tokens.accent),
               ],
             ),
           ),
           _StatusModule(label: 'ACTIVE MODE', value: 'TV MODE'),
-          const SizedBox(width: DS.s48),
+          SizedBox(width: (size.width * 0.03).clamp(16.0, 48.0)),
           _StatusModule(label: 'HOST IP', value: vm.targetIp.toUpperCase()),
-          const SizedBox(width: DS.s48),
+          SizedBox(width: (size.width * 0.03).clamp(16.0, 48.0)),
           _StatusModule(label: 'ASSETS', value: '${vm.remoteMedia.length} INDEXED'),
         ],
       ),
@@ -198,13 +204,17 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
 
   Widget _buildFooter(BuildContext context) {
     final tokens = context.tokens;
+    final size = MediaQuery.sizeOf(context);
+    final horizontalPad = (size.width * 0.05).clamp(24.0, 80.0);
+    final verticalPad = (size.height * 0.04).clamp(16.0, 40.0);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: DS.s80, vertical: DS.s40),
+      padding: EdgeInsets.symmetric(horizontal: horizontalPad, vertical: verticalPad),
       child: Row(
         children: [
           Text(
             'SIGNAL ANALYSIS: OPTIMAL // LATENCY: LOW // ENCRYPTION: NONE',
-            style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 2),
+            style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: (size.width * 0.008).clamp(9.0, 12.0), letterSpacing: 2),
           ),
           const Spacer(),
           const _BlinkingDotTV(),
@@ -287,6 +297,7 @@ class _TVModeCardState extends State<_TVModeCard> {
     final tokens = context.tokens;
     final bgColor = _isFocused ? tokens.surface3 : tokens.surface1;
     final borderColor = _isFocused ? (widget.isWarning ? tokens.error : tokens.accent) : tokens.border;
+    final size = MediaQuery.sizeOf(context);
 
     return Focus(
       autofocus: widget.autofocus,
@@ -301,7 +312,7 @@ class _TVModeCardState extends State<_TVModeCard> {
           scale: _isFocused ? 1.02 : 1.0,
           duration: const Duration(milliseconds: 150),
           child: Container(
-            height: 240,
+            height: (size.height * 0.3).clamp(180.0, 300.0),
             decoration: BoxDecoration(
               color: bgColor,
               border: Border.all(color: borderColor, width: _isFocused ? 4 : 1),
@@ -335,22 +346,22 @@ class _TVModeCardState extends State<_TVModeCard> {
                         'SYS_TYPE // ${widget.code}',
                         style: GoogleFonts.dmMono(
                           color: _isFocused ? tokens.textPrimary : tokens.textMuted,
-                          fontSize: 10,
+                          fontSize: (size.width * 0.008).clamp(9.0, 12.0),
                           letterSpacing: 2,
                         ),
                       ),
-                      const SizedBox(height: DS.s24),
+                      SizedBox(height: (size.height * 0.02).clamp(12.0, 24.0)),
                       Icon(
                         widget.icon,
                         color: _isFocused ? (widget.isWarning ? tokens.error : tokens.textPrimary) : tokens.textSecondary,
-                        size: 48,
+                        size: (size.width * 0.035).clamp(32.0, 56.0),
                       ),
-                      const SizedBox(height: DS.s24),
+                      SizedBox(height: (size.height * 0.02).clamp(12.0, 24.0)),
                       Text(
                         widget.label,
                         style: GoogleFonts.barlowCondensed(
                           color: tokens.textPrimary,
-                          fontSize: 28,
+                          fontSize: (size.width * 0.018).clamp(20.0, 32.0),
                           letterSpacing: 4,
                           fontWeight: FontWeight.w900,
                         ),
@@ -361,7 +372,7 @@ class _TVModeCardState extends State<_TVModeCard> {
                         widget.subLabel,
                         style: GoogleFonts.dmMono(
                           color: _isFocused ? tokens.textPrimary : tokens.textMuted,
-                          fontSize: 11,
+                          fontSize: (size.width * 0.008).clamp(9.0, 12.0),
                           letterSpacing: 1,
                         ),
                         textAlign: TextAlign.center,

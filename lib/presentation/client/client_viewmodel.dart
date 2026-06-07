@@ -2,6 +2,9 @@
 
 import 'dart:async';
 
+import 'dart:io';
+
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart'; // Required for FocusManager, TraversalDirection, Actions
 
 import '../../core/di/service_locator.dart';
@@ -84,6 +87,23 @@ class ClientViewModel extends ChangeNotifier {
           case 'back':
             if (focus.context != null) {
               Navigator.maybePop(focus.context!);
+            }
+            break;
+          case 'home':
+            if (focus.context != null) {
+              Navigator.of(focus.context!).popUntil((route) => route.isFirst);
+            }
+            break;
+        }
+      }
+
+      if (cmd.type == 'system') {
+        switch (cmd.action) {
+          case 'shutdown':
+            if (Platform.isAndroid || Platform.isIOS) {
+              SystemChannels.platform.invokeMethod('SystemNavigator.pop');
+            } else {
+              exit(0);
             }
             break;
         }

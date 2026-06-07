@@ -95,7 +95,11 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     final key = event.logicalKey;
     final item = _vm.current;
 
-    if (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.browserBack || key == LogicalKeyboardKey.goBack) {
+    // 1. GLOBAL NAVIGATION & EXIT
+    if (key == LogicalKeyboardKey.escape ||
+        key == LogicalKeyboardKey.browserBack ||
+        key == LogicalKeyboardKey.goBack ||
+        key == LogicalKeyboardKey.exit) {
       if (_showSidebar) {
         setState(() => _showSidebar = false);
         return KeyEventResult.handled;
@@ -108,26 +112,73 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       return KeyEventResult.handled;
     }
 
+    // 2. VOLUME CONTROL
+    if (key == LogicalKeyboardKey.audioVolumeUp) {
+      _vm.adjustVolume(5);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.audioVolumeDown) {
+      _vm.adjustVolume(-5);
+      return KeyEventResult.handled;
+    }
+
+    // 3. DEDICATED MEDIA KEYS (Always Handled)
+    if (key == LogicalKeyboardKey.mediaPlay) {
+      _vm.player.play();
+      _vm.wakeOSD();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaPause) {
+      _vm.player.pause();
+      _vm.wakeOSD();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaPlayPause) {
+      _vm.player.playOrPause();
+      _vm.wakeOSD();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaStop) {
+      Navigator.pop(context);
+      return KeyEventResult.handled;
+    }
+    if (item?.isVideo == true && item?.isBroadcast != true) {
+      if (key == LogicalKeyboardKey.mediaFastForward) {
+        _vm.seekRelative(const Duration(seconds: 10));
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.mediaRewind) {
+        _vm.seekRelative(const Duration(seconds: -10));
+        return KeyEventResult.handled;
+      }
+    }
+
+    // 4. INFO & SIDEBAR
+    if (key == LogicalKeyboardKey.info || key == LogicalKeyboardKey.guide) {
+      _vm.wakeOSD();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.contextMenu) {
+      setState(() => _showSidebar = true);
+      _vm.wakeOSD();
+      return KeyEventResult.handled;
+    }
+
+    // 5. OSD-HIDDEN SPECIFIC KEYS
     if (!_vm.showOSD) {
       _vm.wakeOSD();
-      if (key == LogicalKeyboardKey.select || key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter) {
-        _vm.player.playOrPause();
-        return KeyEventResult.handled;
-      }
-      if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.arrowDown) {
-        return KeyEventResult.handled;
-      }
 
       // Channel Switching
-      if (key == LogicalKeyboardKey.channelUp) {
+      if (key == LogicalKeyboardKey.channelUp || key == LogicalKeyboardKey.pageUp) {
         _cycleStation(1);
         return KeyEventResult.handled;
       }
-      if (key == LogicalKeyboardKey.channelDown) {
+      if (key == LogicalKeyboardKey.channelDown || key == LogicalKeyboardKey.pageDown) {
         _cycleStation(-1);
         return KeyEventResult.handled;
       }
 
+      // Seeking (D-pad)
       if (item?.isVideo == true && item?.isBroadcast != true) {
         if (key == LogicalKeyboardKey.arrowRight) {
           _vm.seekRelative(const Duration(seconds: 10));
@@ -138,9 +189,12 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
           return KeyEventResult.handled;
         }
       }
+
+      // Any other key (like Select/Enter) just wakes OSD
       return KeyEventResult.handled;
     }
 
+    // 6. OSD-VISIBLE KEYS (Delegate to Focus System)
     _vm.wakeOSD();
     return KeyEventResult.ignored;
   }
@@ -389,16 +443,20 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     final tokens = context.tokens;
     final item = _vm.current;
     final isBroadcast = item?.isBroadcast ?? false;
+    final size = MediaQuery.sizeOf(context);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
+      padding: EdgeInsets.symmetric(
+        horizontal: (size.width * 0.03).clamp(16.0, 40.0),
+        vertical: (size.height * 0.04).clamp(16.0, 40.0),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // 1. Progress Bar
           if (item?.isImage == false) ...[
             BrutalistProgressBar(player: _vm.player, compact: false, isReadOnly: isBroadcast),
-            const SizedBox(height: 24),
+            SizedBox(height: (size.height * 0.02).clamp(12.0, 24.0)),
           ],
           // 2. Metadata & Controls Row
           Row(
@@ -413,7 +471,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                       children: [
                         Text(
                           'STREAMZ // ${_vm.currentIndex + 1} OF ${_vm.playlist.length}',
-                          style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 3),
+                          style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: (size.width * 0.008).clamp(9.0, 12.0), letterSpacing: 3),
                         ),
                         if (isBroadcast) ...[
                           const SizedBox(width: 12),
@@ -433,7 +491,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                       (item?.title ?? '').toUpperCase(),
                       style: GoogleFonts.barlowCondensed(
                         color: tokens.textPrimary,
-                        fontSize: 16,
+                        fontSize: (size.width * 0.012).clamp(14.0, 20.0),
                         fontWeight: FontWeight.w900,
                         letterSpacing: 1,
                         height: 1.1,
@@ -448,11 +506,11 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _TVVlcBtn(icon: LucideIcons.skipBack, size: 48, onTap: _vm.prev),
+                  _TVVlcBtn(icon: LucideIcons.skipBack, size: (size.width * 0.03).clamp(32.0, 48.0), onTap: _vm.prev),
                   const SizedBox(width: 16),
                   _buildPlayPauseBtn(context),
                   const SizedBox(width: 16),
-                  _TVVlcBtn(icon: LucideIcons.skipForward, size: 48, onTap: _vm.next),
+                  _TVVlcBtn(icon: LucideIcons.skipForward, size: (size.width * 0.03).clamp(32.0, 48.0), onTap: _vm.next),
                 ],
               ),
               // Options (Right)
@@ -460,13 +518,13 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    _TVVlcBtn(icon: LucideIcons.subtitles, size: 44, onTap: () => _showTrackModal('subtitles')),
+                    _TVVlcBtn(icon: LucideIcons.subtitles, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => _showTrackModal('subtitles')),
                     const SizedBox(width: 12),
-                    _TVVlcBtn(icon: LucideIcons.activity, size: 44, onTap: () => _showTrackModal('audio')),
+                    _TVVlcBtn(icon: LucideIcons.activity, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => _showTrackModal('audio')),
                     const SizedBox(width: 12),
-                    _TVVlcBtn(icon: LucideIcons.settings2, size: 44, onTap: () => setState(() => _showSidebar = true)),
+                    _TVVlcBtn(icon: LucideIcons.settings2, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => setState(() => _showSidebar = true)),
                     const SizedBox(width: 12),
-                    _TVVlcBtn(icon: LucideIcons.x, size: 44, onTap: () => Navigator.pop(context), isDestructive: true),
+                    _TVVlcBtn(icon: LucideIcons.x, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => Navigator.pop(context), isDestructive: true),
                   ],
                 ),
               ),
@@ -480,6 +538,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
   Widget _buildPlayPauseBtn(BuildContext context) {
     final item = _vm.current;
     if (item?.isImage == true) return const SizedBox.shrink();
+    final size = MediaQuery.sizeOf(context);
 
     return StreamBuilder<bool>(
       stream: _vm.player.stream.playing,
@@ -487,7 +546,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
         final playing = snap.data ?? false;
         return _TVVlcBtn(
           icon: playing ? LucideIcons.pause : LucideIcons.play,
-          size: 64,
+          size: (size.width * 0.04).clamp(44.0, 64.0),
           isPrimary: true,
           focusNode: _playPauseFocusNode,
           onTap: () {
@@ -503,13 +562,16 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
 
   Widget _buildToolsSidebar(BuildContext context) {
     final tokens = context.tokens;
+    final size = MediaQuery.sizeOf(context);
+    final sidebarWidth = (size.width * 0.25).clamp(300.0, 420.0);
+
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutCubic,
-      right: _showSidebar ? 0 : -420,
+      right: _showSidebar ? 0 : -sidebarWidth,
       top: 0,
       bottom: 0,
-      width: 420,
+      width: sidebarWidth,
       child: Container(
         decoration: BoxDecoration(
           color: tokens.surface1,
@@ -521,13 +583,13 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.all(40),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
               child: Row(
                 children: [
-                  Icon(LucideIcons.settings2, color: tokens.textPrimary, size: 28),
-                  const SizedBox(width: 20),
-                  Text('SYSTEM_CONFIG', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  Icon(LucideIcons.settings2, color: tokens.textPrimary, size: (size.width * 0.02).clamp(20.0, 28.0)),
+                  const SizedBox(width: 16),
+                  Text('SYSTEM_CONFIG', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: (size.width * 0.015).clamp(20.0, 28.0), fontWeight: FontWeight.bold, letterSpacing: 2)),
                 ],
               ),
             ),
