@@ -42,6 +42,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   final FocusScopeNode _osdFocusScope = FocusScopeNode();
   final FocusNode _primaryFocusNode = FocusNode();
+  final FocusNode _sidebarFirstItemFocusNode = FocusNode();
 
   bool _wasOSDVisible = true;
   bool _showSidebar = false;
@@ -87,6 +88,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _vm.dispose();
     _osdFocusScope.dispose();
     _primaryFocusNode.dispose();
+    _sidebarFirstItemFocusNode.dispose();
     super.dispose();
   }
 
@@ -104,6 +106,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         key == LogicalKeyboardKey.exit) {
       if (_showSidebar) {
         setState(() => _showSidebar = false);
+        _primaryFocusNode.requestFocus();
         return KeyEventResult.handled;
       }
       if (_vm.showOSD) {
@@ -125,8 +128,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
 
     // 3. DEDICATED MEDIA KEYS
-    if (key == LogicalKeyboardKey.mediaPlay) {
-      _vm.player.play();
+    if (key == LogicalKeyboardKey.mediaPlay || key == LogicalKeyboardKey.space) {
+      if (!_vm.player.state.playing) {
+        _vm.player.play();
+      } else if (key == LogicalKeyboardKey.space) {
+        _vm.player.pause();
+      }
       _vm.wakeOSD();
       return KeyEventResult.handled;
     }
@@ -162,6 +169,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
     if (key == LogicalKeyboardKey.contextMenu) {
       setState(() => _showSidebar = true);
+      _sidebarFirstItemFocusNode.requestFocus();
       _vm.wakeOSD();
       return KeyEventResult.handled;
     }
@@ -222,36 +230,39 @@ class _PlayerScreenState extends State<PlayerScreen> {
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: MediaQuery.sizeOf(context).width * 0.85,
-            constraints: const BoxConstraints(maxWidth: 500),
-            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                  child: Text('LIVE STATIONS', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                ),
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    children: stations.map((s) => _MobileTrackTile(
-                      label: s['name'].toString().toUpperCase(),
-                      isActive: _vm.current?.folder == s['id'],
-                      onTap: () {
-                        _switchStation(s);
-                        Navigator.pop(ctx);
-                      },
-                    )).toList(),
+        child: FocusScope(
+          autofocus: true,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.sizeOf(context).width * 0.85,
+              constraints: const BoxConstraints(maxWidth: 500),
+              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                    child: Text('LIVE STATIONS', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
                   ),
-                ),
-              ],
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      children: stations.map((s) => _MobileTrackTile(
+                        label: s['name'].toString().toUpperCase(),
+                        isActive: _vm.current?.folder == s['id'],
+                        onTap: () {
+                          _switchStation(s);
+                          Navigator.pop(ctx);
+                        },
+                      )).toList(),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -476,7 +487,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 ],
               ),
             ),
-            _MobileIconBtn(icon: LucideIcons.settings2, size: 32, onTap: () => setState(() => _showSidebar = true)),
+            _MobileIconBtn(icon: LucideIcons.settings2, size: 32, onTap: () {
+              setState(() => _showSidebar = true);
+              _sidebarFirstItemFocusNode.requestFocus();
+            }),
           ],
         ),
       ),
@@ -592,7 +606,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 child: ListView(
                   padding: EdgeInsets.zero,
                   children: [
-                    _MobileSidebarItem(label: 'STATION LIST', icon: LucideIcons.radio, onTap: _showStationModal),
+                    _MobileSidebarItem(label: 'STATION LIST', icon: LucideIcons.radio, focusNode: _sidebarFirstItemFocusNode, onTap: _showStationModal),
                     _MobileSidebarItem(label: 'SUBTITLES', icon: LucideIcons.subtitles, onTap: () => _showTrackModal(context, 'subtitles')),
                     _MobileSidebarItem(label: 'AUDIO TRACKS', icon: LucideIcons.activity, onTap: () => _showTrackModal(context, 'audio')),
                     if (!(_vm.current?.isBroadcast ?? false))
@@ -642,32 +656,35 @@ class _PlayerScreenState extends State<PlayerScreen> {
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: MediaQuery.sizeOf(context).width * 0.85,
-            constraints: const BoxConstraints(maxWidth: 400),
-            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                  child: Text(type.toUpperCase(), style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                ),
-                if (type == 'subtitles')
-                  _MobileTrackTile(label: 'DISABLED', isActive: current.id == 'no', onTap: () { _vm.setSubtitleTrack(SubtitleTrack.no()); Navigator.pop(ctx); }),
-                ...tracks.map((t) => _MobileTrackTile(
-                  label: (t.title ?? t.language ?? t.id).toUpperCase(),
-                  isActive: t.id == current.id,
-                  onTap: () {
-                    type == 'audio' ? _vm.setAudioTrack(t as AudioTrack) : _vm.setSubtitleTrack(t as SubtitleTrack);
-                    Navigator.pop(ctx);
-                  },
-                )),
-              ],
+        child: FocusScope(
+          autofocus: true,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.sizeOf(context).width * 0.85,
+              constraints: const BoxConstraints(maxWidth: 400),
+              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                    child: Text(type.toUpperCase(), style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  ),
+                  if (type == 'subtitles')
+                    _MobileTrackTile(label: 'DISABLED', isActive: current.id == 'no', onTap: () { _vm.setSubtitleTrack(SubtitleTrack.no()); Navigator.pop(ctx); }),
+                  ...tracks.map((t) => _MobileTrackTile(
+                    label: (t.title ?? t.language ?? t.id).toUpperCase(),
+                    isActive: t.id == current.id,
+                    onTap: () {
+                      type == 'audio' ? _vm.setAudioTrack(t as AudioTrack) : _vm.setSubtitleTrack(t as SubtitleTrack);
+                      Navigator.pop(ctx);
+                    },
+                  )),
+                ],
+              ),
             ),
           ),
         ),
@@ -686,19 +703,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: MediaQuery.sizeOf(context).width * 0.8,
-            constraints: const BoxConstraints(maxWidth: 320),
-            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: speeds.map((s) => _MobileTrackTile(
-                label: '${s}X SPEED',
-                isActive: (s - current).abs() < 0.01,
-                onTap: () { _vm.setRate(s); Navigator.pop(ctx); },
-              )).toList(),
+        child: FocusScope(
+          autofocus: true,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.sizeOf(context).width * 0.8,
+              constraints: const BoxConstraints(maxWidth: 320),
+              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: speeds.map((s) => _MobileTrackTile(
+                  label: '${s}X SPEED',
+                  isActive: (s - current).abs() < 0.01,
+                  onTap: () { _vm.setRate(s); Navigator.pop(ctx); },
+                )).toList(),
+              ),
             ),
           ),
         ),
@@ -715,19 +735,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: MediaQuery.sizeOf(context).width * 0.8,
-            constraints: const BoxConstraints(maxWidth: 320),
-            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: fits.entries.map((e) => _MobileTrackTile(
-                label: e.value,
-                isActive: _vm.videoFit == e.key,
-                onTap: () { _vm.setVideoFit(e.key); Navigator.pop(ctx); },
-              )).toList(),
+        child: FocusScope(
+          autofocus: true,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.sizeOf(context).width * 0.8,
+              constraints: const BoxConstraints(maxWidth: 320),
+              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: fits.entries.map((e) => _MobileTrackTile(
+                  label: e.value,
+                  isActive: _vm.videoFit == e.key,
+                  onTap: () { _vm.setVideoFit(e.key); Navigator.pop(ctx); },
+                )).toList(),
+              ),
             ),
           ),
         ),
@@ -744,19 +767,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: MediaQuery.sizeOf(context).width * 0.8,
-            constraints: const BoxConstraints(maxWidth: 320),
-            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: options.map((m) => _MobileTrackTile(
-                label: m == 0 ? 'OFF' : '$m MINUTES',
-                isActive: _vm.sleepMinutesRemaining == m,
-                onTap: () { _vm.setSleepTimer(m); Navigator.pop(ctx); },
-              )).toList(),
+        child: FocusScope(
+          autofocus: true,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.sizeOf(context).width * 0.8,
+              constraints: const BoxConstraints(maxWidth: 320),
+              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: options.map((m) => _MobileTrackTile(
+                  label: m == 0 ? 'OFF' : '$m MINUTES',
+                  isActive: _vm.sleepMinutesRemaining == m,
+                  onTap: () { _vm.setSleepTimer(m); Navigator.pop(ctx); },
+                )).toList(),
+              ),
             ),
           ),
         ),
@@ -772,20 +798,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: MediaQuery.sizeOf(context).width * 0.9,
-            constraints: const BoxConstraints(maxWidth: 400),
-            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-            child: ListenableBuilder(
-              listenable: _vm,
-              builder: (_, child) => Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _MobileSyncTile(label: 'AUDIO OFFSET', value: _vm.audioDelay, onChanged: _vm.setAudioDelay),
-                  _MobileSyncTile(label: 'SUBTITLE OFFSET', value: _vm.subDelay, onChanged: _vm.setSubtitleDelay),
-                ],
+        child: FocusScope(
+          autofocus: true,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.sizeOf(context).width * 0.9,
+              constraints: const BoxConstraints(maxWidth: 400),
+              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
+              child: ListenableBuilder(
+                listenable: _vm,
+                builder: (_, child) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _MobileSyncTile(label: 'AUDIO OFFSET', value: _vm.audioDelay, onChanged: _vm.setAudioDelay),
+                    _MobileSyncTile(label: 'SUBTITLE OFFSET', value: _vm.subDelay, onChanged: _vm.setSubtitleDelay),
+                  ],
+                ),
               ),
             ),
           ),
@@ -799,7 +828,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 // MOBILE UI SUB-COMPONENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _MobileIconBtn extends StatelessWidget {
+class _MobileIconBtn extends StatefulWidget {
   final IconData icon;
   final VoidCallback onTap;
   final double size;
@@ -809,53 +838,85 @@ class _MobileIconBtn extends StatelessWidget {
   const _MobileIconBtn({required this.icon, required this.onTap, this.size = 44, this.isPrimary = false, this.isDestructive = false});
 
   @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: isPrimary ? tokens.textPrimary : Colors.transparent,
-          border: Border.all(color: isDestructive ? tokens.error : tokens.border.withValues(alpha: 0.15)),
-        ),
-        child: Icon(icon, color: isPrimary ? tokens.background : (isDestructive ? tokens.error : tokens.textPrimary), size: size * 0.5),
-      ),
-    );
-  }
+  State<_MobileIconBtn> createState() => _MobileIconBtnState();
 }
 
-class _MobileSidebarItem extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool isDestructive;
-
-  const _MobileSidebarItem({required this.label, required this.icon, required this.onTap, this.isDestructive = false});
+class _MobileIconBtnState extends State<_MobileIconBtn> {
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final color = isDestructive ? tokens.error : tokens.textPrimary;
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 14),
-            const SizedBox(width: 12),
-            Text(label, style: GoogleFonts.dmMono(color: color, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
-          ],
+    return Focus(
+      onFocusChange: (v) => setState(() => _focused = v),
+      onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(
+            color: _focused ? tokens.textPrimary : (widget.isPrimary ? tokens.textPrimary : Colors.transparent),
+            border: Border.all(color: widget.isDestructive ? tokens.error : (_focused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15))),
+          ),
+          child: Icon(widget.icon, color: _focused ? tokens.background : (widget.isPrimary ? tokens.background : (widget.isDestructive ? tokens.error : tokens.textPrimary)), size: widget.size * 0.5),
         ),
       ),
     );
   }
 }
 
-class _MobileTrackTile extends StatelessWidget {
+class _MobileSidebarItem extends StatefulWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isDestructive;
+  final FocusNode? focusNode;
+
+  const _MobileSidebarItem({required this.label, required this.icon, required this.onTap, this.isDestructive = false, this.focusNode});
+
+  @override
+  State<_MobileSidebarItem> createState() => _MobileSidebarItemState();
+}
+
+class _MobileSidebarItemState extends State<_MobileSidebarItem> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final color = widget.isDestructive ? tokens.error : (_focused ? tokens.background : tokens.textPrimary);
+    return Focus(
+      focusNode: widget.focusNode,
+      onFocusChange: (v) {
+        setState(() => _focused = v);
+        handleTVFocusScroll(v, context);
+      },
+      onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
+      child: InkWell(
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: _focused ? tokens.textPrimary : Colors.transparent,
+            border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+          ),
+          child: Row(
+            children: [
+              Icon(widget.icon, color: color, size: 14),
+              const SizedBox(width: 12),
+              Text(label, style: GoogleFonts.dmMono(color: color, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String get label => widget.label;
+}
+
+class _MobileTrackTile extends StatefulWidget {
   final String label;
   final bool isActive;
   final VoidCallback onTap;
@@ -863,21 +924,35 @@ class _MobileTrackTile extends StatelessWidget {
   const _MobileTrackTile({required this.label, required this.isActive, required this.onTap});
 
   @override
+  State<_MobileTrackTile> createState() => _MobileTrackTileState();
+}
+
+class _MobileTrackTileState extends State<_MobileTrackTile> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: isActive ? tokens.textPrimary.withValues(alpha: 0.05) : Colors.transparent,
-          border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-        ),
-        child: Row(
-          children: [
-            Expanded(child: Text(label, style: GoogleFonts.dmMono(color: isActive ? tokens.textPrimary : tokens.textSecondary, fontSize: 11, fontWeight: isActive ? FontWeight.bold : FontWeight.normal))),
-            if (isActive) Icon(LucideIcons.check, color: tokens.textPrimary, size: 12),
-          ],
+    return Focus(
+      onFocusChange: (v) {
+        setState(() => _focused = v);
+        handleTVFocusScroll(v, context);
+      },
+      onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
+      child: InkWell(
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: _focused ? tokens.textPrimary : (widget.isActive ? tokens.textPrimary.withValues(alpha: 0.05) : Colors.transparent),
+            border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+          ),
+          child: Row(
+            children: [
+              Expanded(child: Text(widget.label, style: GoogleFonts.dmMono(color: _focused ? tokens.background : (widget.isActive ? tokens.textPrimary : tokens.textSecondary), fontSize: 11, fontWeight: widget.isActive ? FontWeight.bold : FontWeight.normal))),
+              if (widget.isActive) Icon(LucideIcons.check, color: _focused ? tokens.background : tokens.textPrimary, size: 12),
+            ],
+          ),
         ),
       ),
     );

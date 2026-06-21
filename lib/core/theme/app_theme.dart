@@ -104,6 +104,7 @@ KeyEventResult handleTVSelectKey(KeyEvent event, VoidCallback? onTap) {
       (event.logicalKey == LogicalKeyboardKey.select ||
           event.logicalKey == LogicalKeyboardKey.enter ||
           event.logicalKey == LogicalKeyboardKey.numpadEnter ||
+          event.logicalKey == LogicalKeyboardKey.space ||
           event.logicalKey == LogicalKeyboardKey.gameButtonA)) {
     onTap();
     return KeyEventResult.handled;
@@ -557,12 +558,19 @@ class _BrutalistPlayerBtnState extends State<BrutalistPlayerBtn> {
   }
 }
 
-class BrutalistProgressBar extends StatelessWidget {
+class BrutalistProgressBar extends StatefulWidget {
   final Player player;
   final bool compact;
   final bool isReadOnly;
 
   const BrutalistProgressBar({super.key, required this.player, this.compact = false, this.isReadOnly = false});
+
+  @override
+  State<BrutalistProgressBar> createState() => _BrutalistProgressBarState();
+}
+
+class _BrutalistProgressBarState extends State<BrutalistProgressBar> {
+  bool _isFocused = false;
 
   String _fmt(int seconds) {
     final d = Duration(seconds: seconds);
@@ -579,54 +587,83 @@ class BrutalistProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     return StreamBuilder<Duration>(
-      stream: player.stream.position,
+      stream: widget.player.stream.position,
       builder: (_, posSnap) => StreamBuilder<Duration>(
-        stream: player.stream.duration,
+        stream: widget.player.stream.duration,
         builder: (_, durSnap) {
           final pos = posSnap.data ?? Duration.zero;
           final dur = durSnap.data ?? Duration.zero;
           final maxVal = dur.inMilliseconds.toDouble().clamp(1.0, double.infinity);
           final curVal = pos.inMilliseconds.toDouble().clamp(0.0, maxVal);
 
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: compact ? 56 : 80,
-                child: Text(_fmt(pos.inSeconds), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: compact ? 12 : 16)),
+          return Focus(
+            onFocusChange: (val) => setState(() => _isFocused = val),
+            onKeyEvent: (node, event) {
+              if (widget.isReadOnly) return KeyEventResult.ignored;
+              if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
+
+              if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                widget.player.seek(pos - const Duration(seconds: 10));
+                return KeyEventResult.handled;
+              }
+              if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                widget.player.seek(pos + const Duration(seconds: 10));
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              decoration: BoxDecoration(
+                color: _isFocused ? tokens.surface3.withValues(alpha: 0.3) : Colors.transparent,
+                border: Border.all(color: _isFocused ? tokens.accent : Colors.transparent, width: 2),
               ),
-              const SizedBox(width: DS.s16),
-              Expanded(
-                child: SliderTheme(
-                  data: SliderThemeData(
-                    trackHeight: compact ? 4 : 8,
-                    activeTrackColor: isReadOnly ? tokens.warning : tokens.accent,
-                    inactiveTrackColor: tokens.surface3,
-                    thumbColor: isReadOnly ? Colors.transparent : tokens.accent,
-                    overlayShape: SliderComponentShape.noOverlay,
-                    trackShape: const RectangularSliderTrackShape(),
-                    thumbShape: RoundSliderThumbShape(enabledThumbRadius: isReadOnly ? 0 : 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: widget.compact ? 56 : 80,
+                    child: Text(_fmt(pos.inSeconds), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: widget.compact ? 12 : 16)),
                   ),
-                  child: Slider(
-                    value: curVal,
-                    min: 0,
-                    max: maxVal,
-                    onChanged: isReadOnly ? null : (v) => player.seek(Duration(milliseconds: v.toInt())),
+                  const SizedBox(width: DS.s16),
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderThemeData(
+                        trackHeight: widget.compact ? 4 : 8,
+                        activeTrackColor: widget.isReadOnly ? tokens.warning : tokens.accent,
+                        inactiveTrackColor: tokens.surface3,
+                        thumbColor: widget.isReadOnly ? Colors.transparent : tokens.accent,
+                        overlayShape: SliderComponentShape.noOverlay,
+                        trackShape: const RectangularSliderTrackShape(),
+                        thumbShape: RoundSliderThumbShape(enabledThumbRadius: widget.isReadOnly ? 0 : 6),
+                      ),
+                      child: Slider(
+                        value: curVal,
+                        min: 0,
+                        max: maxVal,
+                        onChanged: widget.isReadOnly ? null : (v) => widget.player.seek(Duration(milliseconds: v.toInt())),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: DS.s16),
+                  SizedBox(
+                    width: widget.compact ? 56 : 80,
+                    child: Text(
+                      widget.isReadOnly ? 'LIVE' : _fmt(dur.inSeconds),
+                      textAlign: TextAlign.right,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelMedium?.copyWith(
+                        color: widget.isReadOnly ? tokens.warning : tokens.textMuted,
+                        fontSize: widget.compact ? 12 : 16,
+                        fontWeight: widget.isReadOnly ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: DS.s16),
-              SizedBox(
-                width: compact ? 56 : 80,
-                child: Text(
-                  isReadOnly ? 'LIVE' : _fmt(dur.inSeconds),
-                  textAlign: TextAlign.right,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium?.copyWith(color: isReadOnly ? tokens.warning : tokens.textMuted, fontSize: compact ? 12 : 16, fontWeight: isReadOnly ? FontWeight.bold : FontWeight.normal),
-                ),
-              ),
-            ],
+            ),
           );
         },
       ),

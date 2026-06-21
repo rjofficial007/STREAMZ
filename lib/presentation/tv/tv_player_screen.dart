@@ -46,6 +46,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
   late final PlayerViewModel _vm;
   final FocusScopeNode _osdFocusScope = FocusScopeNode();
   final FocusNode _playPauseFocusNode = FocusNode();
+  final FocusNode _sidebarFirstItemFocusNode = FocusNode();
   final GlobalKey _repaintKey = GlobalKey();
 
   bool _wasOSDVisible = true;
@@ -62,7 +63,9 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       startOffset: widget.startOffset,
       autoPlay: widget.autoPlay,
     ).then((_) {
-      _playPauseFocusNode.requestFocus();
+      if (mounted) {
+        _playPauseFocusNode.requestFocus();
+      }
     });
     _vm.snapshotCallback = _captureSnapshot;
     _wasOSDVisible = _vm.showOSD;
@@ -105,6 +108,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     _vm.dispose();
     _osdFocusScope.dispose();
     _playPauseFocusNode.dispose();
+    _sidebarFirstItemFocusNode.dispose();
     super.dispose();
   }
 
@@ -115,21 +119,9 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     final key = event.logicalKey;
     final item = _vm.current;
 
-    // 1. GLOBAL NAVIGATION & EXIT
-    if (key == LogicalKeyboardKey.escape ||
-        key == LogicalKeyboardKey.browserBack ||
-        key == LogicalKeyboardKey.goBack ||
-        key == LogicalKeyboardKey.exit) {
-      if (_showSidebar) {
-        setState(() => _showSidebar = false);
-        return KeyEventResult.handled;
-      }
-      if (_vm.showOSD) {
-        _vm.hideOSD();
-        return KeyEventResult.handled;
-      }
-      Navigator.pop(context);
-      return KeyEventResult.handled;
+    // 1. GLOBAL NAVIGATION & EXIT (Top priority)
+    if (_isExitKey(key)) {
+      return _handleExitRequest();
     }
 
     // 2. VOLUME CONTROL
@@ -142,9 +134,57 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       return KeyEventResult.handled;
     }
 
-    // 3. DEDICATED MEDIA KEYS (Always Handled)
-    if (key == LogicalKeyboardKey.mediaPlay) {
-      _vm.player.play();
+    // 3. DEDICATED MEDIA KEYS (Hardware buttons)
+    final mediaResult = _handleDedicatedMediaKeys(key, item);
+    if (mediaResult == KeyEventResult.handled) return KeyEventResult.handled;
+
+    // 4. INFO & SIDEBAR
+    if (key == LogicalKeyboardKey.info || key == LogicalKeyboardKey.guide) {
+      _vm.wakeOSD();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.contextMenu) {
+      _toggleSidebar(true);
+      return KeyEventResult.handled;
+    }
+
+    // 5. OSD-HIDDEN SPECIFIC KEYS (DPad interactions when OSD is gone)
+    if (!_vm.showOSD) {
+      return _handleHiddenOSDKeys(key, item);
+    }
+
+    // 6. OSD-VISIBLE KEYS (Delegate to Focus System)
+    _vm.wakeOSD();
+    return KeyEventResult.ignored;
+  }
+
+  bool _isExitKey(LogicalKeyboardKey key) {
+    return key == LogicalKeyboardKey.escape ||
+        key == LogicalKeyboardKey.browserBack ||
+        key == LogicalKeyboardKey.goBack ||
+        key == LogicalKeyboardKey.exit;
+  }
+
+  KeyEventResult _handleExitRequest() {
+    if (_showSidebar) {
+      _toggleSidebar(false);
+      return KeyEventResult.handled;
+    }
+    if (_vm.showOSD) {
+      _vm.hideOSD();
+      return KeyEventResult.handled;
+    }
+    Navigator.pop(context);
+    return KeyEventResult.handled;
+  }
+
+  KeyEventResult _handleDedicatedMediaKeys(LogicalKeyboardKey key, MediaItem? item) {
+    if (key == LogicalKeyboardKey.mediaPlay || key == LogicalKeyboardKey.space) {
+      if (!_vm.player.state.playing) {
+        _vm.player.play();
+      } else if (key == LogicalKeyboardKey.space) {
+        _vm.player.pause();
+      }
       _vm.wakeOSD();
       return KeyEventResult.handled;
     }
@@ -172,51 +212,45 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
         return KeyEventResult.handled;
       }
     }
-
-    // 4. INFO & SIDEBAR
-    if (key == LogicalKeyboardKey.info || key == LogicalKeyboardKey.guide) {
-      _vm.wakeOSD();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.contextMenu) {
-      setState(() => _showSidebar = true);
-      _vm.wakeOSD();
-      return KeyEventResult.handled;
-    }
-
-    // 5. OSD-HIDDEN SPECIFIC KEYS
-    if (!_vm.showOSD) {
-      _vm.wakeOSD();
-
-      // Channel Switching
-      if (key == LogicalKeyboardKey.channelUp || key == LogicalKeyboardKey.pageUp) {
-        _cycleStation(1);
-        return KeyEventResult.handled;
-      }
-      if (key == LogicalKeyboardKey.channelDown || key == LogicalKeyboardKey.pageDown) {
-        _cycleStation(-1);
-        return KeyEventResult.handled;
-      }
-
-      // Seeking (D-pad)
-      if (item?.isVideo == true && item?.isBroadcast != true) {
-        if (key == LogicalKeyboardKey.arrowRight) {
-          _vm.seekRelative(const Duration(seconds: 10));
-          return KeyEventResult.handled;
-        }
-        if (key == LogicalKeyboardKey.arrowLeft) {
-          _vm.seekRelative(const Duration(seconds: -10));
-          return KeyEventResult.handled;
-        }
-      }
-
-      // Any other key (like Select/Enter) just wakes OSD
-      return KeyEventResult.handled;
-    }
-
-    // 6. OSD-VISIBLE KEYS (Delegate to Focus System)
-    _vm.wakeOSD();
     return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleHiddenOSDKeys(LogicalKeyboardKey key, MediaItem? item) {
+    _vm.wakeOSD();
+
+    // Channel Switching
+    if (key == LogicalKeyboardKey.channelUp || key == LogicalKeyboardKey.pageUp) {
+      _cycleStation(1);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.channelDown || key == LogicalKeyboardKey.pageDown) {
+      _cycleStation(-1);
+      return KeyEventResult.handled;
+    }
+
+    // Seeking (D-pad)
+    if (item?.isVideo == true && item?.isBroadcast != true) {
+      if (key == LogicalKeyboardKey.arrowRight) {
+        _vm.seekRelative(const Duration(seconds: 10));
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.arrowLeft) {
+        _vm.seekRelative(const Duration(seconds: -10));
+        return KeyEventResult.handled;
+      }
+    }
+
+    return KeyEventResult.handled;
+  }
+
+  void _toggleSidebar(bool show) {
+    setState(() => _showSidebar = show);
+    if (show) {
+      _sidebarFirstItemFocusNode.requestFocus();
+      _vm.wakeOSD();
+    } else {
+      _playPauseFocusNode.requestFocus();
+    }
   }
 
   // ── Station Switching ─────────────────────────────────────────────────────
@@ -267,34 +301,37 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 540,
-            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                  child: Text('LIVE BROADCAST STATIONS', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                ),
-                if (stations.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(40),
-                    child: Text('NO ACTIVE BROADCASTS FOUND', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 16, letterSpacing: 2), textAlign: TextAlign.center),
+        child: FocusScope(
+          autofocus: true,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: 540,
+              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                    child: Text('LIVE BROADCAST STATIONS', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
                   ),
-                ...stations.map((s) => _TVTrackTile(
-                  label: s['name'].toString().toUpperCase(),
-                  isActive: _vm.current?.folder == s['id'],
-                  onTap: () {
-                    _switchStation(s);
-                    Navigator.pop(ctx);
-                  },
-                )),
-              ],
+                  if (stations.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(40),
+                      child: Text('NO ACTIVE BROADCASTS FOUND', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 16, letterSpacing: 2), textAlign: TextAlign.center),
+                    ),
+                  ...stations.map((s) => _TVTrackTile(
+                    label: s['name'].toString().toUpperCase(),
+                    isActive: _vm.current?.folder == s['id'],
+                    onTap: () {
+                      _switchStation(s);
+                      Navigator.pop(ctx);
+                    },
+                  )),
+                ],
+              ),
             ),
           ),
         ),
@@ -311,8 +348,12 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       value: _vm,
       child: Scaffold(
         backgroundColor: tokens.background,
-        body: AtmosphericBackground(
-          colors: _vm.vibeColors,
+        body: Selector<PlayerViewModel, List<Color>?>(
+          selector: (_, vm) => vm.vibeColors,
+          builder: (context, vibeColors, child) => AtmosphericBackground(
+            colors: vibeColors,
+            child: child!,
+          ),
           child: MouseRegion(
             onHover: (_) => _vm.wakeOSD(),
             child: FocusScope(
@@ -323,12 +364,21 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    _buildMediaLayer(context),
-                    _buildGestureFeedback(context),
-                    _buildOSD(context),
+                    Selector<PlayerViewModel, MediaItem?>(
+                      selector: (_, vm) => vm.current,
+                      builder: (context, item, _) => _buildMediaLayer(context, item),
+                    ),
+                    Selector<PlayerViewModel, (double, String)>(
+                      selector: (_, vm) => (vm.gestureOpacity, vm.gestureTxt),
+                      builder: (context, data, _) => _buildGestureFeedback(context, data.$1, data.$2),
+                    ),
+                    Selector<PlayerViewModel, bool>(
+                      selector: (_, vm) => vm.showOSD,
+                      builder: (context, show, _) => _buildOSD(context, show),
+                    ),
                     if (_showSidebar)
                       GestureDetector(
-                        onTap: () => setState(() => _showSidebar = false),
+                        onTap: () => _toggleSidebar(false),
                         child: Container(color: tokens.background.withValues(alpha: 0.6)),
                       ),
                     _buildToolsSidebar(context),
@@ -344,9 +394,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
 
   // ── Media Layers ──────────────────────────────────────────────────────────
 
-  Widget _buildMediaLayer(BuildContext context) {
+  Widget _buildMediaLayer(BuildContext context, MediaItem? item) {
     final tokens = context.tokens;
-    final item = _vm.current;
     if (item == null) return Center(child: CircularProgressIndicator(color: tokens.accent));
 
     if (item.isImage) return _buildImageLayout(context, item);
@@ -438,13 +487,13 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
 
   // ── OSD (VLC Inspired) ────────────────────────────────────────────────────
 
-  Widget _buildOSD(BuildContext context) {
+  Widget _buildOSD(BuildContext context, bool showOSD) {
     final tokens = context.tokens;
     return AnimatedOpacity(
-      opacity: _vm.showOSD ? 1.0 : 0.0,
+      opacity: showOSD ? 1.0 : 0.0,
       duration: const Duration(milliseconds: 250),
       child: ExcludeFocus(
-        excluding: !_vm.showOSD,
+        excluding: !showOSD,
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -467,8 +516,6 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
 
   Widget _buildVlcBottomControls(BuildContext context) {
     final tokens = context.tokens;
-    final item = _vm.current;
-    final isBroadcast = item?.isBroadcast ?? false;
     final size = MediaQuery.sizeOf(context);
 
     return Container(
@@ -476,87 +523,97 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
         horizontal: (size.width * 0.03).clamp(16.0, 40.0),
         vertical: (size.height * 0.04).clamp(16.0, 40.0),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 1. Progress Bar
-          if (item?.isImage == false) ...[
-            BrutalistProgressBar(player: _vm.player, compact: false, isReadOnly: isBroadcast),
-            SizedBox(height: (size.height * 0.02).clamp(12.0, 24.0)),
-          ],
-          // 2. Metadata & Controls Row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+      child: Selector<PlayerViewModel, (MediaItem?, int, int)>(
+        selector: (_, vm) => (vm.current, vm.currentIndex, vm.playlist.length),
+        builder: (context, data, _) {
+          final item = data.$1;
+          final idx = data.$2;
+          final total = data.$3;
+          final isBroadcast = item?.isBroadcast ?? false;
+
+          return Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Metadata (Left)
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              // 1. Progress Bar
+              if (item?.isImage == false) ...[
+                BrutalistProgressBar(player: _vm.player, compact: false, isReadOnly: isBroadcast),
+                SizedBox(height: (size.height * 0.02).clamp(12.0, 24.0)),
+              ],
+              // 2. Metadata & Controls Row
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // Metadata (Left)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'STREAMZ // ${_vm.currentIndex + 1} OF ${_vm.playlist.length}',
-                          style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: (size.width * 0.008).clamp(9.0, 12.0), letterSpacing: 3),
-                        ),
-                        if (isBroadcast) ...[
-                          const SizedBox(width: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            color: tokens.error,
-                            child: Text(
-                              'LIVE',
-                              style: GoogleFonts.dmMono(color: tokens.background, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                        Row(
+                          children: [
+                            Text(
+                              'STREAMZ // ${idx + 1} OF $total',
+                              style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: (size.width * 0.008).clamp(9.0, 12.0), letterSpacing: 3),
                             ),
+                            if (isBroadcast) ...[
+                              const SizedBox(width: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                color: tokens.error,
+                                child: Text(
+                                  'LIVE',
+                                  style: GoogleFonts.dmMono(color: tokens.background, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          (item?.title ?? '').toUpperCase(),
+                          style: GoogleFonts.barlowCondensed(
+                            color: tokens.textPrimary,
+                            fontSize: (size.width * 0.012).clamp(14.0, 20.0),
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1,
+                            height: 1.1,
                           ),
-                        ],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      (item?.title ?? '').toUpperCase(),
-                      style: GoogleFonts.barlowCondensed(
-                        color: tokens.textPrimary,
-                        fontSize: (size.width * 0.012).clamp(14.0, 20.0),
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1,
-                        height: 1.1,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  ),
+                  // Playback Controls (Center)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _TVVlcBtn(icon: LucideIcons.skipBack, size: (size.width * 0.03).clamp(32.0, 48.0), onTap: _vm.prev),
+                      const SizedBox(width: 16),
+                      _buildPlayPauseBtn(context),
+                      const SizedBox(width: 16),
+                      _TVVlcBtn(icon: LucideIcons.skipForward, size: (size.width * 0.03).clamp(32.0, 48.0), onTap: _vm.next),
+                    ],
+                  ),
+                  // Options (Right)
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        _TVVlcBtn(icon: LucideIcons.subtitles, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => _showTrackModal('subtitles')),
+                        const SizedBox(width: 12),
+                        _TVVlcBtn(icon: LucideIcons.activity, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => _showTrackModal('audio')),
+                        const SizedBox(width: 12),
+                        _TVVlcBtn(icon: LucideIcons.settings2, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => _toggleSidebar(true)),
+                        const SizedBox(width: 12),
+                        _TVVlcBtn(icon: LucideIcons.x, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => Navigator.pop(context), isDestructive: true),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              // Playback Controls (Center)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _TVVlcBtn(icon: LucideIcons.skipBack, size: (size.width * 0.03).clamp(32.0, 48.0), onTap: _vm.prev),
-                  const SizedBox(width: 16),
-                  _buildPlayPauseBtn(context),
-                  const SizedBox(width: 16),
-                  _TVVlcBtn(icon: LucideIcons.skipForward, size: (size.width * 0.03).clamp(32.0, 48.0), onTap: _vm.next),
+                  ),
                 ],
               ),
-              // Options (Right)
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    _TVVlcBtn(icon: LucideIcons.subtitles, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => _showTrackModal('subtitles')),
-                    const SizedBox(width: 12),
-                    _TVVlcBtn(icon: LucideIcons.activity, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => _showTrackModal('audio')),
-                    const SizedBox(width: 12),
-                    _TVVlcBtn(icon: LucideIcons.settings2, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => setState(() => _showSidebar = true)),
-                    const SizedBox(width: 12),
-                    _TVVlcBtn(icon: LucideIcons.x, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => Navigator.pop(context), isDestructive: true),
-                  ],
-                ),
-              ),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -623,7 +680,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  _TVSidebarItem(label: 'STATION LIST', icon: LucideIcons.radio, onTap: _showStationModal),
+                  _TVSidebarItem(label: 'STATION LIST', icon: LucideIcons.radio, focusNode: _sidebarFirstItemFocusNode, onTap: _showStationModal),
                   _TVSidebarItem(label: 'SUBTITLE TRACKS', icon: LucideIcons.subtitles, onTap: () => _showTrackModal('subtitles')),
                   _TVSidebarItem(label: 'AUDIO TRACKS', icon: LucideIcons.activity, onTap: () => _showTrackModal('audio')),
                   if (!(_vm.current?.isBroadcast ?? false))
@@ -641,11 +698,11 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     );
   }
 
-  Widget _buildGestureFeedback(BuildContext context) {
+  Widget _buildGestureFeedback(BuildContext context, double opacity, String text) {
     final tokens = context.tokens;
     return Center(
       child: AnimatedOpacity(
-        opacity: _vm.gestureOpacity,
+        opacity: opacity,
         duration: const Duration(milliseconds: 150),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
@@ -654,7 +711,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
             border: Border.all(color: tokens.background, width: 4),
           ),
           child: Text(
-            _vm.gestureTxt.toUpperCase(),
+            text.toUpperCase(),
             style: GoogleFonts.dmMono(color: tokens.background, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 4),
           ),
         ),
@@ -675,31 +732,34 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 540,
-            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                  child: Text('${type.toUpperCase()} SIGNAL SELECT', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                ),
-                if (type == 'subtitles')
-                  _TVTrackTile(label: 'DISABLE SUBTITLES', isActive: current.id == 'no', onTap: () { _vm.setSubtitleTrack(SubtitleTrack.no()); Navigator.pop(ctx); }),
-                ...tracks.map((t) => _TVTrackTile(
-                  label: (t.title ?? t.language ?? t.id).toUpperCase(),
-                  isActive: t.id == current.id,
-                  onTap: () {
-                    type == 'audio' ? _vm.setAudioTrack(t as AudioTrack) : _vm.setSubtitleTrack(t as SubtitleTrack);
-                    Navigator.pop(ctx);
-                  },
-                )),
-              ],
+        child: FocusScope(
+          autofocus: true,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: 540,
+              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                    child: Text('${type.toUpperCase()} SIGNAL SELECT', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  ),
+                  if (type == 'subtitles')
+                    _TVTrackTile(label: 'DISABLE SUBTITLES', isActive: current.id == 'no', onTap: () { _vm.setSubtitleTrack(SubtitleTrack.no()); Navigator.pop(ctx); }),
+                  ...tracks.map((t) => _TVTrackTile(
+                    label: (t.title ?? t.language ?? t.id).toUpperCase(),
+                    isActive: t.id == current.id,
+                    onTap: () {
+                      type == 'audio' ? _vm.setAudioTrack(t as AudioTrack) : _vm.setSubtitleTrack(t as SubtitleTrack);
+                      Navigator.pop(ctx);
+                    },
+                  )),
+                ],
+              ),
             ),
           ),
         ),
@@ -718,26 +778,29 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 440,
-            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                  child: Text('PLAYBACK RATE', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                ),
-                ...speeds.map((s) => _TVTrackTile(
-                  label: '${s}X SPEED',
-                  isActive: (s - current).abs() < 0.01,
-                  onTap: () { _vm.setRate(s); Navigator.pop(ctx); },
-                )),
-              ],
+        child: FocusScope(
+          autofocus: true,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: 440,
+              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                    child: Text('PLAYBACK RATE', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  ),
+                  ...speeds.map((s) => _TVTrackTile(
+                    label: '${s}X SPEED',
+                    isActive: (s - current).abs() < 0.01,
+                    onTap: () { _vm.setRate(s); Navigator.pop(ctx); },
+                  )),
+                ],
+              ),
             ),
           ),
         ),
@@ -754,26 +817,29 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 440,
-            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                  child: Text('ASPECT_CALIBRATION', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                ),
-                ...fits.entries.map((e) => _TVTrackTile(
-                  label: e.value,
-                  isActive: _vm.videoFit == e.key,
-                  onTap: () { _vm.setVideoFit(e.key); Navigator.pop(ctx); },
-                )),
-              ],
+        child: FocusScope(
+          autofocus: true,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: 440,
+              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                    child: Text('ASPECT_CALIBRATION', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  ),
+                  ...fits.entries.map((e) => _TVTrackTile(
+                    label: e.value,
+                    isActive: _vm.videoFit == e.key,
+                    onTap: () { _vm.setVideoFit(e.key); Navigator.pop(ctx); },
+                  )),
+                ],
+              ),
             ),
           ),
         ),
@@ -790,26 +856,29 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 440,
-            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                  child: Text('AUTO_SHUTDOWN', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                ),
-                ...options.map((m) => _TVTrackTile(
-                  label: m == 0 ? 'DISABLED' : '$m MINUTES',
-                  isActive: _vm.sleepMinutesRemaining == m,
-                  onTap: () { _vm.setSleepTimer(m); Navigator.pop(ctx); },
-                )),
-              ],
+        child: FocusScope(
+          autofocus: true,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: 440,
+              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                    child: Text('AUTO_SHUTDOWN', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  ),
+                  ...options.map((m) => _TVTrackTile(
+                    label: m == 0 ? 'DISABLED' : '$m MINUTES',
+                    isActive: _vm.sleepMinutesRemaining == m,
+                    onTap: () { _vm.setSleepTimer(m); Navigator.pop(ctx); },
+                  )),
+                ],
+              ),
             ),
           ),
         ),
@@ -825,30 +894,33 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       barrierDismissible: true,
       barrierLabel: 'Close',
       pageBuilder: (ctx, anim1, anim2) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: 440,
-            decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                  child: Text('SYNC_ADJUSTMENT', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                ),
-                ListenableBuilder(
-                  listenable: _vm,
-                  builder: (_, child) => Column(
-                    children: [
-                      _TVSyncTile(label: 'AUDIO OFFSET', value: _vm.audioDelay, onChanged: _vm.setAudioDelay),
-                      _TVSyncTile(label: 'SUBTITLE OFFSET', value: _vm.subDelay, onChanged: _vm.setSubtitleDelay),
-                    ],
+        child: FocusScope(
+          autofocus: true,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: 440,
+              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                    child: Text('SYNC_ADJUSTMENT', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
                   ),
-                ),
-              ],
+                  ListenableBuilder(
+                    listenable: _vm,
+                    builder: (_, child) => Column(
+                      children: [
+                        _TVSyncTile(label: 'AUDIO OFFSET', value: _vm.audioDelay, onChanged: _vm.setAudioDelay),
+                        _TVSyncTile(label: 'SUBTITLE OFFSET', value: _vm.subDelay, onChanged: _vm.setSubtitleDelay),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -890,15 +962,20 @@ class _TVVlcBtnState extends State<_TVVlcBtn> {
       onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedContainer(
+        child: AnimatedScale(
+          scale: _focused ? 1.1 : 1.0,
           duration: const Duration(milliseconds: 150),
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            color: bg,
-            border: Border.all(color: _focused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15), width: _focused ? 4 : 1),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(
+              color: bg,
+              border: Border.all(color: _focused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15), width: _focused ? 4 : 1),
+              boxShadow: _focused ? [BoxShadow(color: tokens.textPrimary.withValues(alpha: 0.2), blurRadius: 20, offset: const Offset(4, 4))] : [],
+            ),
+            child: Icon(widget.icon, color: fg, size: widget.size * 0.5),
           ),
-          child: Icon(widget.icon, color: fg, size: widget.size * 0.5),
         ),
       ),
     );
@@ -910,8 +987,9 @@ class _TVSidebarItem extends StatefulWidget {
   final IconData icon;
   final VoidCallback onTap;
   final bool isDestructive;
+  final FocusNode? focusNode;
 
-  const _TVSidebarItem({required this.label, required this.icon, required this.onTap, this.isDestructive = false});
+  const _TVSidebarItem({required this.label, required this.icon, required this.onTap, this.isDestructive = false, this.focusNode});
 
   @override
   State<_TVSidebarItem> createState() => _TVSidebarItemState();
@@ -924,32 +1002,40 @@ class _TVSidebarItemState extends State<_TVSidebarItem> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     return Focus(
-      onFocusChange: (v) => setState(() => _focused = v),
+      focusNode: widget.focusNode,
+      onFocusChange: (v) {
+        setState(() => _focused = v);
+        handleTVFocusScroll(v, context);
+      },
       onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
-          decoration: BoxDecoration(
-            color: _focused ? (widget.isDestructive ? tokens.error : tokens.textPrimary) : Colors.transparent,
-            border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-          ),
-          child: Row(
-            children: [
-              Icon(widget.icon, color: _focused ? tokens.background : (widget.isDestructive ? tokens.error : tokens.textPrimary), size: 24),
-              const SizedBox(width: 24),
-              Expanded(
-                child: Text(
-                  widget.label,
-                  style: GoogleFonts.dmMono(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _focused ? tokens.background : (widget.isDestructive ? tokens.error : tokens.textPrimary),
-                    letterSpacing: 2,
+        child: AnimatedScale(
+          scale: _focused ? 1.02 : 1.0,
+          duration: const Duration(milliseconds: 150),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+            decoration: BoxDecoration(
+              color: _focused ? (widget.isDestructive ? tokens.error : tokens.textPrimary) : Colors.transparent,
+              border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+            ),
+            child: Row(
+              children: [
+                Icon(widget.icon, color: _focused ? tokens.background : (widget.isDestructive ? tokens.error : tokens.textPrimary), size: 24),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Text(
+                    widget.label,
+                    style: GoogleFonts.dmMono(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: _focused ? tokens.background : (widget.isDestructive ? tokens.error : tokens.textPrimary),
+                      letterSpacing: 2,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -975,31 +1061,38 @@ class _TVTrackTileState extends State<_TVTrackTile> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     return Focus(
-      onFocusChange: (v) => setState(() => _focused = v),
+      onFocusChange: (v) {
+        setState(() => _focused = v);
+        handleTVFocusScroll(v, context);
+      },
       onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
-          decoration: BoxDecoration(
-            color: _focused ? tokens.textPrimary : (widget.isActive ? tokens.textPrimary.withValues(alpha: 0.05) : Colors.transparent),
-            border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  widget.label,
-                  style: GoogleFonts.dmMono(
-                    fontSize: 16,
-                    fontWeight: _focused || widget.isActive ? FontWeight.bold : FontWeight.normal,
-                    color: _focused ? tokens.background : (widget.isActive ? tokens.textPrimary : tokens.textSecondary),
-                    letterSpacing: 2,
+        child: AnimatedScale(
+          scale: _focused ? 1.02 : 1.0,
+          duration: const Duration(milliseconds: 150),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+            decoration: BoxDecoration(
+              color: _focused ? tokens.textPrimary : (widget.isActive ? tokens.textPrimary.withValues(alpha: 0.05) : Colors.transparent),
+              border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.label,
+                    style: GoogleFonts.dmMono(
+                      fontSize: 16,
+                      fontWeight: _focused || widget.isActive ? FontWeight.bold : FontWeight.normal,
+                      color: _focused ? tokens.background : (widget.isActive ? tokens.textPrimary : tokens.textSecondary),
+                      letterSpacing: 2,
+                    ),
                   ),
                 ),
-              ),
-              if (widget.isActive) Icon(LucideIcons.check, color: _focused ? tokens.background : tokens.textPrimary, size: 24),
-            ],
+                if (widget.isActive) Icon(LucideIcons.check, color: _focused ? tokens.background : tokens.textPrimary, size: 24),
+              ],
+            ),
           ),
         ),
       ),
