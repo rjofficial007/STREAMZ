@@ -17,8 +17,21 @@ import '../../domain/models/media_item.dart';
 import 'client_viewmodel.dart';
 import 'interface_selection_screen_tv.dart';
 
-class InterfaceSelectionScreen extends StatelessWidget {
+class InterfaceSelectionScreen extends StatefulWidget {
   const InterfaceSelectionScreen({super.key});
+
+  @override
+  State<InterfaceSelectionScreen> createState() => _InterfaceSelectionScreenState();
+}
+
+class _InterfaceSelectionScreenState extends State<InterfaceSelectionScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ClientViewModel>().refresh();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,9 +97,15 @@ class InterfaceSelectionScreen extends StatelessWidget {
           letterSpacing: 4
         ),
       ),
+      actions: [
+        IconButton(
+          icon: Icon(LucideIcons.refreshCw, size: 20, color: tokens.textPrimary),
+          onPressed: () => vm.refresh(),
+        ),
+      ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(color: tokens.border.withValues(alpha: 0.15), height: 1),
+        child: Container(color: tokens.textPrimary, height: 1),
       ),
     );
   }
@@ -99,46 +118,49 @@ class InterfaceSelectionScreen extends StatelessWidget {
         
         Container(
           decoration: BoxDecoration(
-            border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))), 
-            color: tokens.border.withValues(alpha: 0.15)
+            border: Border.symmetric(horizontal: BorderSide(color: tokens.textPrimary)), 
           ),
-          child: GridView.count(
-            crossAxisCount: 3,
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 1,
-            crossAxisSpacing: 1,
-            children: [
-              _QuickActionCard(
-                label: 'TV USER',
-                icon: LucideIcons.tv,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChangeNotifierProvider.value(value: vm, child: const TVSelectionScreen()),
+          child: IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _QuickActionCard(
+                    label: 'TV USER',
+                    icon: LucideIcons.tv,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChangeNotifierProvider.value(value: vm, child: const TVSelectionScreen()),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              _QuickActionCard(
-                label: 'MOBILE USER',
-                icon: LucideIcons.smartphone,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChangeNotifierProvider.value(value: vm, child: const MobileSelectionScreen()),
+                VerticalDivider(width: 1, thickness: 1, color: tokens.textPrimary),
+                Expanded(
+                  child: _QuickActionCard(
+                    label: 'MOBILE USER',
+                    icon: LucideIcons.smartphone,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChangeNotifierProvider.value(value: vm, child: const MobileSelectionScreen()),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              _QuickActionCard(
-                label: 'TERMINATE',
-                icon: LucideIcons.power,
-                onTap: () {
-                  vm.disconnect();
-                  Navigator.pop(context);
-                },
-              ),
-            ],
+                VerticalDivider(width: 1, thickness: 1, color: tokens.textPrimary),
+                Expanded(
+                  child: _QuickActionCard(
+                    label: 'TERMINATE',
+                    icon: LucideIcons.power,
+                    onTap: () {
+                      vm.disconnect();
+                      Navigator.pop(context);
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
 
@@ -181,6 +203,7 @@ class InterfaceSelectionScreen extends StatelessWidget {
     }
   }
 }
+
 
 class _GatewayAnalysisCard extends StatelessWidget {
   final ClientViewModel vm;
@@ -283,30 +306,36 @@ class _QuickActionCard extends StatefulWidget {
 
 class _QuickActionCardState extends State<_QuickActionCard> {
   bool _isPressed = false;
+  bool _isFocused = false;
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _isPressed = false),
-      child: Container(
-        color: _isPressed ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.surface2,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(widget.icon, color: tokens.textPrimary, size: 24),
-            const SizedBox(height: 8),
-            Text(
-              widget.label,
-              style: GoogleFonts.dmMono(color: tokens.textSecondary, fontSize: 9, letterSpacing: 1),
-              textAlign: TextAlign.center,
-            ),
-          ],
+    final isActive = _isPressed || _isFocused;
+    return Focus(
+      onFocusChange: (v) => setState(() => _isFocused = v),
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) {
+          setState(() => _isPressed = false);
+          widget.onTap();
+        },
+        onTapCancel: () => setState(() => _isPressed = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          color: isActive ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.surface2,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(widget.icon, color: tokens.textPrimary, size: 24),
+              const SizedBox(height: 8),
+              Text(
+                widget.label,
+                style: GoogleFonts.dmMono(color: tokens.textSecondary, fontSize: 9, letterSpacing: 1),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );

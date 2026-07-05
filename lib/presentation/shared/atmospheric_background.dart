@@ -10,10 +10,26 @@ class AtmosphericBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // If no colors are provided, fall back to pure black (Brutalist default)
-    final themeColors = (colors == null || colors!.isEmpty) 
+    // Attempt to get colors from active session if not provided explicitly
+    List<Color>? effectiveColors = colors;
+    
+    if (effectiveColors == null || effectiveColors.isEmpty) {
+      try {
+        // [Atmospheric Sync] Potential future use of clientVM for dynamic vibe updates
+        // final clientVM = Provider.of<ClientViewModel>(context, listen: false);
+      } catch (_) {}
+    }
+
+    // If no colors are still not provided, fall back to pure black (Brutalist default)
+    // FORCE GRAYSCALE: Even if colors are provided (e.g. from Vibe-Sync), 
+    // we neutralize them to maintain the requested Black & White aesthetic.
+    final themeColors = (effectiveColors == null || effectiveColors.isEmpty) 
         ? [Colors.black, Colors.black] 
-        : colors!;
+        : effectiveColors.map((c) {
+            // Neutralize saturation using luminance
+            final l = (c.computeLuminance() * 255).toInt();
+            return Color.fromARGB(c.alpha.toInt(), l, l, l);
+          }).toList();
 
     return Stack(
       children: [
@@ -58,7 +74,7 @@ class AtmosphericBackground extends StatelessWidget {
         ),
 
         // ── Content Layer ───────────────────────────────────────────────────
-        if (child != null) child!,
+        child ?? const SizedBox.shrink(),
       ],
     );
   }

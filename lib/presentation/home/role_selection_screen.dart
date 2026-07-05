@@ -7,13 +7,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/design_tokens.dart';
 import '../client/client_connect_screen.dart';
-import '../client/client_viewmodel.dart';
 import '../server/server_dashboard.dart';
 import '../shared/theme_settings_screen.dart';
 import 'permission_screen.dart';
@@ -60,7 +58,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ChangeNotifierProvider(create: (_) => ClientViewModel(), child: const ClientConnectScreen()),
+        builder: (_) => const ClientConnectScreen(),
       ),
     ).whenComplete(() {
       if (mounted) setState(() => _navigating = false);
@@ -118,7 +116,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(color: tokens.border.withValues(alpha: 0.15), height: 1),
+        child: Container(color: tokens.textPrimary, height: 1),
       ),
     );
   }
@@ -130,21 +128,26 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
         const _SystemStatusCard(),
         Container(
           decoration: BoxDecoration(
-            border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-            color: tokens.border.withValues(alpha: 0.15),
+            border: Border.symmetric(horizontal: BorderSide(color: tokens.textPrimary)),
           ),
-          child: GridView.count(
-            childAspectRatio: 2,
-            crossAxisCount: 1,
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 1,
-            crossAxisSpacing: 1,
-            children: [
-              _QuickActionCard(label: 'HOST SERVER', subLabel: 'BROADCAST ENGINE', code: '01', icon: LucideIcons.hardDrive, onTap: _handleServerTap),
-              _QuickActionCard(label: 'JOIN NODE', subLabel: 'SYNCHRONIZE', code: '02', icon: LucideIcons.wifiHigh, onTap: _handleClientTap),
-            ],
+          child: IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(
+                  child: AspectRatio(
+                    aspectRatio: 1.0,
+                    child: _QuickActionCard(label: 'HOST SERVER', subLabel: 'BROADCAST ENGINE', code: '01', icon: LucideIcons.hardDrive, onTap: _handleServerTap),
+                  ),
+                ),
+                VerticalDivider(width: 1, thickness: 1, color: tokens.textPrimary),
+                Expanded(
+                  child: AspectRatio(
+                    aspectRatio: 1.0,
+                    child: _QuickActionCard(label: 'JOIN NODE', subLabel: 'SYNCHRONIZE', code: '02', icon: LucideIcons.wifiHigh, onTap: _handleClientTap),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ]),
@@ -164,7 +167,7 @@ class _SystemStatusCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: tokens.surface1,
-        border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+        border: Border.symmetric(horizontal: BorderSide(color: tokens.textPrimary)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -269,7 +272,7 @@ class _QuickActionCardState extends State<_QuickActionCard> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final isActive = _isPressed || _isFocused;
-    final bgColor = isActive ? tokens.surface4 : tokens.background;
+    final bgColor = isActive ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.surface1;
 
     return Actions(
       actions: {
@@ -297,12 +300,6 @@ class _QuickActionCardState extends State<_QuickActionCard> {
             color: bgColor,
             child: Stack(
               children: [
-                // Corner Brackets (Brutalist/NOC Aesthetic)
-                _buildCorner(context, Alignment.topLeft, isActive),
-                _buildCorner(context, Alignment.topRight, isActive),
-                _buildCorner(context, Alignment.bottomLeft, isActive),
-                _buildCorner(context, Alignment.bottomRight, isActive),
-
                 // Content
                 Center(
                   child: Column(
@@ -344,25 +341,6 @@ class _QuickActionCardState extends State<_QuickActionCard> {
     );
   }
 
-  Widget _buildCorner(BuildContext context, Alignment alignment, bool isActive) {
-    final tokens = context.tokens;
-    return Align(
-      alignment: alignment,
-      child: Container(
-        width: 12,
-        height: 12,
-        margin: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          border: Border(
-            top: alignment == Alignment.topLeft || alignment == Alignment.topRight ? BorderSide(color: tokens.textPrimary, width: 1.5) : BorderSide.none,
-            bottom: alignment == Alignment.bottomLeft || alignment == Alignment.bottomRight ? BorderSide(color: tokens.textPrimary, width: 1.5) : BorderSide.none,
-            left: alignment == Alignment.topLeft || alignment == Alignment.bottomLeft ? BorderSide(color: tokens.textPrimary, width: 1.5) : BorderSide.none,
-            right: alignment == Alignment.topRight || alignment == Alignment.bottomRight ? BorderSide(color: tokens.textPrimary, width: 1.5) : BorderSide.none,
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _BlinkingDot extends StatefulWidget {

@@ -37,6 +37,7 @@ class PlayerService extends ChangeNotifier {
   bool _isPathBased = false;
   String _sessionId = '';
   bool _isStopped = false;
+  List<String>? _remoteVibeColors;
 
   bool isSyncMaster = false;
   bool isSyncSlave = false;
@@ -68,9 +69,9 @@ class PlayerService extends ChangeNotifier {
   bool get hasPrev => _playlist.isNotEmpty && _currentIndex > 0;
 
   List<Color>? get vibeColors {
-    final item = current;
-    if (item == null) return null;
-    return _getVibeColors(item).map((h) => Color(int.parse(h.replaceFirst('#', 'FF'), radix: 16))).toList();
+    final hexList = _remoteVibeColors ?? (current != null ? _getVibeColors(current!) : null);
+    if (hexList == null) return null;
+    return hexList.map((h) => Color(int.parse(h.replaceFirst('#', 'FF'), radix: 16))).toList();
   }
 
   String get mediaUrl {
@@ -133,14 +134,14 @@ class PlayerService extends ChangeNotifier {
 
       if (startOffset != null) {
         // Small delay allows the player to initialise before seeking.
-        await Future.delayed(const Duration(milliseconds: 400));
+        await Future.delayed(const Duration(milliseconds: 500));
         if (targetV != _loadVersion) return;
         await player.seek(startOffset);
       } else if (!_isPathBased) {
         // Restore saved position for non-path-based items.
         final saved = _repo.getProgress(item.id);
         if (saved > 5) {
-          await Future.delayed(const Duration(milliseconds: 400));
+          await Future.delayed(const Duration(milliseconds: 500));
           if (targetV != _loadVersion) return;
           await player.seek(Duration(seconds: saved));
         }
@@ -224,9 +225,13 @@ class PlayerService extends ChangeNotifier {
       _reportStatus();
     });
 
-    _syncTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (isSyncMaster && !_isStopped) {
-        _remote.send(RemoteCommand('media', 'sync_state', player.state.position.inMilliseconds));
+    _syncTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (isSyncMaster && !_isStopped && player.state.playing) {
+        _remote.send(RemoteCommand('media', 'sync_state', {
+          'pos': player.state.position.inMilliseconds,
+          'ts': DateTime.now().millisecondsSinceEpoch,
+          'rate': player.state.rate,
+        }));
       }
     });
   }
@@ -238,11 +243,23 @@ class PlayerService extends ChangeNotifier {
       if (cmd.type == 'media') {
         switch (cmd.action) {
           case 'sync_state':
-            if (isSyncSlave && cmd.value is int) {
-              final targetMs = cmd.value as int;
+            if (isSyncSlave && cmd.value is Map) {
+              final data = cmd.value as Map;
+              final targetMs = data['pos'] as int;
+              final senderTs = data['ts'] as int;
+              final now = DateTime.now().millisecondsSinceEpoch;
+              final latency = (now - senderTs).clamp(0, 1000);
+              
+              final adjustedTarget = targetMs + latency;
               final currentMs = player.state.position.inMilliseconds;
-              if ((targetMs - currentMs).abs() > 800) {
-                player.seek(Duration(milliseconds: targetMs));
+              
+              if ((adjustedTarget - currentMs).abs() > 200) {
+                player.seek(Duration(milliseconds: adjustedTarget));
+              }
+              
+              final targetRate = (data['rate'] as num?)?.toDouble() ?? 1.0;
+              if (player.state.rate != targetRate) {
+                player.setRate(targetRate);
               }
             }
             break;
@@ -304,6 +321,12 @@ class PlayerService extends ChangeNotifier {
 
       if (cmd.type == 'system') {
         switch (cmd.action) {
+          case 'vibe_sync':
+            if (cmd.value is List) {
+              _remoteVibeColors = (cmd.value as List).cast<String>();
+              notifyListeners();
+            }
+            break;
           case 'volume_up':
             player.setVolume((player.state.volume + 10.0).clamp(0.0, 100.0));
             break;
@@ -353,12 +376,20 @@ class PlayerService extends ChangeNotifier {
   }
 
   List<String> _getVibeColors(MediaItem item) {
-    // Brutalist Vibe Palette
-    final colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#800080'];
+    // Enhanced Brutalist Vibe Palette with more variation
+    final palettes = [
+      ['#FF0000', '#000000', '#FFFFFF'], // Red/Black/White
+      ['#00FF00', '#000000', '#FFFFFF'], // Green/Black/White
+      ['#0000FF', '#000000', '#FFFFFF'], // Blue/Black/White
+      ['#FFFF00', '#000000', '#000000'], // Yellow/Black
+      ['#FF00FF', '#000000', '#FFFFFF'], // Magenta/Black/White
+      ['#00FFFF', '#000000', '#000000'], // Cyan/Black
+      ['#FF5F1F', '#000000', '#FFFFFF'], // Neon Orange
+      ['#B0FF00', '#000000', '#000000'], // Volt
+    ];
+    
     final hash = item.title.hashCode.abs();
-    final c1 = colors[hash % colors.length];
-    final c2 = colors[(hash + 3) % colors.length];
-    return [c1, c2, '#000000'];
+    return palettes[hash % palettes.length];
   }
 
   Future<void> stop() async {

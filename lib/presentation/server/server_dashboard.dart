@@ -9,7 +9,6 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:path/path.dart' as p;
@@ -29,6 +28,7 @@ import '../../domain/services/station_service.dart';
 import '../client/client_viewmodel.dart';
 import '../mobile/mobile_selection_screen.dart';
 import '../shared/atmospheric_background.dart';
+import '../shared/remote_input_relay_screen.dart';
 import '../shared/theme_settings_screen.dart';
 import '../tv/tv_selection_screen.dart';
 import 'server_viewmodel.dart';
@@ -208,9 +208,24 @@ class _ServerDashboardState extends State<ServerDashboard> {
                   crossAxisSpacing: 1,
                   children: [
                     _QuickActionCard(
-                      label: 'LOGS',
+                      label: 'TRAFFIC',
+                      icon: LucideIcons.barChart,
+                      onTap: () => _navigateTo('traffic'),
+                    ),
+                    _QuickActionCard(
+                      label: 'LIVE LOGS',
+                      icon: LucideIcons.terminal,
+                      onTap: () => _navigateTo('live_logs'),
+                    ),
+                    _QuickActionCard(
+                      label: 'HISTORY',
                       icon: LucideIcons.history,
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const _ConnectionHistoryScreen())),
+                    ),
+                    _QuickActionCard(
+                      label: 'RELAY',
+                      icon: LucideIcons.smartphoneNfc,
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RemoteInputRelayScreen(isServerMode: true))),
                     ),
                     _QuickActionCard(
                       label: 'REMOTE',
@@ -310,6 +325,32 @@ class _ServerDashboardState extends State<ServerDashboard> {
       ];
     }
 
+    if (_currentPath == 'traffic') {
+      return [
+        SliverToBoxAdapter(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: _TrafficMonitor(state: state),
+            ),
+          ),
+        ),
+      ];
+    }
+
+    if (_currentPath == 'live_logs') {
+      return [
+        SliverToBoxAdapter(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: _LiveLogViewer(state: state),
+            ),
+          ),
+        ),
+      ];
+    }
+
     if (_currentPath == 'filters') {
       return [
         SliverToBoxAdapter(
@@ -327,7 +368,8 @@ class _ServerDashboardState extends State<ServerDashboard> {
                     const _TerminalHeader(title: 'BROADCAST FILTERS', icon: LucideIcons.slidersHorizontal),
                     _ToggleRow(label: 'VIDEO PAYLOADS', icon: LucideIcons.video, value: state.shareVideos, isMobile: isMobile, onChanged: state.setShareVideos),
                     _ToggleRow(label: 'AUDIO PAYLOADS', icon: LucideIcons.music, value: state.shareMusic, isMobile: isMobile, onChanged: state.setShareMusic),
-                    _ToggleRow(label: 'IMAGE PAYLOADS', icon: LucideIcons.image, value: state.shareImages, isMobile: isMobile, onChanged: state.setShareImages, isLast: true),
+                    _ToggleRow(label: 'IMAGE PAYLOADS', icon: LucideIcons.image, value: state.shareImages, isMobile: isMobile, onChanged: state.setShareImages),
+                    _ToggleRow(label: 'ZERO-TRACE MODE', icon: LucideIcons.ghost, value: state.zeroTrace, isMobile: isMobile, onChanged: state.setZeroTrace, isLast: true),
                   ],
                 ),
               ),
@@ -618,6 +660,16 @@ class _TelemetryTileState extends State<_TelemetryTile> {
                   ),
                 ],
               ],
+            ),
+          ),
+          _BrutalistIconButton(
+            icon: LucideIcons.gamepad2,
+            onTap: () => showModalBottomSheet(
+              context: context,
+              backgroundColor: tokens.background,
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+              isScrollControlled: true,
+              builder: (_) => _UniversalRemoteSheet(targetId: widget.session.clientId),
             ),
           ),
         ],
@@ -1002,10 +1054,11 @@ class _RemoteMediaViewState extends State<_RemoteMediaView> {
 }
 
 class _UniversalRemoteSheet extends StatelessWidget {
-  const _UniversalRemoteSheet();
+  final String? targetId;
+  const _UniversalRemoteSheet({this.targetId});
 
-  void _cmd(String type, String action, [dynamic value]) {
-    sl<HttpServerService>().broadcast(jsonEncode({'type': type, 'action': action, if (value != null) 'value': value}));
+  void _cmd(BuildContext context, String type, String action, [dynamic value]) {
+    context.read<ServerViewModel>().broadcastCommand(type, action, value: value, targetId: targetId);
   }
 
   @override
@@ -1039,35 +1092,35 @@ class _UniversalRemoteSheet extends StatelessWidget {
                     crossAxisSpacing: 1,
                     children: [
                       // Navigation Cluster
-                      _QuickActionCard(label: 'BACK', icon: LucideIcons.chevronLeft, onTap: () => _cmd('nav', 'back')),
-                      _QuickActionCard(label: 'UP', icon: LucideIcons.chevronUp, onTap: () => _cmd('nav', 'up')),
-                      _QuickActionCard(label: 'HOME', icon: LucideIcons.home, onTap: () => _cmd('nav', 'home')),
+                      _QuickActionCard(label: 'BACK', icon: LucideIcons.chevronLeft, onTap: () => _cmd(context, 'nav', 'back')),
+                      _QuickActionCard(label: 'UP', icon: LucideIcons.chevronUp, onTap: () => _cmd(context, 'nav', 'up')),
+                      _QuickActionCard(label: 'HOME', icon: LucideIcons.home, onTap: () => _cmd(context, 'nav', 'home')),
             
-                      _QuickActionCard(label: 'LEFT', icon: LucideIcons.chevronLeft, onTap: () => _cmd('nav', 'left')),
-                      _QuickActionCard(label: 'ENTER', icon: LucideIcons.circle, onTap: () => _cmd('nav', 'enter')),
-                      _QuickActionCard(label: 'RIGHT', icon: LucideIcons.chevronRight, onTap: () => _cmd('nav', 'right')),
+                      _QuickActionCard(label: 'LEFT', icon: LucideIcons.chevronLeft, onTap: () => _cmd(context, 'nav', 'left')),
+                      _QuickActionCard(label: 'ENTER', icon: LucideIcons.circle, onTap: () => _cmd(context, 'nav', 'enter')),
+                      _QuickActionCard(label: 'RIGHT', icon: LucideIcons.chevronRight, onTap: () => _cmd(context, 'nav', 'right')),
             
-                      _QuickActionCard(label: 'INFO', icon: LucideIcons.info, onTap: () => _cmd('nav', 'info')),
-                      _QuickActionCard(label: 'DOWN', icon: LucideIcons.chevronDown, onTap: () => _cmd('nav', 'down')),
-                      _QuickActionCard(label: 'MENU', icon: LucideIcons.menu, onTap: () => _cmd('nav', 'menu')),
+                      _QuickActionCard(label: 'INFO', icon: LucideIcons.info, onTap: () => _cmd(context, 'nav', 'info')),
+                      _QuickActionCard(label: 'DOWN', icon: LucideIcons.chevronDown, onTap: () => _cmd(context, 'nav', 'down')),
+                      _QuickActionCard(label: 'MENU', icon: LucideIcons.menu, onTap: () => _cmd(context, 'nav', 'menu')),
 
                       // Media Cluster
-                      _QuickActionCard(label: 'PREV', icon: LucideIcons.skipBack, onTap: () => _cmd('media', 'prev')),
-                      _QuickActionCard(label: 'PLAY/PAUSE', icon: LucideIcons.play, onTap: () => _cmd('media', 'toggle_play')),
-                      _QuickActionCard(label: 'NEXT', icon: LucideIcons.skipForward, onTap: () => _cmd('media', 'next')),
+                      _QuickActionCard(label: 'PREV', icon: LucideIcons.skipBack, onTap: () => _cmd(context, 'media', 'prev')),
+                      _QuickActionCard(label: 'PLAY/PAUSE', icon: LucideIcons.play, onTap: () => _cmd(context, 'media', 'toggle_play')),
+                      _QuickActionCard(label: 'NEXT', icon: LucideIcons.skipForward, onTap: () => _cmd(context, 'media', 'next')),
             
-                      _QuickActionCard(label: '-10S', icon: LucideIcons.rewind, onTap: () => _cmd('media', 'seek', -10)),
-                      _QuickActionCard(label: 'STOP', icon: LucideIcons.square, onTap: () => _cmd('media', 'stop')),
-                      _QuickActionCard(label: '+10S', icon: LucideIcons.fastForward, onTap: () => _cmd('media', 'seek', 10)),
+                      _QuickActionCard(label: '-10S', icon: LucideIcons.rewind, onTap: () => _cmd(context, 'media', 'seek', -10)),
+                      _QuickActionCard(label: 'STOP', icon: LucideIcons.square, onTap: () => _cmd(context, 'media', 'stop')),
+                      _QuickActionCard(label: '+10S', icon: LucideIcons.fastForward, onTap: () => _cmd(context, 'media', 'seek', 10)),
 
                       // System Cluster
-                      _QuickActionCard(label: 'VOL UP', icon: LucideIcons.volume2, onTap: () => _cmd('system', 'volume_up')),
-                      _QuickActionCard(label: 'MUTE', icon: LucideIcons.volumeX, onTap: () => _cmd('system', 'mute')),
-                      _QuickActionCard(label: 'SHUTDOWN', icon: LucideIcons.power, onTap: () => _cmd('system', 'shutdown')),
+                      _QuickActionCard(label: 'VOL UP', icon: LucideIcons.volume2, onTap: () => _cmd(context, 'system', 'volume_up')),
+                      _QuickActionCard(label: 'MUTE', icon: LucideIcons.volumeX, onTap: () => _cmd(context, 'system', 'mute')),
+                      _QuickActionCard(label: 'SHUTDOWN', icon: LucideIcons.power, onTap: () => _cmd(context, 'system', 'shutdown')),
             
-                      _QuickActionCard(label: 'VOL DOWN', icon: LucideIcons.volume1, onTap: () => _cmd('system', 'volume_down')),
-                      _QuickActionCard(label: 'SYNC ALL', icon: LucideIcons.refreshCw, onTap: () => _cmd('media', 'sync_all')),
-                      _QuickActionCard(label: 'KILL ALL', icon: LucideIcons.skull, onTap: () => _cmd('system', 'shutdown_all')),
+                      _QuickActionCard(label: 'VOL DOWN', icon: LucideIcons.volume1, onTap: () => _cmd(context, 'system', 'volume_down')),
+                      _QuickActionCard(label: 'SYNC ALL', icon: LucideIcons.refreshCw, onTap: () => _cmd(context, 'media', 'sync_all')),
+                      _QuickActionCard(label: 'KILL ALL', icon: LucideIcons.skull, onTap: () => _cmd(context, 'system', 'shutdown_all')),
                     ],
                   ),
                 ),
@@ -1106,34 +1159,35 @@ class _DashboardCLIState extends State<_DashboardCLI> {
       parts.removeAt(toIdx);
     }
 
+    final vm = context.read<ServerViewModel>();
     switch (action) {
       case '/play':
         final q = parts.skip(1).join(' ');
-        sl<HttpServerService>().broadcast(jsonEncode({'type': 'media', 'action': 'play', 'value': q, if (targetId != null) 'targetId': targetId}));
+        vm.broadcastCommand('media', 'play', value: q, targetId: targetId);
         _log.add('MSG: BROADCASTING PLAY REQUEST [$q]${targetId != null ? ' TO [$targetId]' : ''}');
         break;
       case '/stop':
-        sl<HttpServerService>().broadcast(jsonEncode({'type': 'media', 'action': 'stop', if (targetId != null) 'targetId': targetId}));
+        vm.broadcastCommand('media', 'stop', targetId: targetId);
         _log.add('MSG: BROADCASTING STOP${targetId != null ? ' TO [$targetId]' : ''}');
         break;
       case '/kill':
         if (parts.length > 1 && parts[1] == '--all') {
-          sl<HttpServerService>().broadcast(jsonEncode({'type': 'system', 'action': 'shutdown'}));
+          vm.broadcastCommand('system', 'shutdown');
           _log.add('MSG: BROADCASTING SHUTDOWN ALL');
         } else {
-          sl<HttpServerService>().broadcast(jsonEncode({'type': 'system', 'action': 'shutdown', if (targetId != null) 'targetId': targetId}));
+          vm.broadcastCommand('system', 'shutdown', targetId: targetId);
           _log.add('MSG: BROADCASTING SHUTDOWN${targetId != null ? ' TO [$targetId]' : ''}');
         }
         break;
       case '/home':
-        sl<HttpServerService>().broadcast(jsonEncode({'type': 'nav', 'action': 'home', if (targetId != null) 'targetId': targetId}));
+        vm.broadcastCommand('nav', 'home', targetId: targetId);
         _log.add('MSG: BROADCASTING HOME${targetId != null ? ' TO [$targetId]' : ''}');
         break;
       case '/sync':
         if (targetId != null) {
           // SLAVES FIRST to ensure they are ready for the master's sync events
-          sl<HttpServerService>().broadcast(jsonEncode({'type': 'media', 'action': 'set_sync_mode', 'value': 'slave'}));
-          sl<HttpServerService>().broadcast(jsonEncode({'type': 'media', 'action': 'set_sync_mode', 'value': 'master', 'targetId': targetId}));
+          vm.broadcastCommand('media', 'set_sync_mode', value: 'slave');
+          vm.broadcastCommand('media', 'set_sync_mode', value: 'master', targetId: targetId);
           _log.add('MSG: SYNC MODE ENABLED. MASTER: [$targetId]');
         } else {
           _log.add('ERR: SYNC REQUIRES MASTER NODE [--to=clientId]');
@@ -1148,15 +1202,7 @@ class _DashboardCLIState extends State<_DashboardCLI> {
         }
         if (fromId != null && targetId != null) {
           try {
-            final vm = context.read<ServerViewModel>();
-            final session = vm.activeSessions.firstWhere((s) => s.clientId == fromId);
-            sl<HttpServerService>().broadcast(jsonEncode({'type': 'media', 'action': 'stop', 'targetId': fromId}));
-            sl<HttpServerService>().broadcast(jsonEncode({
-              'type': 'media',
-              'action': 'teleport',
-              'value': {'mediaId': session.mediaId, 'progress': session.position},
-              'targetId': targetId
-            }));
+            vm.teleport(fromId, targetId);
             _log.add('MSG: TELEPORTED SESSION FROM [$fromId] TO [$targetId]');
           } catch (_) {
             _log.add('ERR: SESSION NOT FOUND FOR [$fromId]');
@@ -2108,6 +2154,125 @@ class _StationLiveStatusState extends State<_StationLiveStatus> {
                 widthFactor: progress.clamp(0.0, 1.0),
                 child: Container(height: 2, color: isPaused ? tokens.warning : tokens.textPrimary),
               ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveLogViewer extends StatelessWidget {
+  final ServerViewModel state;
+  const _LiveLogViewer({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final logs = state.serverLogs;
+    return Container(
+      height: 500,
+      decoration: BoxDecoration(
+        color: tokens.surface1.withValues(alpha: 0.8),
+        border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _TerminalHeader(title: 'LIVE_SIGNAL_LOGS', icon: LucideIcons.terminal),
+          Expanded(
+            child: logs.isEmpty
+                ? Center(child: Text('WAITING FOR SIGNAL...', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10)))
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: logs.length,
+                    itemBuilder: (_, i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        logs[i],
+                        style: GoogleFonts.dmMono(color: tokens.textSecondary, fontSize: 10),
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrafficMonitor extends StatefulWidget {
+  final ServerViewModel state;
+  const _TrafficMonitor({required this.state});
+
+  @override
+  State<_TrafficMonitor> createState() => _TrafficMonitorState();
+}
+
+class _TrafficMonitorState extends State<_TrafficMonitor> {
+  final List<double> _history = List.filled(30, 0.0);
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      setState(() {
+        _history.removeAt(0);
+        _history.add(widget.state.currentSpeedMb);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final maxSpeed = _history.reduce((a, b) => a > b ? a : b).clamp(1.0, 1000.0);
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: tokens.surface1.withValues(alpha: 0.4),
+        border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'REAL-TIME BANDWIDTH',
+            style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 120,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: _history.map((h) {
+                final hFactor = h / maxSpeed;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 1),
+                    child: Container(
+                      height: (120 * hFactor).clamp(1.0, 120.0),
+                      color: tokens.telemetry,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('0 MB/S', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 8)),
+              Text('PEAK: ${maxSpeed.toStringAsFixed(1)} MB/S', style: GoogleFonts.dmMono(color: tokens.telemetry, fontSize: 8, fontWeight: FontWeight.bold)),
             ],
           ),
         ],

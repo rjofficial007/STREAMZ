@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STREAMZ — BROADCAST ENGINE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@900&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #000000;
+            --surface1: #0A0A0A;
+            --surface2: #141414;
+            --accent: #FFFFFF;
+            --text-primary: #FFFFFF;
+            --text-secondary: #B0B0B0;
+            --text-muted: #606060;
+            --border: #404040;
+            --border-faint: rgba(255, 255, 255, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            border-radius: 0 !important; /* Strict Brutalist */
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-primary);
+            font-family: 'Barlow Condensed', sans-serif;
+            overflow-x: hidden;
+            line-height: 1.2;
+        }
+
+        /* ── Background Noise ────────────────────────────────────────────── */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3 Jacques %3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.05;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* ── Header ───────────────────────────────────────────────────────── */
+        header {
+            height: 64px;
+            border-bottom: 1px solid var(--border-faint);
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            position: sticky;
+            top: 0;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(15px);
+            z-index: 1000;
+        }
+
+        .logo {
+            font-weight: 900;
+            font-size: 24px;
+            letter-spacing: 6px;
+            flex-grow: 1;
+            animation: glitch-text 4s infinite;
+        }
+
+        @keyframes glitch-text {
+            0% { transform: translate(0); }
+            1% { transform: translate(-2px, 2px); text-shadow: 2px 0 red, -2px 0 blue; }
+            2% { transform: translate(0); text-shadow: none; }
+            100% { transform: translate(0); }
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #FFFFFF;
+            box-shadow: 0 0 10px #FFFFFF;
+            margin-right: 12px;
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes pulse { from { opacity: 0.3; } to { opacity: 1; } }
+
+        .sys-info {
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+        }
+
+        /* ── Hero ─────────────────────────────────────────────────────────── */
+        .hero {
+            min-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            border-bottom: 1px solid var(--border-faint);
+            position: relative;
+            padding: 40px 24px;
+            overflow: hidden;
+        }
+
+        .hero-scanline {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            top: 0;
+            animation: scan 6s linear infinite;
+            z-index: 1;
+        }
+
+        @keyframes scan { from { top: 0; } to { top: 100%; } }
+
+        .hero-tag {
+            font-family: 'DM Mono', monospace;
+            font-size: 12px;
+            letter-spacing: 6px;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.8s forwards 0.2s;
+        }
+
+        h1 {
+            font-size: clamp(60px, 18vw, 200px);
+            font-weight: 900;
+            letter-spacing: -6px;
+            line-height: 0.8;
+            margin-bottom: 40px;
+            text-transform: uppercase;
+            opacity: 0;
+            transform: scale(0.9);
+            animation: scaleIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards 0.4s;
+        }
+
+        @keyframes scaleIn { to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
+
+        .hero-btns {
+            display: flex;
+            gap: 1px;
+            background: var(--border-faint);
+            border: 1px solid var(--border-faint);
+            opacity: 0;
+            animation: fadeInUp 0.8s forwards 0.8s;
+        }
+
+        .btn {
+            padding: 24px 48px;
+            font-family: 'DM Mono', monospace;
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            border: none;
+            display: inline-block;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary { background: var(--accent); color: var(--bg); }
+        .btn-primary:hover { background: #B0B0B0; transform: translateY(-4px); }
+
+        .btn-secondary { background: var(--surface1); color: var(--text-primary); }
+        .btn-secondary:hover { background: var(--surface2); transform: translateY(-4px); }
+
+        /* ── Grid ─────────────────────────────────────────────────────────── */
+        .section-title {
+            padding: 40px 24px;
+            font-family: 'DM Mono', monospace;
+            font-size: 14px;
+            letter-spacing: 8px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-faint);
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            background: var(--border-faint);
+            gap: 1px;
+            border-bottom: 1px solid var(--border-faint);
+        }
+
+        .grid-item {
+            background: var(--surface1);
+            padding: 80px 48px;
+            transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            position: relative;
+        }
+
+        .grid-item:hover {
+            background: var(--surface2);
+            z-index: 2;
+        }
+
+        .grid-item::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            border: 0 solid var(--accent);
+            transition: 0.3s;
+            pointer-events: none;
+        }
+
+        .grid-item:hover::after {
+            border-width: 4px;
+        }
+
+        .item-num {
+            font-family: 'DM Mono', monospace;
+            font-size: 14px;
+            color: var(--text-muted);
+            border-left: 2px solid var(--text-muted);
+            padding-left: 12px;
+        }
+
+        .grid-item h2 {
+            font-size: 48px;
+            letter-spacing: 2px;
+            font-weight: 900;
+        }
+
+        .grid-item p {
+            font-family: 'DM Mono', monospace;
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.8;
+            max-width: 400px;
+        }
+
+        /* ── Feature List ────────────────────────────────────────────────── */
+        .feature-row {
+            display: flex;
+            border-bottom: 1px solid var(--border-faint);
+            transition: 0.3s;
+        }
+
+        .feature-row:hover {
+            background: rgba(255,255,255,0.03);
+        }
+
+        .f-tag {
+            width: 150px;
+            padding: 32px 24px;
+            border-right: 1px solid var(--border-faint);
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            color: var(--text-muted);
+            letter-spacing: 2px;
+        }
+
+        .f-content {
+            padding: 32px 48px;
+            flex-grow: 1;
+        }
+
+        .f-title {
+            font-size: 24px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+
+        .f-desc {
+            font-family: 'DM Mono', monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* ── Terminal Section ─────────────────────────────────────────────── */
+        .terminal {
+            background: var(--bg);
+            padding: 120px 24px;
+            border-bottom: 1px solid var(--border-faint);
+        }
+
+        .terminal-box {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #050505;
+            border: 2px solid var(--border);
+            padding: 40px;
+            font-family: 'DM Mono', monospace;
+            position: relative;
+        }
+
+        .terminal-box::before {
+            content: "SYSTEM_MONITOR_V2";
+            position: absolute;
+            top: -12px; left: 24px;
+            background: var(--bg);
+            padding: 0 12px;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        .t-header {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 24px;
+            margin-bottom: 32px;
+            display: flex;
+            justify-content: space-between;
+            color: var(--accent);
+            font-size: 12px;
+            letter-spacing: 2px;
+        }
+
+        .t-content {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .t-line {
+            margin-bottom: 12px;
+            display: flex;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        @keyframes fadeIn { to { opacity: 1; } }
+
+        .t-prompt { color: var(--accent); margin-right: 16px; font-weight: bold; }
+
+        /* ── Footer ───────────────────────────────────────────────────────── */
+        footer {
+            padding: 80px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .f-copy {
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 3px;
+        }
+
+        /* ── Responsive ───────────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            h1 { font-size: 80px; letter-spacing: -3px; }
+            .hero { padding: 80px 20px; min-height: 70vh; }
+            .grid-container { grid-template-columns: 1fr; }
+            .grid-item { padding: 60px 24px; }
+            .feature-row { flex-direction: column; }
+            .f-tag { border-right: none; border-bottom: 1px solid var(--border-faint); width: 100%; }
+            footer { flex-direction: column; gap: 40px; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">STREAMZ</div>
+        <div class="status-dot"></div>
+        <div class="sys-info">NODE_CONNECTED // UPLINK_ACTIVE</div>
+    </header>
+
+    <section class="hero">
+        <div class="hero-scanline"></div>
+        <div class="hero-tag">HIGH_PERFORMANCE_MEDIA_ARCHITECTURE</div>
+        <h1>THE FINAL<br>BROADCAST</h1>
+        <div class="hero-btns">
+            <a href="#features" class="btn btn-primary">DECODE SYSTEM</a>
+            <a href="#" class="btn btn-secondary">JOIN NETWORK</a>
+        </div>
+    </section>
+
+    <div class="section-title">CORE_CAPABILITIES</div>
+    <div class="grid-container" id="features">
+        <div class="grid-item">
+            <div class="item-num">LEVEL_01</div>
+            <h2>NOC COMMAND</h2>
+            <p>A high-density Command Center for the modern curator. Monitor all active nodes, control playback remotely, and manage your library with zero latency.</p>
+        </div>
+        <div class="grid-item">
+            <div class="item-num">LEVEL_02</div>
+            <h2>VIBE_SYNC 2.0</h2>
+            <p>Our proprietary luminance extraction engine. Every client device reflects the atmospheric profile of the media in real-time. Pure visual immersion.</p>
+        </div>
+        <div class="grid-item">
+            <div class="item-num">LEVEL_03</div>
+            <h2>HYPER_SCALE</h2>
+            <p>Built for elite hardware. Stream raw 4K bitrates across your local grid without dropped frames. Optimized for TV and Mobile endpoints.</p>
+        </div>
+    </div>
+
+    <div class="section-title">DETAILED_SPECIFICATIONS</div>
+    <div class="features-list">
+        <div class="feature-row">
+            <div class="f-tag">PROTOCOL</div>
+            <div class="f-content">
+                <div class="f-title">UDP_AUTO_DISCOVERY</div>
+                <div class="f-desc">Nodes find the host instantly on the local grid. No configuration required. Encrypted handshake included.</div>
+            </div>
+        </div>
+        <div class="feature-row">
+            <div class="f-tag">INTERFACE</div>
+            <div class="f-content">
+                <div class="f-title">BRUTALIST_UI</div>
+                <div class="f-desc">Maximum information density. High-contrast grayscale aesthetic. Optimized for TV remote and touch navigation.</div>
+            </div>
+        </div>
+        <div class="feature-row">
+            <div class="f-tag">MANAGEMENT</div>
+            <div class="f-content">
+                <div class="f-title">STATION_ENGINE</div>
+                <div class="f-desc">Create 24/7 virtual broadcast stations. Synchronize multiple nodes to the same stream with millisecond precision.</div>
+            </div>
+        </div>
+        <div class="feature-row">
+            <div class="f-tag">COMMUNICATION</div>
+            <div class="f-content">
+                <div class="f-title">INTERCOM_RELAY</div>
+                <div class="f-desc">Send high-priority system alerts to all nodes. Automatic volume ducking and visual feedback for immediate attention.</div>
+            </div>
+        </div>
+    </div>
+
+    <section class="terminal">
+        <div class="terminal-box">
+            <div class="t-header">
+                <div>STREAMZ_CORE_V2.0.4</div>
+                <div>ENCRYPTION: AES_256</div>
+            </div>
+            <div class="t-content">
+                <div class="t-line" style="animation-delay: 1.0s"><span class="t-prompt">></span> init --broadcast_service</div>
+                <div class="t-line" style="animation-delay: 1.5s"><span class="t-prompt">></span> discovery: searching for nodes...</div>
+                <div class="t-line" style="animation-delay: 2.0s"><span class="t-prompt">></span> peer_found: [TV_LIVING_ROOM] // SIGNAL_STRENGTH: 98%</div>
+                <div class="t-line" style="animation-delay: 2.5s"><span class="t-prompt">></span> peer_found: [MOBILE_ADMIN] // SIGNAL_STRENGTH: 100%</div>
+                <div class="t-line" style="animation-delay: 3.0s"><span class="t-prompt">></span> sync_registry: 1,402 items verified.</div>
+                <div class="t-line" style="animation-delay: 3.5s"><span class="t-prompt">></span> status: GLOBAL_UPLINK_READY</div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="logo">STREAMZ</div>
+        <div class="f-copy">&copy; 2024 BROADCAST ARCHITECTURE // NO_TRACE_ENGINE</div>
+    </footer>
+
+</body>
+</html>

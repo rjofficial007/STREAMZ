@@ -12,6 +12,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -39,9 +40,13 @@ class PlayerViewModel extends ChangeNotifier {
   double _audioDelay = 0.0;
   double _subDelay = 0.0;
   bool _isLocked = false;
+  String? _intercomMessage;
+  double _preIntercomVolume = 100.0;
+  bool _isLowFiMode = false;
 
   Timer? _hideTimer;
   StreamSubscription? _remoteSub;
+  StreamSubscription? _bufferSub;
 
   // FIX: Track disposed state so async callbacks don't call notifyListeners
   // after the ViewModel has been garbage-collected.
@@ -55,6 +60,8 @@ class PlayerViewModel extends ChangeNotifier {
   double get audioDelay => _audioDelay;
   double get subDelay => _subDelay;
   bool get isLocked => _isLocked;
+  bool get isLowFiMode => _isLowFiMode;
+  String? get intercomMessage => _intercomMessage;
   bool get isStopped => _playerService.isStopped;
   List<Color>? get vibeColors => _playerService.vibeColors;
 
@@ -74,8 +81,46 @@ class PlayerViewModel extends ChangeNotifier {
     videoController = VideoController(_playerService.player);
 
     // Wake OSD whenever any remote command arrives.
-    _remoteSub = _remote.commands.listen((_) {
-      if (!_isDisposed) wakeOSD();
+    _remoteSub = _remote.commands.listen((cmd) {
+      if (_isDisposed) return;
+      
+      if (cmd.type == 'intercom') {
+        _handleIntercom(cmd.value?.toString() ?? '');
+      }
+      
+      wakeOSD();
+    });
+
+    _bufferSub = player.stream.buffering.listen((isBuffering) {
+      if (_isDisposed) return;
+      if (isBuffering && !_isLowFiMode) {
+        // If we buffer for more than 3s, enter Low-Fi mode
+        Timer(const Duration(seconds: 3), () {
+          if (!_isDisposed && player.state.buffering) {
+            _isLowFiMode = true;
+            notifyListeners();
+          }
+        });
+      } else if (!isBuffering && _isLowFiMode) {
+        _isLowFiMode = false;
+        notifyListeners();
+      }
+    });
+  }
+
+  void _handleIntercom(String msg) {
+    _intercomMessage = msg;
+    _preIntercomVolume = player.state.volume;
+    player.setVolume(_preIntercomVolume * 0.2); // Duck to 20%
+    notifyListeners();
+
+    // Auto-clear after 10 seconds
+    Timer(const Duration(seconds: 10), () {
+      if (!_isDisposed) {
+        _intercomMessage = null;
+        player.setVolume(_preIntercomVolume);
+        notifyListeners();
+      }
     });
   }
 
@@ -191,6 +236,7 @@ class PlayerViewModel extends ChangeNotifier {
   }
 
   void _setProperty(String key, String val) {
+    if (kIsWeb) return; // Properties not supported on web
     try {
       if (player.platform is NativePlayer) {
         (player.platform as NativePlayer).setProperty(key, val);
@@ -260,6 +306,7 @@ class PlayerViewModel extends ChangeNotifier {
     _isDisposed = true;
     _hideTimer?.cancel();
     _remoteSub?.cancel();
+    _bufferSub?.cancel();
     _playerService.dispose();
     super.dispose();
   }

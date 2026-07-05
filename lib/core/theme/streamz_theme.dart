@@ -1,408 +1,88 @@
-// core/theme/streamz_theme.dart
+﻿// core/theme/streamz_theme.dart
 
 import 'package:flutter/material.dart';
-
+import 'package:google_fonts/google_fonts.dart';
+import 'design_tokens.dart';
 import 'theme_tokens.dart';
 
-enum ThemeIdentity {
-  pureBlack,
-  midnight,
-  obsidian,
-  carbon,
-  voidTheme,
-  eclipse,
-  forest,
-  slate,
-  onyx,
-  phantom,
-  android17,
-  ios26
-}
+enum ThemeIdentity { pureBlack }
 
 class StreamzTheme {
-  final String name;
   final ThemeIdentity identity;
+  final String name;
   final StreamzThemeExtension tokens;
 
-  const StreamzTheme({required this.name, required this.identity, required this.tokens});
+  const StreamzTheme({
+    required this.identity,
+    required this.name,
+    required this.tokens,
+  });
 
-  static final StreamzTheme pureBlack = StreamzTheme(
-    name: 'PURE BLACK',
+  static StreamzTheme get pureBlack => StreamzTheme(
     identity: ThemeIdentity.pureBlack,
-    tokens: const StreamzThemeExtension(
-      background: Color(0xFF000000),
-      surface1: Color(0xFF000000),
-      surface2: Color(0xFF050505),
-      surface3: Color(0xFF111111),
-      surface4: Color(0xFF1A1A1A),
-      primary: Color(0xFFFFFFFF),
-      accent: Color(0xFFFFFFFF),
-      border: Color(0xFFFFFFFF),
-      borderSubtle: Color(0x40FFFFFF),
-      borderStrong: Color(0x90FFFFFF),
-      success: Color(0xFFFFFFFF),
-      warning: Color(0xFFFFFFFF),
-      error: Color(0xFFFFFFFF),
-      telemetry: Color(0xFFFFFFFF),
-      broadcast: Color(0xFFFFFFFF),
-      textPrimary: Color(0xFFFFFFFF),
-      textSecondary: Color(0xB3FFFFFF),
-      textMuted: Color(0x80FFFFFF),
-      textDisabled: Color(0x4DFFFFFF),
-      focusColor: Color(0xFFFFFFFF),
-      focusShadow: Color(0x60FFFFFF),
-      borderRadius: 0,
-      useGradient: false,
+    name: 'Pure Black',
+    tokens: StreamzThemeExtension(
+      background: DS.bg,
+      surface1: DS.surface1,
+      surface2: DS.surface2,
+      surface3: DS.surface3,
+      surface4: DS.surface4,
+      primary: DS.accent,
+      accent: DS.accent,
+      border: DS.borderDefault,
+      borderSubtle: DS.borderSubtle,
+      borderStrong: DS.borderStrong,
+      success: DS.success,
+      warning: DS.warning,
+      error: DS.danger,
+      telemetry: DS.info,
+      broadcast: DS.warning,
+      textPrimary: DS.textPrimary,
+      textSecondary: DS.textSecondary,
+      textMuted: DS.textMuted,
+      textDisabled: DS.textDisabled,
+      focusColor: DS.focusColor,
+      focusShadow: DS.focusShadowColor,
     ),
   );
 
-  static final StreamzTheme midnight = StreamzTheme(
-    name: 'MIDNIGHT',
-    identity: ThemeIdentity.midnight,
-    tokens: const StreamzThemeExtension(
-      background: Color(0xFF08080C),
-      surface1: Color(0xFF101018),
-      surface2: Color(0xFF181824),
-      surface3: Color(0xFF202030),
-      surface4: Color(0xFF28283C),
-      primary: Color(0xFF5C5CFF),
-      accent: Color(0xFF5C5CFF),
-      border: Color(0xFF5C5CFF),
-      borderSubtle: Color(0x335C5CFF),
-      borderStrong: Color(0x665C5CFF),
-      success: Color(0xFF5C5CFF),
-      warning: Color(0xFF5C5CFF),
-      error: Color(0xFFFF4D4D),
-      telemetry: Color(0xFF5C5CFF),
-      broadcast: Color(0xFF5C5CFF),
-      textPrimary: Color(0xFFE0E0FF),
-      textSecondary: Color(0xB3E0E0FF),
-      textMuted: Color(0x80E0E0FF),
-      textDisabled: Color(0x4DE0E0FF),
-      focusColor: Color(0xFF5C5CFF),
-      focusShadow: Color(0x405C5CFF),
-      borderRadius: 8,
-      useGradient: true,
-    ),
-  );
-
-  static final StreamzTheme obsidian = StreamzTheme(
-    name: 'OBSIDIAN',
-    identity: ThemeIdentity.obsidian,
-    tokens: const StreamzThemeExtension(
-      background: Color(0xFF0D0D0D),
-      surface1: Color(0xFF161616),
-      surface2: Color(0xFF1F1F1F),
-      surface3: Color(0xFF282828),
-      surface4: Color(0xFF323232),
-      primary: Color(0xFFFFD700),
-      accent: Color(0xFFFFD700),
-      border: Color(0xFFFFD700),
-      borderSubtle: Color(0x33FFD700),
-      borderStrong: Color(0x66FFD700),
-      success: Color(0xFFFFD700),
-      warning: Color(0xFFFFD700),
-      error: Color(0xFFFF4D4D),
-      telemetry: Color(0xFFFFD700),
-      broadcast: Color(0xFFFFD700),
-      textPrimary: Color(0xFFFFFFFF),
-      textSecondary: Color(0xB3FFFFFF),
-      textMuted: Color(0x80FFFFFF),
-      textDisabled: Color(0x4DFFFFFF),
-      focusColor: Color(0xFFFFD700),
-      focusShadow: Color(0x40FFD700),
-      borderRadius: 0,
-      useGradient: true,
-    ),
-  );
-
-  static final StreamzTheme carbon = StreamzTheme(
-    name: 'CARBON',
-    identity: ThemeIdentity.carbon,
-    tokens: const StreamzThemeExtension(
-      background: Color(0xFF121212),
-      surface1: Color(0xFF1A1A1A),
-      surface2: Color(0xFF222222),
-      surface3: Color(0xFF2A2A2A),
-      surface4: Color(0xFF323232),
-      primary: Color(0xFF00FFCC),
-      accent: Color(0xFF00FFCC),
-      border: Color(0xFF00FFCC),
-      borderSubtle: Color(0x3300FFCC),
-      borderStrong: Color(0x6600FFCC),
-      success: Color(0xFF00FFCC),
-      warning: Color(0xFF00FFCC),
-      error: Color(0xFFFF0055),
-      telemetry: Color(0xFF00FFCC),
-      broadcast: Color(0xFF00FFCC),
-      textPrimary: Color(0xFFE0E0E0),
-      textSecondary: Color(0xB3E0E0E0),
-      textMuted: Color(0x80E0E0E0),
-      textDisabled: Color(0x4DE0E0E0),
-      focusColor: Color(0xFF00FFCC),
-      focusShadow: Color(0x4000FFCC),
-      borderRadius: 4,
-      useGradient: false,
-    ),
-  );
-
-  static final StreamzTheme voidTheme = StreamzTheme(
-    name: 'VOID',
-    identity: ThemeIdentity.voidTheme,
-    tokens: const StreamzThemeExtension(
-      background: Color(0xFF0A0010),
-      surface1: Color(0xFF140020),
-      surface2: Color(0xFF1E0030),
-      surface3: Color(0xFF280040),
-      surface4: Color(0xFF320050),
-      primary: Color(0xFFBF00FF),
-      accent: Color(0xFFBF00FF),
-      border: Color(0xFFBF00FF),
-      borderSubtle: Color(0x33BF00FF),
-      borderStrong: Color(0x66BF00FF),
-      success: Color(0xFFBF00FF),
-      warning: Color(0xFFBF00FF),
-      error: Color(0xFFFF00D6),
-      telemetry: Color(0xFFBF00FF),
-      broadcast: Color(0xFFBF00FF),
-      textPrimary: Color(0xFFF0E0FF),
-      textSecondary: Color(0xB3F0E0FF),
-      textMuted: Color(0x80F0E0FF),
-      textDisabled: Color(0x4DF0E0FF),
-      focusColor: Color(0xFFBF00FF),
-      focusShadow: Color(0x40BF00FF),
-      borderRadius: 12,
-      useGradient: true,
-    ),
-  );
-
-  static final StreamzTheme eclipse = StreamzTheme(
-    name: 'ECLIPSE',
-    identity: ThemeIdentity.eclipse,
-    tokens: const StreamzThemeExtension(
-      background: Color(0xFF0A0202),
-      surface1: Color(0xFF140404),
-      surface2: Color(0xFF1E0606),
-      surface3: Color(0xFF280808),
-      surface4: Color(0xFF320A0A),
-      primary: Color(0xFFFF4D4D),
-      accent: Color(0xFFFF4D4D),
-      border: Color(0xFFFF4D4D),
-      borderSubtle: Color(0x33FF4D4D),
-      borderStrong: Color(0x66FF4D4D),
-      success: Color(0xFFFF4D4D),
-      warning: Color(0xFFFF4D4D),
-      error: Color(0xFFFF0000),
-      telemetry: Color(0xFFFF4D4D),
-      broadcast: Color(0xFFFF4D4D),
-      textPrimary: Color(0xFFFFE0E0),
-      textSecondary: Color(0xB3FFE0E0),
-      textMuted: Color(0x80FFE0E0),
-      textDisabled: Color(0x4DFFE0E0),
-      focusColor: Color(0xFFFF4D4D),
-      focusShadow: Color(0x40FF4D4D),
-      borderRadius: 0,
-      useGradient: true,
-    ),
-  );
-
-  static final StreamzTheme forest = StreamzTheme(
-    name: 'FOREST',
-    identity: ThemeIdentity.forest,
-    tokens: const StreamzThemeExtension(
-      background: Color(0xFF020A02),
-      surface1: Color(0xFF041404),
-      surface2: Color(0xFF061E06),
-      surface3: Color(0xFF082808),
-      surface4: Color(0xFF0A320A),
-      primary: Color(0xFF00FF94),
-      accent: Color(0xFF00FF94),
-      border: Color(0xFF00FF94),
-      borderSubtle: Color(0x3300FF94),
-      borderStrong: Color(0x6600FF94),
-      success: Color(0xFF00FF94),
-      warning: Color(0xFF00FF94),
-      error: Color(0xFFFF4D4D),
-      telemetry: Color(0xFF00FF94),
-      broadcast: Color(0xFF00FF94),
-      textPrimary: Color(0xFFE0FFE0),
-      textSecondary: Color(0xB3E0FFE0),
-      textMuted: Color(0x80E0FFE0),
-      textDisabled: Color(0x4DE0FFE0),
-      focusColor: Color(0xFF00FF94),
-      focusShadow: Color(0x4000FF94),
-      borderRadius: 20,
-      useGradient: true,
-    ),
-  );
-
-  static final StreamzTheme slate = StreamzTheme(
-    name: 'SLATE',
-    identity: ThemeIdentity.slate,
-    tokens: const StreamzThemeExtension(
-      background: Color(0xFF0F111A),
-      surface1: Color(0xFF171A26),
-      surface2: Color(0xFF1F2333),
-      surface3: Color(0xFF272C40),
-      surface4: Color(0xFF2F354D),
-      primary: Color(0xFF82AAFF),
-      accent: Color(0xFF82AAFF),
-      border: Color(0xFF82AAFF),
-      borderSubtle: Color(0x3382AAFF),
-      borderStrong: Color(0x6682AAFF),
-      success: Color(0xFF82AAFF),
-      warning: Color(0xFF82AAFF),
-      error: Color(0xFFFF4D4D),
-      telemetry: Color(0xFF82AAFF),
-      broadcast: Color(0xFF82AAFF),
-      textPrimary: Color(0xFFE0E0FF),
-      textSecondary: Color(0xB3E0E0FF),
-      textMuted: Color(0x80E0E0FF),
-      textDisabled: Color(0x4DE0E0FF),
-      focusColor: Color(0xFF82AAFF),
-      focusShadow: Color(0x4082AAFF),
-      borderRadius: 6,
-      useGradient: false,
-    ),
-  );
-
-  static final StreamzTheme onyx = StreamzTheme(
-    name: 'ONYX',
-    identity: ThemeIdentity.onyx,
-    tokens: const StreamzThemeExtension(
-      background: Color(0xFF050505),
-      surface1: Color(0xFF0D0D0D),
-      surface2: Color(0xFF151515),
-      surface3: Color(0xFF1D1D1D),
-      surface4: Color(0xFF252525),
-      primary: Color(0xFFE0E0E0),
-      accent: Color(0xFFE0E0E0),
-      border: Color(0xFFE0E0E0),
-      borderSubtle: Color(0x33E0E0E0),
-      borderStrong: Color(0x66E0E0E0),
-      success: Color(0xFFE0E0E0),
-      warning: Color(0xFFE0E0E0),
-      error: Color(0xFFFF4D4D),
-      telemetry: Color(0xFFE0E0E0),
-      broadcast: Color(0xFFE0E0E0),
-      textPrimary: Color(0xFFFFFFFF),
-      textSecondary: Color(0xB3FFFFFF),
-      textMuted: Color(0x80FFFFFF),
-      textDisabled: Color(0x4DFFFFFF),
-      focusColor: Color(0xFFFFFFFF),
-      focusShadow: Color(0x40FFFFFF),
-      borderRadius: 0,
-      useGradient: false,
-    ),
-  );
-
-  static final StreamzTheme phantom = StreamzTheme(
-    name: 'PHANTOM',
-    identity: ThemeIdentity.phantom,
-    tokens: const StreamzThemeExtension(
-      background: Color(0xFF1A1A1A),
-      surface1: Color(0xFF222222),
-      surface2: Color(0xFF2A2A2A),
-      surface3: Color(0xFF323232),
-      surface4: Color(0xFF3A3A3A),
-      primary: Color(0xFFB0B0B0),
-      accent: Color(0xFFB0B0B0),
-      border: Color(0xFFB0B0B0),
-      borderSubtle: Color(0x33B0B0B0),
-      borderStrong: Color(0x66B0B0B0),
-      success: Color(0xFFB0B0B0),
-      warning: Color(0xFFB0B0B0),
-      error: Color(0xFF808080),
-      telemetry: Color(0xFFB0B0B0),
-      broadcast: Color(0xFFB0B0B0),
-      textPrimary: Color(0xFFD0D0D0),
-      textSecondary: Color(0xB3D0D0D0),
-      textMuted: Color(0x80D0D0D0),
-      textDisabled: Color(0x4DD0D0D0),
-      focusColor: Color(0xFFB0B0B0),
-      focusShadow: Color(0x40B0B0B0),
-      borderRadius: 16,
-      useGradient: false,
-    ),
-  );
-
-
-  static final StreamzTheme android17 = StreamzTheme(
-    name: 'ANDROID 17',
-    identity: ThemeIdentity.android17,
-    tokens: const StreamzThemeExtension(
-      background: Color(0xFF001F2B),
-      surface1: Color(0xFF002A3A),
-      surface2: Color(0xFF003549),
-      surface3: Color(0xFF004058),
-      surface4: Color(0xFF004C68),
-      primary: Color(0xFF76D1FF),
-      accent: Color(0xFF76D1FF),
-      border: Color(0xFF76D1FF),
-      borderSubtle: Color(0x3376D1FF),
-      borderStrong: Color(0x6676D1FF),
-      success: Color(0xFFB4F1B4),
-      warning: Color(0xFFFFD966),
-      error: Color(0xFFFFB4AB),
-      telemetry: Color(0xFF76D1FF),
-      broadcast: Color(0xFF76D1FF),
-      textPrimary: Color(0xFFE1F4FF),
-      textSecondary: Color(0xB3E1F4FF),
-      textMuted: Color(0x80E1F4FF),
-      textDisabled: Color(0x4DE1F4FF),
-      focusColor: Color(0xFF76D1FF),
-      focusShadow: Color(0x4076D1FF),
-      borderRadius: 24,
-      useGradient: true,
-    ),
-  );
-
-  static final StreamzTheme ios26 = StreamzTheme(
-    name: 'iOS 26',
-    identity: ThemeIdentity.ios26,
-    tokens: const StreamzThemeExtension(
-      background: Color(0xFF000000),
-      surface1: Color(0xFF1C1C1E),
-      surface2: Color(0xFF2C2C2E),
-      surface3: Color(0xFF3A3A3C),
-      surface4: Color(0xFF48484A),
-      primary: Color(0xFF0A84FF),
-      accent: Color(0xFFFFFFFF),
-      border: Color(0xFF38383A),
-      borderSubtle: Color(0x20FFFFFF),
-      borderStrong: Color(0x40FFFFFF),
-      success: Color(0xFF30D158),
-      warning: Color(0xFFFFD60A),
-      error: Color(0xFFFF453A),
-      telemetry: Color(0xFF0A84FF),
-      broadcast: Color(0xFFBF5AF2),
-      textPrimary: Color(0xFFFFFFFF),
-      textSecondary: Color(0x99FFFFFF),
-      textMuted: Color(0x66FFFFFF),
-      textDisabled: Color(0x3DFFFFFF),
-      focusColor: Color(0xFF0A84FF),
-      focusShadow: Color(0x800A84FF),
-      borderRadius: 14,
-      useGradient: true,
-    ),
-  );
-
-  static List<StreamzTheme> get all => [
-        pureBlack,
-        midnight,
-        obsidian,
-        carbon,
-        voidTheme,
-        eclipse,
-        forest,
-        slate,
-        onyx,
-        phantom,
-        android17,
-        ios26
-      ];
+  static List<StreamzTheme> get all => [pureBlack];
 
   static StreamzTheme fromIdentity(ThemeIdentity identity) {
-    return all.firstWhere((t) => t.identity == identity, orElse: () => pureBlack);
+    return pureBlack;
+  }
+
+  // Compatibility with main.dart and legacy code
+  static ThemeData get darkTheme => _buildTheme(Brightness.dark);
+  
+  // Even "light" requests return the black aesthetic for strict B&W enforcement
+  static ThemeData get lightTheme => _buildTheme(Brightness.dark);
+
+  static ThemeData _buildTheme(Brightness brightness) {
+    final themeBase = pureBlack;
+    
+    return ThemeData(
+      brightness: Brightness.dark,
+      primaryColor: themeBase.tokens.primary,
+      scaffoldBackgroundColor: themeBase.tokens.background,
+      canvasColor: themeBase.tokens.surface1,
+      appBarTheme: AppBarTheme(
+        backgroundColor: themeBase.tokens.background,
+        foregroundColor: themeBase.tokens.textPrimary,
+        elevation: 0,
+      ),
+      textTheme: TextTheme(
+        displayLarge: GoogleFonts.barlowCondensed(
+          fontSize: 48,
+          fontWeight: FontWeight.bold,
+          color: themeBase.tokens.textPrimary,
+        ),
+        labelLarge: GoogleFonts.dmMono(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: themeBase.tokens.textPrimary,
+        ),
+      ),
+    );
   }
 }

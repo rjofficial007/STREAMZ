@@ -19,13 +19,14 @@ import '../shared/atmospheric_background.dart';
 import 'tv_player_screen.dart';
 
 // --- Web UI Color Palette & Styles ---
-const Color kWebBlack = Color(0xFF000000);
-const Color kWebSurface = Color(0xFF0A0A0A);
-const Color kWebSurface2 = Color(0xFF111111);
-const Color kWebWhite = Color(0xFFFFFFFF);
-final Color kWebBorder = Colors.white.withValues(alpha: 0.15);
-final Color kWebTextMuted = Colors.white.withValues(alpha: 0.3);
-final Color kWebText = Colors.white.withValues(alpha: 0.6);
+// DEPRECATED: Use context.tokens instead
+const Color kWebBlack = DS.bg;
+const Color kWebSurface = DS.surface1;
+const Color kWebSurface2 = DS.surface2;
+const Color kWebWhite = DS.accent;
+final Color kWebBorder = DS.borderDefault;
+final Color kWebTextMuted = DS.textMuted;
+final Color kWebText = DS.textSecondary;
 
 
 class TVHomeScreen extends StatefulWidget {

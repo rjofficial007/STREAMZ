@@ -10,13 +10,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:photo_manager/photo_manager.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/design_tokens.dart';
 import '../server/server_dashboard.dart';
-import '../server/server_viewmodel.dart';
 
 /// True when this platform needs no runtime permissions.
 bool get _isAutoGrantPlatform =>
@@ -167,7 +165,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) => ChangeNotifierProvider(create: (_) => ServerViewModel(), child: const ServerDashboard()),
+        builder: (_) => const ServerDashboard(),
       ),
     );
   }

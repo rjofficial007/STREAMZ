@@ -3,7 +3,11 @@
 // STREAMZ — Universal Media Player Screen (VLC-Inspired Brutalist Edition)
 // ============================================================================
 
+import 'dart:convert';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -12,7 +16,10 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
+import '../../widget/glitch_effect.dart';
+import '../../widget/technical_overlay.dart';
 import '../client/client_viewmodel.dart';
 import 'player_viewmodel.dart';
 
@@ -39,6 +46,7 @@ class PlayerScreen extends StatefulWidget {
 
 class _PlayerScreenState extends State<PlayerScreen> {
   late final PlayerViewModel _vm;
+  final GlobalKey _repaintKey = GlobalKey();
 
   final FocusScopeNode _osdFocusScope = FocusScopeNode();
   final FocusNode _primaryFocusNode = FocusNode();
@@ -46,6 +54,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   bool _wasOSDVisible = true;
   bool _showSidebar = false;
+  bool _showTechnicalOverlay = false;
 
   @override
   void initState() {
@@ -60,8 +69,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
     ).then((_) {
       _primaryFocusNode.requestFocus();
     });
+    _vm.snapshotCallback = _captureSnapshot;
     _wasOSDVisible = _vm.showOSD;
     _vm.addListener(_onVMChange);
+  }
+
+  Future<String?> _captureSnapshot() async {
+    try {
+      final boundary = _repaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return null;
+      final image = await boundary.toImage(pixelRatio: 0.1); // Low res for mobile
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return null;
+      return base64Encode(byteData.buffer.asUint8List());
+    } catch (_) {
+      return null;
+    }
   }
 
   void _onVMChange() {
@@ -164,6 +187,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     // 4. INFO & SIDEBAR
     if (key == LogicalKeyboardKey.info || key == LogicalKeyboardKey.guide) {
+      setState(() => _showTechnicalOverlay = !_showTechnicalOverlay);
       _vm.wakeOSD();
       return KeyEventResult.handled;
     }
@@ -270,6 +294,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
+  Widget _buildLowFiIndicator(BuildContext context) {
+    final tokens = context.tokens;
+    return Positioned(
+      bottom: 100,
+      left: 20,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        color: tokens.warning,
+        child: Text(
+          'LOW-FI SIGNAL RECOVERY',
+          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2),
+        ),
+      ),
+    );
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
@@ -307,25 +347,51 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   _vm.player.seek(_vm.player.state.position + Duration(seconds: scrubSec));
                 }
               },
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _buildMediaLayer(context),
-                  _buildGestureFeedback(context),
-                  _buildOSD(context),
-                  if (_showSidebar)
-                    GestureDetector(
-                      onTap: () => setState(() => _showSidebar = false),
-                      child: Container(color: tokens.background.withValues(alpha: 0.6)),
+              child: RepaintBoundary(
+                key: _repaintKey,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    GlitchEffect(
+                      active: item?.isBroadcast == true || _vm.isLowFiMode,
+                      child: _buildMediaLayer(context),
                     ),
-                  _buildToolsSidebar(context),
-                ],
+                    _buildGestureFeedback(context),
+                    _buildOSD(context),
+                    _buildIntercomOverlay(context),
+                    if (_vm.isLowFiMode) _buildLowFiIndicator(context),
+                    if (_showTechnicalOverlay)
+                      Positioned(
+                        top: DS.s80,
+                        right: DS.s24,
+                        width: 320,
+                        height: 400,
+                        child: TechnicalOverlay(
+                          stats: {
+                            'TITLE': item?.title ?? 'N/A',
+                            'TYPE': item?.isVideo == true ? 'VIDEO' : (item?.isAudio == true ? 'AUDIO' : 'IMAGE'),
+                            'POSITION': _vm.player.state.position.toString().split('.').first,
+                            'DURATION': _vm.player.state.duration.toString().split('.').first,
+                            'VOLUME': '${_vm.player.state.volume.toInt()}%',
+                            'RATE': '${_vm.player.state.rate}X',
+                            'BUFFER': '${_vm.player.state.buffer.inSeconds}S',
+                          },
+                          onClose: () => setState(() => _showTechnicalOverlay = false),
+                        ),
+                      ),
+                    if (_showSidebar)
+                      GestureDetector(
+                        onTap: () => setState(() => _showSidebar = false),
+                        child: Container(color: tokens.background.withValues(alpha: 0.6)),
+                      ),
+                    _buildToolsSidebar(context),
+                  ],
+                ),
               ),
-            ),
           ),
         ),
       ),
-    );
+      ));
   }
 
   // ── Media Layers ──────────────────────────────────────────────────────────
@@ -350,6 +416,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       ),
     );
   }
+
+
 
   Widget _buildAudioLayout(BuildContext context, MediaItem item) {
     final tokens = context.tokens;
@@ -425,6 +493,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
+
   // ── OSD (Mobile VLC Style) ────────────────────────────────────────────────
 
   Widget _buildOSD(BuildContext context) {
@@ -448,6 +517,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       ),
     );
   }
+
 
   Widget _buildTopBar(BuildContext context) {
     final tokens = context.tokens;
@@ -550,6 +620,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
+
   Widget _buildPlayPauseBtn(BuildContext context) {
     final item = _vm.current;
     if (item?.isImage == true) return const SizedBox.shrink();
@@ -570,6 +641,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       },
     );
   }
+
 
   // ── Sidebar & Feedbacks ───────────────────────────────────────────────────
 
@@ -607,6 +679,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   padding: EdgeInsets.zero,
                   children: [
                     _MobileSidebarItem(label: 'STATION LIST', icon: LucideIcons.radio, focusNode: _sidebarFirstItemFocusNode, onTap: _showStationModal),
+                    _MobileSidebarItem(label: 'TECHNICAL STATS', icon: LucideIcons.activity, onTap: () {
+                      setState(() {
+                        _showTechnicalOverlay = true;
+                        _showSidebar = false;
+                      });
+                    }),
                     _MobileSidebarItem(label: 'SUBTITLES', icon: LucideIcons.subtitles, onTap: () => _showTrackModal(context, 'subtitles')),
                     _MobileSidebarItem(label: 'AUDIO TRACKS', icon: LucideIcons.activity, onTap: () => _showTrackModal(context, 'audio')),
                     if (!(_vm.current?.isBroadcast ?? false))
@@ -625,6 +703,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
+
   Widget _buildGestureFeedback(BuildContext context) {
     final tokens = context.tokens;
     return Center(
@@ -642,6 +721,43 @@ class _PlayerScreenState extends State<PlayerScreen> {
       ),
     );
   }
+
+
+  Widget _buildIntercomOverlay(BuildContext context) {
+    final tokens = context.tokens;
+    final msg = _vm.intercomMessage;
+    if (msg == null) return const SizedBox.shrink();
+
+    return Container(
+      color: tokens.background.withValues(alpha: 0.8),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(32),
+          margin: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: tokens.error,
+            border: Border.all(color: tokens.textPrimary, width: 4),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'EMERGENCY BROADCAST',
+                style: GoogleFonts.dmMono(color: tokens.background, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 4),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                msg.toUpperCase(),
+                style: GoogleFonts.barlowCondensed(color: tokens.background, fontSize: 24, fontWeight: FontWeight.w900),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
 
   // ── Modals ────────────────────────────────────────────────────────────────
 
@@ -692,6 +808,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
+
   void _showSpeedModal(BuildContext context) {
     final tokens = context.tokens;
     final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
@@ -726,6 +843,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
+
   void _showFitModal(BuildContext context) {
     final tokens = context.tokens;
     final fits = {BoxFit.contain: 'CONTAIN', BoxFit.cover: 'COVER', BoxFit.fill: 'STRETCH'};
@@ -758,6 +876,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
+
   void _showSleepModal(BuildContext context) {
     final tokens = context.tokens;
     final options = [0, 5, 15, 30, 60, 120];
@@ -789,6 +908,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       ),
     );
   }
+
 
   void _showSyncModal(BuildContext context) {
     final tokens = context.tokens;
@@ -864,6 +984,22 @@ class _MobileIconBtnState extends State<_MobileIconBtn> {
       ),
     );
   }
+
+  Widget _buildLowFiIndicator(BuildContext context) {
+    final tokens = context.tokens;
+    return Positioned(
+      bottom: 100,
+      left: 20,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        color: tokens.warning,
+        child: Text(
+          'LOW-FI SIGNAL RECOVERY',
+          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2),
+        ),
+      ),
+    );
+  }
 }
 
 class _MobileSidebarItem extends StatefulWidget {
@@ -913,6 +1049,22 @@ class _MobileSidebarItemState extends State<_MobileSidebarItem> {
     );
   }
 
+  Widget _buildLowFiIndicator(BuildContext context) {
+    final tokens = context.tokens;
+    return Positioned(
+      bottom: 100,
+      left: 20,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        color: tokens.warning,
+        child: Text(
+          'LOW-FI SIGNAL RECOVERY',
+          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2),
+        ),
+      ),
+    );
+  }
+
   String get label => widget.label;
 }
 
@@ -957,6 +1109,22 @@ class _MobileTrackTileState extends State<_MobileTrackTile> {
       ),
     );
   }
+
+  Widget _buildLowFiIndicator(BuildContext context) {
+    final tokens = context.tokens;
+    return Positioned(
+      bottom: 100,
+      left: 20,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        color: tokens.warning,
+        child: Text(
+          'LOW-FI SIGNAL RECOVERY',
+          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2),
+        ),
+      ),
+    );
+  }
 }
 
 class _MobileSyncTile extends StatelessWidget {
@@ -985,6 +1153,22 @@ class _MobileSyncTile extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLowFiIndicator(BuildContext context) {
+    final tokens = context.tokens;
+    return Positioned(
+      bottom: 100,
+      left: 20,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        color: tokens.warning,
+        child: Text(
+          'LOW-FI SIGNAL RECOVERY',
+          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2),
+        ),
       ),
     );
   }

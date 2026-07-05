@@ -171,6 +171,7 @@ class _AppCardState extends State<AppCard> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final isHoveredOrFocused = _isFocused;
     return Actions(
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
@@ -189,13 +190,20 @@ class _AppCardState extends State<AppCard> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           decoration: BoxDecoration(
-            color: _isFocused ? tokens.surface3 : tokens.surface1,
-            border: Border.all(color: _isFocused ? tokens.accent : tokens.border.withValues(alpha: 0.15), width: _isFocused ? 2.5 : 1.0),
-            boxShadow: _isFocused ? [BoxShadow(color: tokens.accent.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(4, 4))] : [],
+            color: isHoveredOrFocused ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.surface2,
+            border: Border.all(
+              color: isHoveredOrFocused ? tokens.accent : tokens.border.withValues(alpha: 0.15), 
+              width: isHoveredOrFocused ? 2.5 : 1.0
+            ),
           ),
           child: Material(
             color: Colors.transparent,
-            child: InkWell(onTap: widget.onTap, onLongPress: widget.onLongPress, onHover: (val) => setState(() => _isFocused = val), child: widget.child),
+            child: InkWell(
+              onTap: widget.onTap, 
+              onLongPress: widget.onLongPress, 
+              onHover: (val) => setState(() => _isFocused = val), 
+              child: widget.child
+            ),
           ),
         ),
       ),

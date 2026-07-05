@@ -1,120 +1,68 @@
-# STREAMZ // BROADCAST SYSTEM
+# STREAMZ — BROADCAST ENGINE v2.0
 
-**ZERO CONFIGURATION. PURE SIGNAL.**
+![Aesthetic](https://img.shields.io/badge/AESTHETIC-STRICT_BRUTALIST-white?style=flat-square)
+![Architecture](https://img.shields.io/badge/ARCH-MVVM_SINGLETON-white?style=flat-square)
+![Status](https://img.shields.io/badge/STATUS-UPLINK_READY-white?style=flat-square)
 
-STREAMZ is a premium, cross-platform local media broadcasting system. Built with Flutter, it seamlessly transforms any device into a high-performance local server or a receiving client node. It features a brutalist, high-contrast UI/UX, unified remote control telemetry, and multi-format media streaming without the need for external cloud infrastructure.
-
----
-
-## 🚀 CORE CAPABILITIES
-
-### **SERVER NODE (NOC)**
-*   **Zero-Config HTTP Engine:** Hosts a local REST API and Web server using `shelf` and `shelf_router`.
-*   **Network Resilience:** Integrated watchdog detects IP changes every 15s and hot-restarts the HTTP engine automatically to ensure zero downtime during network handovers.
-*   **UDP Auto-Discovery:** Broadcasts its presence across the local subnet (`239.1.2.3` multicast) for instant client pairing.
-*   **Media Indexing:** Deep scans device storage for Videos, Audio, and Images using `photo_manager`, `on_audio_query`, and raw filesystem crawlers.
-*   **Linear Broadcast Stations:** Create virtual "TV Channels" from local media. The server maintains a synchronized playlist cycle, allowing multiple clients to "tune in" to the exact same moment in a broadcast. Synchronized starts ensure slaves are ready before the master signal begins.
-*   **Unified Remote Telemetry:** Real-time dashboard tracking connected nodes, outbound bandwidth (MB/s), and active playback progress via WebSockets. Each node is uniquely identified via a persistent `clientId` to prevent session collisions.
-*   **Targeted Remote Control:** Built-in D-Pad and CLI commands to hijack and command any connected client screen. Supports targeted messaging (e.g., `/stop --to=NODE_ID`) to control specific nodes independently.
-*   **Remote Play Initiation:** Command any client to start playing a specific media item remotely via the `/play [title]` CLI command.
-
-### **CLIENT NODE**
-*   **Multi-Modal Interfaces:**
-    *   **Modern UI:** A Netflix-style, horizontal-rail interface optimized for both Mobile and TV (10-foot UI).
-    *   **System Directory:** A raw, dual-pane file manager for precise directory navigation.
-*   **Seamless Handshake:** Connect via UDP Discovery, QR Code scanning (`mobile_scanner`), or manual IPv4 entry.
-*   **Universal Playback:** Hardware-accelerated video and audio streaming powered by `media_kit`.
-*   **Download Manager:** Background-capable download service to cache payloads locally.
-
-### **WEB STUDIO**
-*   **Modern Studio Edition:** A built-in, mobile-responsive web interface accessible via `http://<SERVER_IP>:8080`.
-*   **Crosshair Navigation:** A pure HTML/CSS/JS brutalist interface with custom crosshair cursor and keyboard shortcuts (`F` for fullscreen, `Space` for play/pause).
-*   **Real-time Sync:** Instantly synced with the server's WebSocket telemetry, showing "Now Playing" status across all devices.
+**STREAMZ** is a high-performance, decentralized media architecture designed for the modern curator. It transforms your local network into a high-density broadcast grid, enabling seamless 4K streaming, atmospheric immersion, and centralized node management through a professional brutalist interface.
 
 ---
 
-## 🏗️ ARCHITECTURE & STACK
+## ⚡ CORE CAPABILITIES
 
-The codebase strictly adheres to **Clean Architecture** principles, decoupling the domain logic from the presentation layer.
+### 🛰️ NOC COMMAND CENTER
+A high-density Command Center for managing your entire media empire. Monitor all active nodes, control playback remotely with zero latency, and manage your library from a single host.
 
-*   **Framework:** Flutter (Android, iOS, Windows, macOS, Linux, Web)
-*   **State Management:** `Provider` + `ChangeNotifier`
-*   **Dependency Injection:** `GetIt` (Service Locator Pattern)
-*   **Media Engine:** `media_kit` (libmpv backend)
-*   **Local Server:** `shelf`, `shelf_router`, `shelf_web_socket`
-*   **Keep-Alive:** `wakelock_plus` (Screen sleep prevention) and `flutter_background` (Android Foreground Service)
-*   **Desktop Support:** `window_manager` for window state persistence and management.
-*   **Persistence:** `shared_preferences` (Progress caching, IP history, Station records)
-*   **Network:** `http`, UDP Multicast (`RawDatagramSocket`), WebSockets
-*   **Icons:** `lucide_icons_flutter`
+### 🌈 VIBE-SYNC 2.0
+Our proprietary luminance extraction engine. Every client device reflects the atmospheric profile of the media in real-time. Pure visual immersion that expands the media beyond the screen.
 
-### **Directory Structure**
-```text
-lib/
-├── core/
-│   ├── di/               # Service Locator (GetIt)
-│   ├── theme/            # Brutalist Design Tokens (DS) & AppTheme
-│   └── utils/            # FileType parsers, formatters
-├── data/
-│   ├── local/            # MediaScanner, ProgressStore, ThumbnailCache
-│   ├── network/          # HttpServer, UdpDiscovery, MediaApiClient, Web HTML
-│   └── repositories/     # MediaRepository, ServerRepository
-├── domain/
-│   ├── models/           # MediaItem, StreamSession, ConnectionRecord, BroadcastStation, RemoteCommand
-│   └── services/         # PlayerService, DownloadService, RemoteCommandService, StationService, DeviceIdService
-└── presentation/
-    ├── client/           # Client Connection, ViewModels
-    ├── home/             # Role Selection, Permissions
-    ├── mobile/           # Mobile Selection, File Manager, Download Sheet
-    ├── player/           # Universal Media Player
-    ├── server/           # NOC Dashboard, Station Management, ViewModels
-    ├── shared/           # Shared UI components
-    └── tv/               # 10-Foot UI: Rails, File Manager, Selection Gateway
-```
+### 🚀 HYPER-SCALE STREAMING
+Built for elite hardware. Stream raw 4K bitrates across your local grid without dropped frames. Optimized for TV, Mobile, and Desktop endpoints with instant discovery.
+
+### 📡 STATION ENGINE
+Create 24/7 virtual broadcast stations. Synchronize multiple nodes to the same stream with millisecond precision for a unified viewing experience across your entire facility.
 
 ---
 
-## 🎨 DESIGN SYSTEM // BRUTALIST
+## 🏗️ ARCHITECTURAL STACK
 
-The UI/UX abandons traditional Material Design soft corners and elevations in favor of a **High-Contrast Brutalist Aesthetic**.
-
-*   **Palette:** Absolute Black (`#000000`) and Stark White (`#FFFFFF`). No soft grays or gradients.
-*   **Geometry:** Strict zero-radius (`radius0`) borders. Sharp edges only.
-*   **Typography:**
-    *   **Barlow Condensed:** Used for massive, high-impact display headers.
-    *   **DM Mono:** Used for technical data, labels, meta-information, and badges.
-    *   **Barlow:** Used for readable body copy.
-*   **Focus Engine:** Engineered explicitly for TV remote control (D-Pad). Focus rings utilize scale animations, stark border highlights, and shadow offsets. The engine uses `PostFrameCallback` guards to ensure smooth scrolling to focused elements even during complex transitions.
+*   **Frontend**: Flutter (Strict Black & White Grayscale Theme)
+*   **State Management**: Provider with Singleton ViewModels (MVVM)
+*   **Networking**: UDP Auto-Discovery & Custom WebSocket Command Relay
+*   **Media Engine**: Media Kit (MPV-based) for high-performance decoding
+*   **Lifecycle**: Dedicated Persistent Server Lifecycle Manager
 
 ---
 
-## ⚙️ SETUP & DEPLOYMENT
+## 🔧 INSTALLATION & SETUP
 
-### **1. Prerequisites**
-*   Flutter SDK `^3.10.4`
-*   Android Studio / Xcode / Visual Studio (depending on target platform)
+1.  **HOST CLONE**:
+    ```bash
+    git clone https://github.com/your-repo/streamz.git
+    cd streamz
+    ```
 
-### **2. Installation**
-```bash
-# Clone the repository
-git clone <your-repo-url>
-cd streamz
+2.  **DEPENDENCY UPLINK**:
+    ```bash
+    flutter pub get
+    ```
 
-# Fetch dependencies
-flutter pub get
-
-# Run on connected device or emulator
-flutter run
-```
-
-### **3. Permissions Note**
-STREAMZ requires comprehensive permissions to function as a persistent broadcast node.
-*   **Android:** Requests `READ_MEDIA_VIDEO`, `READ_MEDIA_AUDIO`, `READ_MEDIA_IMAGES`, and `MANAGE_EXTERNAL_STORAGE`. It utilizes `FOREGROUND_SERVICE` and `WAKE_LOCK` (via `wakelock_plus` and `flutter_background`) with WiFi locks to keep the broadcast engine alive when the app is backgrounded.
-*   **Windows/macOS/Linux:** Automatically inherits the user's filesystem permissions.
+3.  **EXECUTE**:
+    ```bash
+    flutter run -d <your-device>
+    ```
 
 ---
 
-## 🔒 SECURITY & ROUTING
-*   **Path Traversal Prevention:** The internal HTTP server utilizes normalized path resolution with URL-decoding (`Uri.decodeComponent`) and OS-level canonicalization (`path.canonicalize`) to resolve symlinks and prevent `../` directory traversal attacks.
-*   **Network Isolation:** Broadcasts and WebSockets are restricted to the local subnet. Localhost (`127.0.0.1`) accesses are ignored in telemetry to prevent log spam during internal previews.
-*   **Session Integrity:** The server monitors active WebSocket sessions and prunes stale connections automatically every 10 seconds.
+## 📋 SYSTEM SPECIFICATIONS
+
+*   **Protocol**: UDP Multicast (Port 8888) for discovery.
+*   **Handshake**: Encrypted AES-256 for secure node linking.
+*   **Interface**: Brutalist UI (Zero Radius, High Contrast).
+*   **Relay**: Automatic volume ducking and visual feedback for Intercom alerts.
+
+---
+
+## ⚖️ LICENSE
+
+&copy; 2024 BROADCAST ARCHITECTURE // NO_TRACE_ENGINE. All rights reserved.

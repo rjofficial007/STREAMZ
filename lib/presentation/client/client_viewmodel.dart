@@ -14,8 +14,10 @@ import '../../data/network/udp_discovery.dart';
 import '../../data/repositories/media_repository.dart';
 import '../../data/repositories/server_repository.dart';
 import '../../domain/models/media_item.dart';
+import '../../domain/models/remote_command.dart';
 import '../../domain/services/device_id_service.dart';
 import '../../domain/services/download_service.dart';
+import '../../domain/services/queue_service.dart';
 import '../../domain/services/remote_command_service.dart';
 
 class ClientViewModel extends ChangeNotifier {
@@ -34,6 +36,7 @@ class ClientViewModel extends ChangeNotifier {
 
   final List<String> _ipHistory = [];
   StreamSubscription? _cmdSub;
+  Timer? _refreshTimer;
 
   // Anti-spam timer for remote commands
   DateTime _lastActionTime = DateTime.fromMillisecondsSinceEpoch(0);
@@ -100,6 +103,31 @@ class ClientViewModel extends ChangeNotifier {
               Navigator.of(focus.context!).popUntil((route) => route.isFirst);
             }
             break;
+          case 'text':
+            if (focus.context != null && cmd.value is String) {
+              final text = cmd.value as String;
+              for (var char in text.runes) {
+                final key = String.fromCharCode(char);
+                // Simulate a key event for each character using the modern HardwareKeyboard API.
+                // Note: Full simulation is complex, this targets basic text field entry.
+                HardwareKeyboard.instance.handleKeyEvent(
+                  KeyDownEvent(
+                    logicalKey: LogicalKeyboardKey(char),
+                    physicalKey: PhysicalKeyboardKey.usbReserved,
+                    timeStamp: Duration(milliseconds: DateTime.now().millisecondsSinceEpoch),
+                    character: key,
+                  ),
+                );
+                HardwareKeyboard.instance.handleKeyEvent(
+                  KeyUpEvent(
+                    logicalKey: LogicalKeyboardKey(char),
+                    physicalKey: PhysicalKeyboardKey.usbReserved,
+                    timeStamp: Duration(milliseconds: DateTime.now().millisecondsSinceEpoch),
+                  ),
+                );
+              }
+            }
+            break;
         }
       }
 
@@ -116,6 +144,9 @@ class ClientViewModel extends ChangeNotifier {
 
       if (cmd.type == 'system') {
         switch (cmd.action) {
+          case 'refresh_data':
+            refresh();
+            break;
           case 'shutdown':
             if (Platform.isAndroid || Platform.isIOS) {
               SystemChannels.platform.invokeMethod('SystemNavigator.pop');
@@ -123,6 +154,12 @@ class ClientViewModel extends ChangeNotifier {
               exit(0);
             }
             break;
+        }
+      }
+      
+      if (cmd.type == 'queue') {
+        if (cmd.action == 'update' && cmd.value is List) {
+          sl<QueueService>().updateFromRemote(cmd.value as List);
         }
       }
     });
@@ -177,6 +214,9 @@ class ClientViewModel extends ChangeNotifier {
       remote.connect(ip.trim());
       await _serverRepo.logAccess(ip.trim());
 
+      _refreshTimer?.cancel();
+      _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => refresh());
+
       if (!_ipHistory.contains(ip)) {
         _ipHistory.insert(0, ip);
         if (_ipHistory.length > 5) _ipHistory.removeLast();
@@ -206,6 +246,8 @@ class ClientViewModel extends ChangeNotifier {
   Future<Map<String, dynamic>?> joinStation(String id) => _mediaRepo.joinStation(id);
 
   void disconnect() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
     remote.disconnect();
     _mediaRepo.clearClient();
     _targetIp = '';
@@ -239,9 +281,22 @@ class ClientViewModel extends ChangeNotifier {
   String thumbnailUrlForPath(String p) => _mediaRepo.thumbnailUrlForPath(p);
   String fileUrl(String path) => _mediaRepo.fileUrl(path);
 
+  void sendNav(String action, [dynamic value]) {
+    remote.send(RemoteCommand('nav', action, value, null, _deviceId.id));
+  }
+
+  void sendText(String text) {
+    remote.send(RemoteCommand('nav', 'text', text, null, _deviceId.id));
+  }
+
+  void sendQueueCommand(String action, dynamic value) {
+    remote.send(RemoteCommand('queue', action, value, null, _deviceId.id));
+  }
+
   @override
   void dispose() {
     _cmdSub?.cancel();
+    _refreshTimer?.cancel();
     stopDiscovery();
     super.dispose();
   }

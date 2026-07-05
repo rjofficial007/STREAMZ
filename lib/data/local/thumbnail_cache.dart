@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../core/utils/logger.dart';
 
 class ThumbnailCache {
   static const _maxAgedays = 30;
@@ -24,7 +25,7 @@ class ThumbnailCache {
       // Clean up old entries in background
       _cleanOldEntries();
     } catch (e) {
-      debugPrint('ThumbnailCache init error: $e');
+      logger.e('ThumbnailCache init error', error: e);
     }
   }
 
@@ -56,7 +57,7 @@ class ThumbnailCache {
     try {
       await _cacheFile(key).writeAsBytes(bytes);
     } catch (e) {
-      debugPrint('ThumbnailCache write error: $e');
+      logger.e('ThumbnailCache write error', error: e);
     }
   }
 

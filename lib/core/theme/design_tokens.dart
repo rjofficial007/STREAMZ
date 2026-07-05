@@ -27,40 +27,40 @@ abstract final class DS {
   static const s80 = 80.0;
   static const s96 = 96.0;
 
-  // ── Color Palette ─────────────────────────────────────────────────────────
-  // Backgrounds (elevation-aware)
+  // ── Color Palette (STRICT BLACK & WHITE AESTHETIC) ────────────────────────
+  // Backgrounds (elevation-aware grayscale)
   static const bg = Color(0xFF000000);
   static const surface1 = Color(0xFF0A0A0A); // Default card bg
-  static const surface2 = Color(0xFF111111); // Raised / modal
-  static const surface3 = Color(0xFF181818); // Hover / focus bg
-  static const surface4 = Color(0xFF222222); // Selected state
+  static const surface2 = Color(0xFF141414); // Raised / modal
+  static const surface3 = Color(0xFF202020); // Hover / focus bg
+  static const surface4 = Color(0xFF2A2A2A); // Selected state
 
-  // Accent / Brand
+  // Accent / Brand (Pure White)
   static const accent = Color(0xFFFFFFFF);
   static const accentDim = Color(0x80FFFFFF);
   static const accentFaint = Color(0x20FFFFFF);
 
-  // Status colors
-  static const danger = Color(0xFFFF3B30);
-  static const success = Color(0xFF30D158);
-  static const warning = Color(0xFFFFD60A);
-  static const info = Color(0xFF0A84FF);
+  // Status colors (Mapped to Grayscale for Strict Aesthetic)
+  static const danger = Color(0xFFFFFFFF);  // High contrast white
+  static const success = Color(0xFFFFFFFF); // High contrast white
+  static const warning = Color(0xFFB0B0B0); // Mid-gray
+  static const info = Color(0xFF808080);    // Darker gray
 
   // Text hierarchy
   static const textPrimary = Color(0xFFFFFFFF);
-  static const textSecondary = Color(0x80FFFFFF);
-  static const textMuted = Color(0x4DFFFFFF);
-  static const textDisabled = Color(0x26FFFFFF);
+  static const textSecondary = Color(0xFFB0B0B0);
+  static const textMuted = Color(0xFF606060);
+  static const textDisabled = Color(0xFF303030);
 
   // Borders
-  static const borderSubtle = Color(0x14FFFFFF);
-  static const borderDefault = Color(0x20FFFFFF);
-  static const borderStrong = Color(0x60FFFFFF);
+  static const borderSubtle = Color(0xFF202020);
+  static const borderDefault = Color(0xFF404040);
+  static const borderStrong = Color(0xFF808080);
 
   // Focus ring (TV-critical)
   static const focusColor = Color(0xFFFFFFFF);
   static const focusWidth = 3.0;
-  static const focusShadowColor = Color(0x80FFFFFF); // Increased from 0x40 for better TV visibility
+  static const focusShadowColor = Color(0x80FFFFFF);
 
   // ── Rail / Card Sizing ───────────────────────────────────────────────────
   static const railCardW = 200.0; // 16:9 → h=112.5

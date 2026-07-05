@@ -20,13 +20,14 @@ import '../shared/file_item.dart';
 import '../shared/atmospheric_background.dart';
 
 // --- Web UI Color Palette & Styles (Sync with TVHomeScreen) ---
-const Color kWebBlack = Color(0xFF000000);
-const Color kWebSurface = Color(0xFF0A0A0A);
-const Color kWebSurface2 = Color(0xFF111111);
-const Color kWebWhite = Color(0xFFFFFFFF);
-final Color kWebBorder = Colors.white.withValues(alpha: 0.15);
-final Color kWebTextMuted = Colors.white.withValues(alpha: 0.3);
-final Color kWebText = Colors.white.withValues(alpha: 0.6);
+// DEPRECATED: Use context.tokens instead
+const Color kWebBlack = DS.bg;
+const Color kWebSurface = DS.surface1;
+const Color kWebSurface2 = DS.surface2;
+const Color kWebWhite = DS.accent;
+final Color kWebBorder = DS.borderDefault;
+final Color kWebTextMuted = DS.textMuted;
+final Color kWebText = DS.textSecondary;
 
 class TVFileManagerScreen extends StatefulWidget {
   const TVFileManagerScreen({super.key});
@@ -38,6 +39,7 @@ class TVFileManagerScreen extends StatefulWidget {
 class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
   final List<String?> _navStack = [null];
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _searchFocusNode = FocusNode();
   bool _isScrolled = false;
 
   List<SFileItem> _items = [];
@@ -47,8 +49,6 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
 
   String _searchQuery = '';
   String _activeCategory = 'video';
-
-  List<Map<String, dynamic>> _stations = [];
 
   List<SFileItem> _activePlaylist = [];
   int _activePlayIndex = -1;
@@ -74,6 +74,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -87,7 +88,6 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
     try {
       final vm = context.read<ClientViewModel>();
       final media = vm.remoteMedia;
-      _stations = vm.stations;
       _allItems = media.map((m) => SFileItem(name: m.title, path: m.id, isDirectory: false, size: 0, type: _parseType(m.type), isPathBased: false)).toList();
       _switchCategory('video', SFileType.video);
     } catch (_) {
@@ -144,6 +144,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
       _navStack.add('');
       _loadPath('');
     } else if (cat == 'station') {
+      context.read<ClientViewModel>().refresh();
       setState(() {
         _isLoading = false;
       });
@@ -409,38 +410,54 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
                 // Search Bar
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: sidePadding, vertical:0),
-                    child: Container(
-                      height: 50,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: kWebSurface,
-                        border: Border.all(color: kWebBorder),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(LucideIcons.search, color: kWebTextMuted, size: 20),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextField(
-                              onChanged: (v) => setState(() => _searchQuery = v),
-                              style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, letterSpacing: 1),
-                              decoration: InputDecoration(
-                                hintText: 'SEARCH SIGNALS...',
-                                hintStyle: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 14),
-                                border: InputBorder.none,
-                                isDense: true,
+                    padding: EdgeInsets.symmetric(horizontal: sidePadding, vertical: 0),
+                    child: Focus(
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                          // Move focus down to the first item in the grid
+                          node.focusInDirection(TraversalDirection.down);
+                          return KeyEventResult.handled;
+                        }
+                        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                          // Move focus up to the category rail
+                          node.focusInDirection(TraversalDirection.up);
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: Container(
+                        height: 50,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: kWebSurface,
+                          border: Border.all(color: kWebBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(LucideIcons.search, color: kWebTextMuted, size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                focusNode: _searchFocusNode,
+                                onChanged: (v) => setState(() => _searchQuery = v),
+                                style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, letterSpacing: 1),
+                                decoration: InputDecoration(
+                                  hintText: 'SEARCH SIGNALS...',
+                                  hintStyle: GoogleFonts.dmMono(color: kWebTextMuted, fontSize: 14),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
 
                 // Content
-                _buildSliverContent(context, size, sidePadding),
+                _buildSliverContent(context, size, sidePadding, vm),
 
                 const SliverToBoxAdapter(child: SizedBox(height: 100)),
               ],
@@ -461,7 +478,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
     ));
   }
 
-  Widget _buildSliverContent(BuildContext context, Size size, double sidePadding) {
+  Widget _buildSliverContent(BuildContext context, Size size, double sidePadding, ClientViewModel vm) {
     if (_isLoading) return const SliverFillRemaining(child: Center(child: CircularProgressIndicator(color: kWebWhite, strokeWidth: 2)));
     
     if (_error != null) {
@@ -486,7 +503,8 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
     }
 
     if (_activeCategory == 'station') {
-      if (_stations.isEmpty) {
+      final stations = vm.stations;
+      if (stations.isEmpty) {
         return SliverFillRemaining(
           child: Center(
             child: Container(
@@ -508,10 +526,10 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
           ),
           delegate: SliverChildBuilderDelegate(
             (_, i) => _TVStationCard(
-              station: _stations[i],
-              onTap: () => _tuneIn(_stations[i]),
+              station: stations[i],
+              onTap: () => _tuneIn(stations[i]),
             ),
-            childCount: _stations.length,
+            childCount: stations.length,
           ),
         ),
       );

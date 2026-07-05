@@ -14,6 +14,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
+import 'package:streamz/widget/glitch_effect.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../domain/models/media_item.dart';
@@ -339,6 +340,22 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     );
   }
 
+  Widget _buildLowFiIndicator(BuildContext context) {
+    final tokens = context.tokens;
+    return Positioned(
+      bottom: 200,
+      left: 60,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: tokens.warning,
+        child: Text(
+          'LOW-FI SIGNAL RECOVERY ACTIVATED',
+          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 4),
+        ),
+      ),
+    );
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
@@ -364,9 +381,12 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Selector<PlayerViewModel, MediaItem?>(
-                      selector: (_, vm) => vm.current,
-                      builder: (context, item, _) => _buildMediaLayer(context, item),
+                    Selector<PlayerViewModel, (MediaItem?, bool)>(
+                      selector: (_, vm) => (vm.current, vm.isLowFiMode),
+                      builder: (context, data, _) => GlitchEffect(
+                        active: data.$1?.isBroadcast == true || data.$2,
+                        child: _buildMediaLayer(context, data.$1),
+                      ),
                     ),
                     Selector<PlayerViewModel, (double, String)>(
                       selector: (_, vm) => (vm.gestureOpacity, vm.gestureTxt),
@@ -375,6 +395,14 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                     Selector<PlayerViewModel, bool>(
                       selector: (_, vm) => vm.showOSD,
                       builder: (context, show, _) => _buildOSD(context, show),
+                    ),
+                    Selector<PlayerViewModel, String?>(
+                      selector: (_, vm) => vm.intercomMessage,
+                      builder: (context, msg, _) => _buildIntercomOverlay(context, msg),
+                    ),
+                    Selector<PlayerViewModel, bool>(
+                      selector: (_, vm) => vm.isLowFiMode,
+                      builder: (context, lowFi, _) => lowFi ? _buildLowFiIndicator(context) : const SizedBox.shrink(),
                     ),
                     if (_showSidebar)
                       GestureDetector(
@@ -391,6 +419,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       ),
     );
   }
+
+
 
   // ── Media Layers ──────────────────────────────────────────────────────────
 
@@ -414,6 +444,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       ),
     );
   }
+
+
 
   Widget _buildAudioLayout(BuildContext context, MediaItem item) {
     final tokens = context.tokens;
@@ -465,6 +497,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     );
   }
 
+
+
   Widget _buildImageLayout(BuildContext context, MediaItem item) {
     final tokens = context.tokens;
     return Container(
@@ -484,6 +518,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       ),
     );
   }
+
+
 
   // ── OSD (VLC Inspired) ────────────────────────────────────────────────────
 
@@ -513,6 +549,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       ),
     );
   }
+
+
 
   Widget _buildVlcBottomControls(BuildContext context) {
     final tokens = context.tokens;
@@ -618,6 +656,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     );
   }
 
+
+
   Widget _buildPlayPauseBtn(BuildContext context) {
     final item = _vm.current;
     if (item?.isImage == true) return const SizedBox.shrink();
@@ -640,6 +680,9 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       },
     );
   }
+
+
+
 
   // ── Sidebar & Components ──────────────────────────────────────────────────
 
@@ -698,6 +741,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     );
   }
 
+
   Widget _buildGestureFeedback(BuildContext context, double opacity, String text) {
     final tokens = context.tokens;
     return Center(
@@ -718,6 +762,41 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       ),
     );
   }
+
+
+  Widget _buildIntercomOverlay(BuildContext context, String? msg) {
+    final tokens = context.tokens;
+    if (msg == null) return const SizedBox.shrink();
+
+    return Container(
+      color: tokens.background.withValues(alpha: 0.9),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(60),
+          decoration: BoxDecoration(
+            color: tokens.error,
+            border: Border.all(color: tokens.textPrimary, width: 8),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'SYSTEM_PRIORITY_INTERCOM',
+                style: GoogleFonts.dmMono(color: tokens.background, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 8),
+              ),
+              const SizedBox(height: 32),
+              Text(
+                msg.toUpperCase(),
+                style: GoogleFonts.barlowCondensed(color: tokens.background, fontSize: 48, fontWeight: FontWeight.w900, letterSpacing: 2),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
 
   // ── Modals ────────────────────────────────────────────────────────────────
 
@@ -766,6 +845,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       ),
     );
   }
+
 
   void _showSpeedModal() {
     final tokens = context.tokens;
@@ -847,6 +927,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     );
   }
 
+
   void _showSleepModal() {
     final tokens = context.tokens;
     final options = [0, 5, 15, 30, 60, 120];
@@ -885,6 +966,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       ),
     );
   }
+
 
   void _showSyncModal() {
     final tokens = context.tokens;
@@ -927,6 +1009,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       ),
     );
   }
+
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -976,6 +1059,22 @@ class _TVVlcBtnState extends State<_TVVlcBtn> {
             ),
             child: Icon(widget.icon, color: fg, size: widget.size * 0.5),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLowFiIndicator(BuildContext context) {
+    final tokens = context.tokens;
+    return Positioned(
+      bottom: 200,
+      left: 60,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: tokens.warning,
+        child: Text(
+          'LOW-FI SIGNAL RECOVERY ACTIVATED',
+          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 4),
         ),
       ),
     );
@@ -1041,6 +1140,22 @@ class _TVSidebarItemState extends State<_TVSidebarItem> {
       ),
     );
   }
+
+  Widget _buildLowFiIndicator(BuildContext context) {
+    final tokens = context.tokens;
+    return Positioned(
+      bottom: 200,
+      left: 60,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: tokens.warning,
+        child: Text(
+          'LOW-FI SIGNAL RECOVERY ACTIVATED',
+          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 4),
+        ),
+      ),
+    );
+  }
 }
 
 class _TVTrackTile extends StatefulWidget {
@@ -1098,6 +1213,22 @@ class _TVTrackTileState extends State<_TVTrackTile> {
       ),
     );
   }
+
+  Widget _buildLowFiIndicator(BuildContext context) {
+    final tokens = context.tokens;
+    return Positioned(
+      bottom: 200,
+      left: 60,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: tokens.warning,
+        child: Text(
+          'LOW-FI SIGNAL RECOVERY ACTIVATED',
+          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 4),
+        ),
+      ),
+    );
+  }
 }
 
 class _TVSyncTile extends StatelessWidget {
@@ -1133,6 +1264,22 @@ class _TVSyncTile extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLowFiIndicator(BuildContext context) {
+    final tokens = context.tokens;
+    return Positioned(
+      bottom: 200,
+      left: 60,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: tokens.warning,
+        child: Text(
+          'LOW-FI SIGNAL RECOVERY ACTIVATED',
+          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 4),
+        ),
       ),
     );
   }

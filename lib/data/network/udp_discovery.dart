@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import '../../core/utils/logger.dart';
 
 const _kPort = 8888;
 const _kMulticast = '239.1.2.3';
@@ -29,7 +30,7 @@ class UdpBroadcaster {
         _send(data, _kMulticast);
       });
     } catch (e) {
-      debugPrint('UdpBroadcaster start error: $e');
+      logger.e('UdpBroadcaster start error', error: e);
     }
   }
 
@@ -69,7 +70,7 @@ class UdpDiscovery {
       try {
         _socket!.joinMulticast(InternetAddress(_kMulticast));
       } catch (e) {
-        debugPrint('UdpDiscovery multicast join error: $e');
+        logger.w('UdpDiscovery multicast join error: $e');
       }
 
       _socket!.listen((event) {
@@ -84,7 +85,7 @@ class UdpDiscovery {
         }
       });
     } catch (e) {
-      debugPrint('UdpDiscovery start error: $e');
+      logger.e('UdpDiscovery start error', error: e);
       _active = false;
     }
   }

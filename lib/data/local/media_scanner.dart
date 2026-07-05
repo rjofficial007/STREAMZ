@@ -19,8 +19,32 @@ class MediaScanner {
   final Map<String, String> assetFolders = {};
   final Map<String, File> winFiles = {};
   List<SongModel> localSongs = [];
+  
+  final Set<String> _stealthPaths = {};
+  bool _stealthRevealed = false;
+  String _stealthPin = '';
 
   final _audioQuery = OnAudioQuery();
+
+  // ── Stealth Media Logic ───────────────────────────────────────────────────
+
+  void setStealthConfig(List<String> paths, String pin) {
+    _stealthPaths.clear();
+    _stealthPaths.addAll(paths);
+    _stealthPin = pin;
+  }
+
+  bool revealStealth(String pin) {
+    if (pin == _stealthPin) {
+      _stealthRevealed = true;
+      return true;
+    }
+    return false;
+  }
+
+  void hideStealth() {
+    _stealthRevealed = false;
+  }
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -94,6 +118,7 @@ class MediaScanner {
       'includeVideos': includeVideos,
       'includeAudio': includeAudio,
       'includeImages': includeImages,
+      'stealthPaths': _stealthRevealed ? [] : _stealthPaths.toList(),
     });
 
     if (result.isNotEmpty) {
@@ -113,6 +138,7 @@ class MediaScanner {
     final includeVideos = args['includeVideos'] as bool;
     final includeAudio = args['includeAudio'] as bool;
     final includeImages = args['includeImages'] as bool;
+    final stealthPaths = (args['stealthPaths'] as List?)?.cast<String>() ?? [];
 
     final foundPaths = <String>[];
     final dir = Directory(rootPath);
@@ -122,6 +148,15 @@ class MediaScanner {
       final entities = dir.listSync(recursive: true, followLinks: false);
       for (final entity in entities) {
         if (entity is File) {
+          bool isStealth = false;
+          for (final sp in stealthPaths) {
+            if (entity.path.startsWith(sp)) {
+              isStealth = true;
+              break;
+            }
+          }
+          if (isStealth) continue;
+
           final type = FileTypeUtils.fromFilename(entity.path);
           final isTarget = (type == MediaFileType.video && includeVideos) || (type == MediaFileType.audio && includeAudio) || (type == MediaFileType.image && includeImages);
 

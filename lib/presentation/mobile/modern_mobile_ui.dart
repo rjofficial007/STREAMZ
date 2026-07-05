@@ -12,8 +12,11 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../domain/models/media_item.dart';
+import '../../domain/services/queue_service.dart';
 import '../client/client_viewmodel.dart';
+import '../shared/remote_input_relay_screen.dart';
 import '../player/player_screen.dart';
 
 
@@ -108,9 +111,17 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
                   },
                   child: Focus(
                     onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => _openSearch(context, allMedia)),
-                    child: IconButton(
-                      icon: Icon(LucideIcons.search, color: tokens.textSecondary, size: 20),
-                      onPressed: () => _openSearch(context, allMedia),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(LucideIcons.search, color: tokens.textSecondary, size: 20),
+                          onPressed: () => _openSearch(context, allMedia),
+                        ),
+                        IconButton(
+                          icon: Icon(LucideIcons.smartphoneNfc, color: tokens.textSecondary, size: 20),
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RemoteInputRelayScreen())),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -156,6 +167,14 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
 
+            // Images
+            if (images.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: _MobileContentRail(title: 'PHOTO DB', subTitle: 'PATH // ROOT/IMAGES', items: images, vm: vm, hPad: hPad, textPad: textPad),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            ],
+
             // Audio
             if (audio.isNotEmpty) ...[
               SliverToBoxAdapter(
@@ -164,12 +183,9 @@ class _ModernMobileUIScreenState extends State<ModernMobileUIScreen> {
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
 
-            // Images
-            if (images.isNotEmpty) ...[
-              SliverToBoxAdapter(
-                child: _MobileContentRail(title: 'PHOTO DB', subTitle: 'PATH // ROOT/IMAGES', items: images, vm: vm, hPad: hPad, textPad: textPad),
-              ),
-            ],
+            // Shared Queue
+            const SliverToBoxAdapter(child: _SharedQueueRail()),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
 
             const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
@@ -271,7 +287,12 @@ class _HeroSectionState extends State<_HeroSection> {
                         child: Container(
                           width: double.infinity,
                           color: tokens.surface2,
-                          child: NetworkImageFade(url: thumbUrl, fit: BoxFit.cover, fallbackIcon: item.isAudio ? LucideIcons.music : LucideIcons.video),
+                          child: NetworkImageFade(
+                              url: thumbUrl,
+                              fit: BoxFit.cover,
+                              fallbackIcon: item.isAudio
+                                  ? LucideIcons.music
+                                  : (item.isImage ? LucideIcons.image : LucideIcons.video)),
                         ),
                       ),
                       // Data Bottom
@@ -362,8 +383,45 @@ class _MobileContentRail extends StatelessWidget {
   const _MobileContentRail({required this.title, required this.subTitle, required this.items, required this.vm, required this.hPad, required this.textPad, this.showProgress = false});
 
   void _play(BuildContext context, MediaItem item) {
-    final idx = items.indexOf(item);
-    Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(items: items, startIndex: idx >= 0 ? idx : 0)));
+    final tokens = context.tokens;
+    final vm = context.read<ClientViewModel>();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: tokens.background,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      builder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: Icon(LucideIcons.play, color: tokens.textPrimary),
+            title: Text('PLAY NOW', style: DS.labelMd),
+            onTap: () {
+              Navigator.pop(context);
+              final idx = items.indexOf(item);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => PlayerScreen(items: items, startIndex: idx >= 0 ? idx : 0)));
+            },
+          ),
+          ListTile(
+            leading: Icon(LucideIcons.listPlus, color: tokens.textPrimary),
+            title: Text('ADD TO SHARED QUEUE', style: DS.labelMd),
+            onTap: () {
+              Navigator.pop(context);
+              vm.sendQueueCommand('add', item.toJson());
+            },
+          ),
+          ListTile(
+            leading: Icon(LucideIcons.download, color: tokens.textPrimary),
+            title: Text('SNEAKERNET // DOWNLOAD', style: DS.labelMd),
+            onTap: () {
+              Navigator.pop(context);
+              vm.downloadMedia(item: item, isPathBased: false);
+            },
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
   }
 
   @override
@@ -408,6 +466,89 @@ class _MobileContentRail extends StatelessWidget {
               onTap: () => _play(context, items[i]),
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SharedQueueRail extends StatelessWidget {
+  const _SharedQueueRail();
+
+  @override
+  Widget build(BuildContext context) {
+    final queueSvc = context.watch<QueueService>();
+    final vm = context.read<ClientViewModel>();
+    final tokens = context.tokens;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('SHARED QUEUE', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
+              const SizedBox(height: 2),
+              Text('VOTE FOR NEXT SIGNAL', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 9, letterSpacing: 2)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          height: 100,
+          decoration: BoxDecoration(
+            border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+            color: tokens.surface1,
+          ),
+          child: queueSvc.queue.isEmpty
+              ? Center(child: Text('QUEUE EMPTY // ADD MEDIA', style: DS.labelSm))
+              : ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.zero,
+                  itemCount: queueSvc.queue.length,
+                  itemBuilder: (_, i) {
+                    final qItem = queueSvc.queue[i];
+                    return Container(
+                      width: 200,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(border: Border(right: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(qItem.media.title.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: DS.labelMd),
+                                Text('BY: ${qItem.addedBy}', style: DS.labelSm),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                icon: const Icon(LucideIcons.arrowBigUp, size: 16),
+                                onPressed: () => vm.sendQueueCommand('vote', {'id': qItem.media.id, 'delta': 1}),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                              Text('${qItem.votes}', style: DS.labelMd),
+                              IconButton(
+                                icon: const Icon(LucideIcons.arrowBigDown, size: 16),
+                                onPressed: () => vm.sendQueueCommand('vote', {'id': qItem.media.id, 'delta': -1}),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
         ),
       ],
     );
@@ -466,7 +607,9 @@ class _MobileRailCardState extends State<_MobileRailCard> {
                   child: NetworkImageFade(
                     url: thumbUrl,
                     fit: BoxFit.cover,
-                    fallbackIcon: widget.item.isAudio ? LucideIcons.music : LucideIcons.video,
+                    fallbackIcon: widget.item.isAudio
+                        ? LucideIcons.music
+                        : (widget.item.isImage ? LucideIcons.image : LucideIcons.video),
                   ),
                 ),
               ),

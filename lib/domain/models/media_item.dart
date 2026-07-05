@@ -27,9 +27,9 @@ class MediaItem {
     this.metadata = const {},
   });
 
-  bool get isVideo => type == 'video';
-  bool get isAudio => type == 'audio';
-  bool get isImage => type == 'image';
+  bool get isVideo => type.toLowerCase() == 'video';
+  bool get isAudio => type.toLowerCase() == 'audio';
+  bool get isImage => type.toLowerCase() == 'image';
 
   double get watchProgress => (duration > 0 && lastPosition > 0) ? lastPosition / duration : 0.0;
 

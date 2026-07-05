@@ -23,7 +23,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
-import '../../../main.dart' show AppLifecycleBroadcaster;
+import '../../core/util/lifecycle_broadcaster.dart';
 import '../../core/di/service_locator.dart';
 import '../../core/utils/logger.dart';
 import '../../data/local/media_scanner.dart';
@@ -35,8 +35,8 @@ import '../../domain/models/broadcast_station.dart';
 import '../../domain/models/connection_record.dart';
 import '../../domain/models/media_item.dart';
 import '../../domain/models/stream_session.dart';
-import '../../domain/services/lifecycle_service.dart';
 import '../../domain/services/network_service.dart';
+import '../../domain/services/server_lifecycle_service.dart';
 
 class ServerViewModel extends ChangeNotifier {
   final HttpServerService _httpServer = sl<HttpServerService>();
@@ -46,7 +46,7 @@ class ServerViewModel extends ChangeNotifier {
   final ServerRepository _serverRepo = sl<ServerRepository>();
   final AppLifecycleBroadcaster _lifecycleBus = sl<AppLifecycleBroadcaster>();
   final NetworkService _networkService = sl<NetworkService>();
-  final LifecycleService _lifecycleService = sl<LifecycleService>();
+  final ServerLifecycleService _lifecycleService = sl<ServerLifecycleService>();
 
   // ── State ─────────────────────────────────────────────────────────────────
   bool _isInitializing = false;
@@ -56,6 +56,7 @@ class ServerViewModel extends ChangeNotifier {
   bool _shareVideos = true;
   bool _shareImages = true;
   bool _shareMusic = true;
+  bool _zeroTrace = false;
   List<String> _sharedFolders = [];
   List<BroadcastStation> _stations = [];
 
@@ -64,9 +65,6 @@ class ServerViewModel extends ChangeNotifier {
   // UI-facing timers — cancelled on widget dispose, NOT on server stop.
   Timer? _sessionPruneTimer;
   Timer? _speedTimer;
-
-  // Server-side timers — cancelled only when server explicitly stopped.
-  Timer? _networkWatchdog;
 
   int _lastBytesSent = 0;
   double _currentSpeedMb = 0.0;
@@ -79,12 +77,14 @@ class ServerViewModel extends ChangeNotifier {
   bool get shareVideos => _shareVideos;
   bool get shareImages => _shareImages;
   bool get shareMusic => _shareMusic;
+  bool get zeroTrace => _zeroTrace;
   List<String> get sharedFolders => List.unmodifiable(_sharedFolders);
   List<BroadcastStation> get stations => List.unmodifiable(_stations);
   List<StreamSession> get activeSessions => _activeSessions.values.toList();
   List<ConnectionRecord> get connectionHistory => _serverRepo.connectionHistory;
   int get connectedClients => _httpServer.socketCount;
   double get currentSpeedMb => _currentSpeedMb;
+  List<String> get serverLogs => _httpServer.logs;
 
   // ── Constructor ───────────────────────────────────────────────────────────
 
@@ -95,7 +95,20 @@ class ServerViewModel extends ChangeNotifier {
     _httpServer.useModernWebUI = _useModernWebUI;
 
     // Subscribe to app lifecycle events from the root observer.
-    _lifecycleBus.addListener(_onLifecycleChange);
+    _lifecycleBus.addManualListener(_onLifecycleChange);
+
+    // Wire up ServerLifecycleService callbacks
+    _lifecycleService.onNetworkChange = (newIp) async {
+      if (isRunning) {
+        logger.i('[ServerVM] IP changed to $newIp, restarting server');
+        _serverIp = newIp;
+        await _httpServer.stop();
+        _broadcaster.stop();
+        await _httpServer.start(ip: _serverIp, sharedFolders: _sharedFolders, getMediaItems: _getMediaItems);
+        await _broadcaster.start(_serverIp);
+        notifyListeners();
+      }
+    };
   }
 
   void _loadStations() {
@@ -135,6 +148,7 @@ class ServerViewModel extends ChangeNotifier {
     };
 
     _httpServer.onConnection = (ip) async {
+      if (_zeroTrace) return;
       final changed = await _serverRepo.logAccess(ip);
       if (changed) notifyListeners();
     };
@@ -146,20 +160,7 @@ class ServerViewModel extends ChangeNotifier {
 
   void _onLifecycleChange(AppLifecycleState state) {
     if (!isRunning) return;
-    switch (state) {
-      case AppLifecycleState.paused:
-      case AppLifecycleState.inactive:
-      case AppLifecycleState.hidden:
-        // Re-confirm WakeLock in case it was dropped while going background.
-        if (!_lifecycleService.wakeLockHeld) _lifecycleService.acquireKeepAlive();
-        break;
-      case AppLifecycleState.resumed:
-        // Validate server is still running after resume.
-        _checkNetworkAndRestart();
-        break;
-      case AppLifecycleState.detached:
-        break;
-    }
+    _lifecycleService.onAppLifecycleChanged(state);
   }
 
   // ── Server Lifecycle ──────────────────────────────────────────────────────
@@ -173,9 +174,9 @@ class ServerViewModel extends ChangeNotifier {
       _serverIp = await _networkService.detectIp();
 
       // Acquire keep-alive mechanisms BEFORE the server starts.
-      await _lifecycleService.acquireKeepAlive();
+      await _lifecycleService.acquire(serverIp: _serverIp);
 
-      // Scan media (incremental — yields to event loop every 100 items).
+      // Scan media...
       await _scanner.scanPhotoManager(includeVideos: _shareVideos, includeImages: _shareImages);
       await _scanner.scanAudio();
 
@@ -192,34 +193,28 @@ class ServerViewModel extends ChangeNotifier {
 
       await _broadcaster.start(_serverIp);
       _startUITimers();
-      _startNetworkWatchdog();
     } catch (e) {
       _serverIp = 'Error: $e';
       logger.e('[ServerVM] Start error', error: e);
-      // Release keep-alive mechanisms if server failed to start.
-      await _lifecycleService.releaseKeepAlive();
+      await _lifecycleService.release();
     } finally {
       _isInitializing = false;
       notifyListeners();
     }
   }
 
-  /// User-initiated stop. Releases all keep-alive mechanisms.
   Future<void> stopServer() async {
     logger.i('[ServerVM] Stopping server...');
     _speedTimer?.cancel();
     _sessionPruneTimer?.cancel();
-    _networkWatchdog?.cancel();
-    _networkWatchdog = null;
 
     try {
-      // Timeout guard: don't let a hung socket block the UI forever.
       await Future.any([
         Future.wait([
           _httpServer.stop(),
           Future.microtask(() => _broadcaster.stop()),
         ]),
-        Future.delayed(const Duration(seconds: 3), () => logger.w('[ServerVM] Stop timeout, forcing UI update')),
+        Future.delayed(const Duration(seconds: 3), () => logger.w('[ServerVM] Stop timeout')),
       ]);
     } catch (e) {
       logger.e('[ServerVM] Error during stop', error: e);
@@ -227,7 +222,7 @@ class ServerViewModel extends ChangeNotifier {
 
     _activeSessions.clear();
     await _serverRepo.markAllOffline();
-    await _lifecycleService.releaseKeepAlive();
+    await _lifecycleService.release();
 
     logger.i('[ServerVM] Server stopped');
     notifyListeners();
@@ -239,39 +234,52 @@ class ServerViewModel extends ChangeNotifier {
     return _mediaRepo.getLocalMediaItems(shareVideos: shareVideos ?? _shareVideos, shareMusic: shareMusic ?? _shareMusic, shareImages: shareImages ?? _shareImages);
   }
 
-  // ── Network Watchdog ──────────────────────────────────────────────────────
+  // ── Network Watchdog removed — now in ServerLifecycleService ───────────
 
-  void _startNetworkWatchdog() {
-    _networkWatchdog?.cancel();
-    _networkWatchdog = Timer.periodic(const Duration(seconds: 15), (_) => _checkNetworkAndRestart());
+  // ── Communication ────────────────────────────────────────────────────────
+
+  void broadcastCommand(String type, String action, {dynamic value, String? targetId}) {
+    final payload = {
+      'type': type,
+      'action': action,
+      if (value != null) 'value': value,
+      if (targetId != null) 'targetId': targetId,
+    };
+    _httpServer.broadcast(jsonEncode(payload));
   }
 
-  Future<void> _checkNetworkAndRestart() async {
-    if (!isRunning) return;
-    try {
-      final currentIp = await _networkService.detectIp();
-      if (currentIp != _serverIp && currentIp != 'No Network' && !currentIp.startsWith('Error')) {
-        logger.i('[ServerVM] IP changed $_serverIp → $currentIp, restarting server');
-        _serverIp = currentIp;
+  void sendIntercom(String text) {
+    if (text.isEmpty) return;
+    _httpServer.broadcast(jsonEncode({
+      'type': 'intercom',
+      'action': 'alert',
+      'value': text,
+    }));
+  }
 
-        // Hot-restart server on new interface.
-        await _httpServer.stop();
-        _broadcaster.stop();
-        await _httpServer.start(ip: _serverIp, sharedFolders: _sharedFolders, getMediaItems: _getMediaItems);
-        await _broadcaster.start(_serverIp);
-        notifyListeners();
-      }
+  void playOnClient(MediaItem item, {String? targetId}) {
+    broadcastCommand('media', 'play', value: item.toJson(), targetId: targetId);
+  }
 
-      // Re-acquire background service if it was dropped.
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android && !_lifecycleService.backgroundActive) {
-        await _lifecycleService.acquireKeepAlive();
-      }
+  void stopClient(String clientId) {
+    broadcastCommand('media', 'stop', targetId: clientId);
+  }
 
-      // Re-acquire WakeLock if dropped.
-      if (!_lifecycleService.wakeLockHeld) await _lifecycleService.acquireKeepAlive();
-    } catch (e) {
-      logger.e('[ServerVM] Network watchdog error', error: e);
-    }
+  void teleport(String fromId, String toId) {
+    final session = _activeSessions.values.firstWhere((s) => s.clientId == fromId, orElse: () => throw Exception('Session not found'));
+    
+    // Stop from, play on to
+    stopClient(fromId);
+    broadcastCommand(
+      'media', 
+      'teleport', 
+      value: {
+        'mediaId': session.mediaId,
+        'position': session.position,
+        'mediaType': session.mediaType,
+      }, 
+      targetId: toId
+    );
   }
 
   // ── Settings ──────────────────────────────────────────────────────────────
@@ -294,6 +302,11 @@ class ServerViewModel extends ChangeNotifier {
 
   void setShareMusic(bool v) {
     _shareMusic = v;
+    notifyListeners();
+  }
+
+  void setZeroTrace(bool v) {
+    _zeroTrace = v;
     notifyListeners();
   }
 
@@ -329,6 +342,7 @@ class ServerViewModel extends ChangeNotifier {
     _stations.add(station);
     _httpServer.stations = _stations;
     _saveStations();
+    broadcastCommand('system', 'refresh_data');
     notifyListeners();
   }
 
@@ -353,6 +367,7 @@ class ServerViewModel extends ChangeNotifier {
 
     _httpServer.stations = _stations;
     _saveStations();
+    broadcastCommand('system', 'refresh_data');
     notifyListeners();
   }
 
@@ -372,6 +387,7 @@ class ServerViewModel extends ChangeNotifier {
 
     _httpServer.stations = _stations;
     _saveStations();
+    broadcastCommand('system', 'refresh_data');
     notifyListeners();
   }
 
@@ -379,6 +395,7 @@ class ServerViewModel extends ChangeNotifier {
     _stations.removeWhere((s) => s.id == id);
     _httpServer.stations = _stations;
     _saveStations();
+    broadcastCommand('system', 'refresh_data');
     notifyListeners();
   }
 
@@ -426,7 +443,7 @@ class ServerViewModel extends ChangeNotifier {
     // Only cancel UI-facing timers that should die with the widget.
     _speedTimer?.cancel();
     _sessionPruneTimer?.cancel();
-    _lifecycleBus.removeListener(_onLifecycleChange);
+    _lifecycleBus.removeManualListener(_onLifecycleChange);
     // _networkWatchdog intentionally NOT cancelled — keeps running.
     // _httpServer, _broadcaster, WakeLock, background service — NOT touched.
     super.dispose();

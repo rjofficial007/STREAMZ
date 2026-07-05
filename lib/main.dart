@@ -9,14 +9,16 @@ import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
+import 'package:streamz/core/di/service_locator.dart';
+import 'presentation/client/client_viewmodel.dart';
 import 'package:window_manager/window_manager.dart';
-import 'core/di/service_locator.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_service.dart';
 import 'domain/services/download_service.dart';
 import 'domain/services/remote_command_service.dart';
 import 'presentation/home/role_selection_screen.dart';
 import 'presentation/server/server_viewmodel.dart';
+import 'core/util/lifecycle_broadcaster.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,17 +42,23 @@ Future<void> main() async {
 
   MediaKit.ensureInitialized();
 
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(statusBarColor: Colors.transparent, statusBarIconBrightness: Brightness.light, systemNavigationBarColor: Colors.transparent));
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent, 
+    statusBarIconBrightness: Brightness.light, 
+    systemNavigationBarColor: Colors.transparent,
+    systemNavigationBarIconBrightness: Brightness.light,
+  ));
 
   await setupServiceLocator();
 
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider<ThemeService>(create: (_) => sl<ThemeService>()),
-        ChangeNotifierProvider<DownloadService>(create: (_) => sl<DownloadService>()),
-        ChangeNotifierProvider<RemoteCommandService>(create: (_) => sl<RemoteCommandService>()),
-        ChangeNotifierProvider<ServerViewModel>(create: (_) => ServerViewModel()),
+        ChangeNotifierProvider.value(value: sl<ThemeService>()),
+        ChangeNotifierProvider.value(value: sl<DownloadService>()),
+        ChangeNotifierProvider.value(value: sl<RemoteCommandService>()),
+        ChangeNotifierProvider.value(value: sl<ServerViewModel>()),
+        ChangeNotifierProvider.value(value: sl<ClientViewModel>()),
       ],
       child: const StreamzApp(),
     ),
@@ -110,22 +118,5 @@ class _StreamzAppState extends State<StreamzApp> with WidgetsBindingObserver {
         const SingleActivator(LogicalKeyboardKey.gameButtonA): const ActivateIntent(),
       },
     );
-  }
-}
-
-/// Lightweight broadcast bus so the root WidgetsBindingObserver can
-/// forward AppLifecycleState to the ServerViewModel singleton without
-/// requiring a BuildContext or widget tree traversal.
-class AppLifecycleBroadcaster {
-  final List<void Function(AppLifecycleState)> _listeners = [];
-
-  void addListener(void Function(AppLifecycleState) cb) => _listeners.add(cb);
-
-  void removeListener(void Function(AppLifecycleState) cb) => _listeners.remove(cb);
-
-  void notify(AppLifecycleState state) {
-    for (final cb in List.of(_listeners)) {
-      cb(state);
-    }
   }
 }

@@ -35,9 +35,11 @@ import '../../core/di/service_locator.dart';
 import '../../core/utils/file_type_utils.dart';
 import '../../data/local/media_scanner.dart';
 import '../../data/local/thumbnail_cache.dart';
+import '../../core/utils/logger.dart';
 import '../../domain/models/broadcast_station.dart';
 import '../../domain/models/media_item.dart';
 import '../../domain/models/stream_session.dart';
+import '../../domain/services/queue_service.dart';
 import '../../domain/services/station_service.dart';
 import '../../domain/services/video_thumbnail_service.dart';
 import 'modern_web_html.dart';
@@ -57,6 +59,7 @@ class HttpServerService {
 
   // FIX: Typed list instead of List<dynamic>.
   final List<WebSocketChannel> _sockets = [];
+  final List<String> _logs = [];
   int _totalBytesSent = 0;
 
   bool useModernWebUI = true;
@@ -73,30 +76,36 @@ class HttpServerService {
   bool get isRunning => _server != null;
   int get socketCount => _sockets.length;
   int get bytesSent => _totalBytesSent;
+  List<String> get logs => List.unmodifiable(_logs);
+
+  void _addLog(String message) {
+    logger.i('[HttpServer] $message');
+    final timestamp = DateTime.now().toString().split(' ').last.split('.').first;
+    _logs.add('[$timestamp] $message');
+    if (_logs.length > 100) _logs.removeAt(0);
+    onSocketsChanged?.call();
+  }
 
   // ── Security ───────────────────────────────────────────────────────────────
 
   /// Returns true only if [rawPath] resolves to a location inside one of
   /// [sharedFolders] after URL-decoding and OS-level canonicalisation.
   bool _isPathAllowed(String rawPath, List<String> sharedFolders) {
+    if (rawPath.isEmpty) return false;
     try {
-      // FIX: Decode URL encoding (%2e%2e → ..) before any check.
       final decoded = Uri.decodeComponent(rawPath);
-
-      // FIX: Use p.canonicalize to resolve '..' and symlinks at the OS level.
-      // On Windows this resolves drive-letter casing too.
-      final canonical = p.canonicalize(decoded);
+      final absolutePath = p.absolute(decoded);
+      final canonical = p.canonicalize(absolutePath);
 
       for (final folder in sharedFolders) {
-        final canonicalFolder = p.canonicalize(folder);
-        // Ensure the path starts with the folder AND the next char is a
-        // separator (prevents '/storage/emulated/0X' matching '/storage/emulated/0').
-        if (canonical == canonicalFolder || canonical.startsWith(canonicalFolder + p.separator) || canonical.startsWith('$canonicalFolder/')) {
+        final canonicalFolder = p.canonicalize(p.absolute(folder));
+        if (canonical == canonicalFolder || p.isWithin(canonicalFolder, canonical)) {
           return true;
         }
       }
       return false;
-    } catch (_) {
+    } catch (e) {
+      logger.e('Path allowed check error: $rawPath', error: e);
       return false;
     }
   }
@@ -110,6 +119,7 @@ class HttpServerService {
 
     // Static assets
     router.get('/assets/images/<name>', (shelf.Request r, String name) async {
+      _addLog('GET /assets/images/$name');
       // Validate name to prevent path injection via this endpoint.
       if (name.contains('/') || name.contains('\\') || name.contains('..')) {
         return shelf.Response.forbidden('Invalid asset name');
@@ -126,12 +136,14 @@ class HttpServerService {
 
     // Web interface
     router.get('/', (_) {
+      _addLog('GET / [WEB_UI]');
       final html = useModernWebUI ? kModernWebInterfaceHtml : kWebInterfaceHtml;
       return shelf.Response.ok(html, headers: {'content-type': 'text/html; charset=utf-8'});
     });
 
     // Media list
     router.get('/api/media', (_) async {
+      _addLog('GET /api/media');
       final items = getMediaItems();
       final body = await compute(_jsonEncode, items.map((e) => e.toJson()).toList());
       return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
@@ -217,6 +229,7 @@ class HttpServerService {
     // Raw file serving
     router.get('/api/file', (shelf.Request r) async {
       final path = r.url.queryParameters['path'] ?? '';
+      _addLog('GET /api/file?path=${p.basename(path)}');
       if (path.isEmpty || !_isPathAllowed(path, sharedFolders)) {
         return shelf.Response.forbidden('Access denied');
       }
@@ -251,6 +264,7 @@ class HttpServerService {
       '/ws',
       webSocketHandler((WebSocketChannel ws, _) {
         _sockets.add(ws);
+        _addLog('WS_CONNECT: [ACTIVE: ${_sockets.length}]');
         onSocketsChanged?.call();
 
         ws.stream.listen(
@@ -269,6 +283,16 @@ class HttpServerService {
                   final vibeColors = (data['vibeColors'] as List?)?.map((e) => e.toString()).toList();
                   final mediaId = data['mediaId']?.toString();
                   final position = data['position'] as int?;
+
+                  // BROADCAST VIBE: If this session has colors, relay to all for Vibe-Sync
+                  if (vibeColors != null && vibeColors.isNotEmpty) {
+                    broadcast(jsonEncode({
+                      'type': 'system',
+                      'action': 'vibe_sync',
+                      'value': vibeColors,
+                    }));
+                  }
+
                   onSessionUpdate?.call(
                     sId,
                     StreamSession(
@@ -285,6 +309,29 @@ class HttpServerService {
                     ),
                   );
                 }
+              } else if (data['type'] == 'queue') {
+                // Server processes queue commands and broadcasts results
+                final queueSvc = sl<QueueService>();
+                if (data['action'] == 'add') {
+                  queueSvc.addItem(MediaItem.fromJson(data['value']), data['senderId'] ?? 'Unknown');
+                } else if (data['action'] == 'vote') {
+                  queueSvc.voteItem(data['value']['id'], data['value']['delta'] as int);
+                } else if (data['action'] == 'lock' && data['senderId'] == 'SERVER') {
+                  queueSvc.setLocked(data['value'] == true);
+                }
+                
+                // Broadcast updated queue and lock state to everyone
+                broadcast(jsonEncode({
+                  'type': 'queue',
+                  'action': 'update',
+                  'value': {
+                    'items': queueSvc.queue.map((e) => e.toJson()).toList(),
+                    'isLocked': queueSvc.isLocked,
+                  },
+                }));
+              } else if (data['type'] == 'intercom') {
+                // Relay intercom alerts to all clients
+                broadcast(message);
               } else if (data['targetId'] != null) {
                 // Targeted relay: only send to the node with matching clientId
                 for (final s in List.of(_sockets)) {
@@ -320,10 +367,12 @@ class HttpServerService {
           },
           onDone: () {
             _sockets.remove(ws);
+            _addLog('WS_DISCONNECT: [ACTIVE: ${_sockets.length}]');
             onSocketsChanged?.call();
           },
           onError: (_) {
             _sockets.remove(ws);
+            _addLog('WS_ERROR: [ACTIVE: ${_sockets.length}]');
             onSocketsChanged?.call();
           },
           cancelOnError: false,
@@ -353,7 +402,7 @@ class HttpServerService {
     final handler = const shelf.Pipeline().addMiddleware(withMiddleware).addHandler(router.call);
 
     _server = await shelf_io.serve(handler, InternetAddress.anyIPv4, 8080);
-    debugPrint('[HttpServer] Listening on http://$ip:8080');
+    logger.i('[HttpServer] Listening on http://$ip:8080');
   }
 
   Future<void> stop() async {
@@ -367,7 +416,7 @@ class HttpServerService {
     }
     _sockets.clear();
     onSocketsChanged?.call();
-    debugPrint('[HttpServer] Stopped');
+    logger.i('[HttpServer] Stopped');
   }
 
   void broadcast(String message) {
@@ -463,6 +512,9 @@ class HttpServerService {
         final type = FileTypeUtils.fromFilename(filePath);
         if (type == MediaFileType.video) {
           data = await _thumbGenerator.generateThumbnail(filePath, maxWidth: 400, quality: 85);
+        } else if (type == MediaFileType.image) {
+          // For images, the original file is our thumbnail.
+          data = await File(filePath).readAsBytes();
         }
       }
     }

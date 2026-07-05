@@ -166,8 +166,8 @@ class RemoteCommandService extends ChangeNotifier {
         if (position != null) 'position': position,
         'mediaType': mediaType,
         'isStopped': isStopped,
-        if (snapshot != null) 'snapshot': snapshot,
-        if (vibeColors != null) 'vibeColors': vibeColors,
+        'snapshot': snapshot,
+        'vibeColors': vibeColors,
       }));
     } catch (e) {
       debugPrint('[WS] reportStatus error: $e');

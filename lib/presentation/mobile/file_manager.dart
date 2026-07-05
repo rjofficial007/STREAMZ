@@ -588,12 +588,28 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
                   ],
                 ),
               ),
+              _BrutalistInteractiveCard(
+                onTap: () {
+                  _navStack.add('');
+                  _loadPath('');
+                },
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(LucideIcons.terminal, color: tokens.textPrimary, size: 22),
+                    const SizedBox(height: 7),
+                    Text(
+                      'DIRECTORY',
+                      style: GoogleFonts.dmMono(color: tokens.textSecondary, fontSize: 9, letterSpacing: 1),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       ),
-      // Root Directory Button
-      SliverToBoxAdapter(child: _buildRootButton(context)),
       SliverToBoxAdapter(child: const SizedBox(height: 100)),
     ];
   }
@@ -667,39 +683,6 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildRootButton(BuildContext context) {
-    final tokens = context.tokens;
-    return Container(
-      decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-      child: _BrutalistInteractiveCard(
-        onTap: () {
-          _navStack.add('');
-          _loadPath('');
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Icon(LucideIcons.terminal, size: 24, color: tokens.textPrimary),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('ROOT DIRECTORY', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                    const SizedBox(height: 3),
-                    Text('${_allItems.length} FILES INDEXED', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 9, letterSpacing: 1)),
-                  ],
-                ),
-              ),
-              Icon(LucideIcons.chevronRight, color: tokens.textMuted, size: 16),
-            ],
-          ),
-        ),
       ),
     );
   }

@@ -13,13 +13,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_background/flutter_background.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import '../../core/utils/logger.dart';
 
-/// Singleton that owns the server's always-on lifecycle.
-/// ServerViewModel delegates start/stop here instead of directly managing HTTP.
+/// Owned by GetIt as a singleton. Handles background execution,
+/// WakeLock, and network monitoring for the server.
 class ServerLifecycleService extends ChangeNotifier {
-  static final ServerLifecycleService _instance = ServerLifecycleService._();
-  factory ServerLifecycleService() => _instance;
-  ServerLifecycleService._();
+  ServerLifecycleService();
 
   bool _backgroundActive = false;
   bool _wakeLockHeld = false;
@@ -69,9 +68,9 @@ class ServerLifecycleService extends ChangeNotifier {
     try {
       await WakelockPlus.enable();
       _wakeLockHeld = true;
-      debugPrint('[Lifecycle] WakeLock acquired');
+      logger.i('[Lifecycle] WakeLock acquired');
     } catch (e) {
-      debugPrint('[Lifecycle] WakeLock failed: $e');
+      logger.e('[Lifecycle] WakeLock failed', error: e);
     }
   }
 
@@ -80,9 +79,9 @@ class ServerLifecycleService extends ChangeNotifier {
     try {
       await WakelockPlus.disable();
       _wakeLockHeld = false;
-      debugPrint('[Lifecycle] WakeLock released');
+      logger.i('[Lifecycle] WakeLock released');
     } catch (e) {
-      debugPrint('[Lifecycle] WakeLock release failed: $e');
+      logger.e('[Lifecycle] WakeLock release failed', error: e);
     }
   }
 
@@ -92,32 +91,30 @@ class ServerLifecycleService extends ChangeNotifier {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
 
     try {
-      // Check if already initialized and enabled
       if (FlutterBackground.isBackgroundExecutionEnabled) {
         _backgroundActive = true;
         return;
       }
 
-      // Initialize config
       const config = FlutterBackgroundAndroidConfig(
         notificationTitle: 'STREAMZ — Server Active',
         notificationText: 'Broadcasting on local network. Tap to open.',
         notificationImportance: AndroidNotificationImportance.normal,
         notificationIcon: AndroidResource(name: 'ic_launcher', defType: 'mipmap'),
-        enableWifiLock: true, // Critical: prevents WiFi from sleeping
+        enableWifiLock: true,
       );
 
       final initialized = await FlutterBackground.initialize(androidConfig: config);
       if (!initialized) {
-        debugPrint('[Lifecycle] Background init failed');
+        logger.w('[Lifecycle] Background init failed');
         return;
       }
 
       final started = await FlutterBackground.enableBackgroundExecution();
       _backgroundActive = started;
-      debugPrint('[Lifecycle] Background service: $started');
+      logger.i('[Lifecycle] Background service: $started');
     } catch (e) {
-      debugPrint('[Lifecycle] Background service error: $e');
+      logger.e('[Lifecycle] Background service error', error: e);
       _backgroundActive = false;
     }
   }
@@ -131,9 +128,9 @@ class ServerLifecycleService extends ChangeNotifier {
         await FlutterBackground.disableBackgroundExecution();
       }
       _backgroundActive = false;
-      debugPrint('[Lifecycle] Background service released');
+      logger.i('[Lifecycle] Background service released');
     } catch (e) {
-      debugPrint('[Lifecycle] Background release error: $e');
+      logger.e('[Lifecycle] Background release error', error: e);
     }
   }
 
@@ -141,7 +138,6 @@ class ServerLifecycleService extends ChangeNotifier {
 
   void _startNetworkWatchdog() {
     _stopNetworkWatchdog();
-    // Check network every 15 seconds
     _networkWatchdog = Timer.periodic(const Duration(seconds: 15), (_) async {
       await _checkNetwork();
     });
@@ -157,7 +153,6 @@ class ServerLifecycleService extends ChangeNotifier {
     try {
       String? currentIp;
 
-      // Try NetworkInterface first (most reliable)
       final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
       for (final iface in interfaces) {
         for (final addr in iface.addresses) {
@@ -170,29 +165,26 @@ class ServerLifecycleService extends ChangeNotifier {
         if (currentIp != null) break;
       }
 
-      // Fallback to NetworkInfo
       currentIp ??= await NetworkInfo().getWifiIP();
 
       if (currentIp != null && currentIp.isNotEmpty && currentIp != _lastKnownIp) {
-        debugPrint('[Lifecycle] IP changed: $_lastKnownIp → $currentIp');
+        logger.i('[Lifecycle] IP changed: $_lastKnownIp → $currentIp');
         _lastKnownIp = currentIp;
         onNetworkChange?.call(currentIp);
         notifyListeners();
       }
 
-      // Re-acquire background service if it dropped
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android && _initialized && !FlutterBackground.isBackgroundExecutionEnabled) {
-        debugPrint('[Lifecycle] Background dropped, re-acquiring...');
+        logger.w('[Lifecycle] Background dropped, re-acquiring...');
         await _acquireBackgroundService();
         onBackgroundLost?.call();
       }
 
-      // Re-acquire WakeLock if dropped
       if (_initialized && !_wakeLockHeld) {
         await _acquireWakeLock();
       }
     } catch (e) {
-      debugPrint('[Lifecycle] Network check error: $e');
+      logger.e('[Lifecycle] Network check error', error: e);
     }
   }
 
