@@ -3,18 +3,18 @@
 // STREAMZ — Client Connection Screen (Samsung-Style / Brutalist Edition)
 // ============================================================================
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
-
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
-import 'client_viewmodel.dart';
-import 'client_connect_screen_tv.dart';
-import 'interface_selection_screen.dart';
-import 'qr_scanner_screen.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/presentation/client/client_connect_screen_tv.dart';
+import 'package:streamz/presentation/client/client_viewmodel.dart';
 
 class ClientConnectScreen extends StatefulWidget {
   const ClientConnectScreen({super.key});
@@ -57,15 +57,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
     if (!mounted) return;
 
     if (ok) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ChangeNotifierProvider.value(
-            value: context.read<ClientViewModel>(), 
-            child: const InterfaceSelectionScreen()
-          ),
-        ),
-      );
+      if (mounted) context.pushReplacement('/client/interface');
     }
   }
 
@@ -104,16 +96,17 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
         actions: {
           ActivateIntent: CallbackAction<ActivateIntent>(
             onInvoke: (_) {
-              Navigator.pop(context);
+              context.pop();
               return null;
             },
           ),
         },
         child: Focus(
-          onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
+          onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => context.pop()),
           child: IconButton(
+            tooltip: 'BACK',
             icon: Icon(LucideIcons.chevronLeft, size: 20, color: tokens.textPrimary),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => context.pop(),
           ),
         ),
       ),
@@ -139,7 +132,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
       delegate: SliverChildListDelegate([
         _HandshakeAnalysisCard(vm: vm),
         
-        Container(
+        DecoratedBox(
           decoration: BoxDecoration(
             border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))), 
             color: tokens.border.withValues(alpha: 0.15)
@@ -180,7 +173,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
         ),
         
         if (vm.ipHistory.isEmpty)
-          _EmptyHistoryPlaceholder()
+          const _EmptyHistoryPlaceholder()
         else
           ...vm.ipHistory.asMap().entries.map((e) => _HistoryTile(
             ip: e.value, 
@@ -193,7 +186,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
     );
   }
 
-  void _scanQR() async {
+  Future<void> _scanQR() async {
     final tokens = context.tokens;
     if (kIsWeb || (defaultTargetPlatform != TargetPlatform.android && defaultTargetPlatform != TargetPlatform.iOS)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -204,10 +197,10 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
       );
       return;
     }
-    final ip = await Navigator.push(context, MaterialPageRoute(builder: (_) => const QRScannerScreen()));
-    if (ip is String && mounted) {
+    final ip = await context.push<String>('/qr-scanner');
+    if (ip != null && mounted) {
       _ctrl.text = ip;
-      _connect();
+      unawaited(_connect());
     }
   }
 
@@ -243,7 +236,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
                   ),
                   keyboardType: TextInputType.number,
                   onSubmitted: (_) {
-                    Navigator.pop(ctx);
+                    context.pop();
                     _connect();
                   },
                 ),
@@ -251,7 +244,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
               const SizedBox(height: 24),
               GestureDetector(
                 onTap: () {
-                  Navigator.pop(ctx);
+                  context.pop();
                   _connect();
                 },
                 child: Container(
@@ -272,8 +265,8 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
 }
 
 class _HandshakeAnalysisCard extends StatelessWidget {
-  final ClientViewModel vm;
   const _HandshakeAnalysisCard({required this.vm});
+  final ClientViewModel vm;
 
   @override
   Widget build(BuildContext context) {
@@ -324,7 +317,7 @@ class _HandshakeAnalysisCard extends StatelessWidget {
             children: [
               Container(height: 8, color: tokens.surface2),
               if (vm.isDiscovering)
-                _DiscoveryProgressBar(),
+                const _DiscoveryProgressBar(),
             ],
           ),
           const SizedBox(height: 16),
@@ -386,11 +379,11 @@ class _DiscoveryProgressBarState extends State<_DiscoveryProgressBar> with Singl
 }
 
 class _QuickActionCard extends StatefulWidget {
+
+  const _QuickActionCard({required this.label, required this.icon, required this.onTap});
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-
-  const _QuickActionCard({required this.label, required this.icon, required this.onTap});
 
   @override
   State<_QuickActionCard> createState() => _QuickActionCardState();
@@ -429,11 +422,11 @@ class _QuickActionCardState extends State<_QuickActionCard> {
 }
 
 class _HistoryTile extends StatefulWidget {
+
+  const _HistoryTile({required this.ip, required this.isFirst, required this.onTap});
   final String ip;
   final bool isFirst;
   final VoidCallback onTap;
-
-  const _HistoryTile({required this.ip, required this.isFirst, required this.onTap});
 
   @override
   State<_HistoryTile> createState() => _HistoryTileState();
@@ -492,8 +485,8 @@ class _HistoryTileState extends State<_HistoryTile> {
 }
 
 class _ErrorBanner extends StatelessWidget {
-  final String error;
   const _ErrorBanner({required this.error});
+  final String error;
 
   @override
   Widget build(BuildContext context) {
@@ -544,8 +537,8 @@ class _EmptyHistoryPlaceholder extends StatelessWidget {
 }
 
 class _BlinkingDot extends StatefulWidget {
-  final bool isOnline;
   const _BlinkingDot({required this.isOnline});
+  final bool isOnline;
 
   @override
   State<_BlinkingDot> createState() => _BlinkingDotState();

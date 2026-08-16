@@ -1,21 +1,46 @@
 // data/repositories/media_repository.dart
 
-import 'package:flutter/foundation.dart';
+import 'dart:convert';
 
-import '../../domain/models/media_item.dart';
-import '../local/media_scanner.dart';
-import '../local/progress_store.dart';
-import '../network/media_api_client.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:streamz/core/di/service_locator.dart';
+import 'package:streamz/data/local/media_scanner.dart';
+import 'package:streamz/data/local/progress_store.dart';
+import 'package:streamz/data/network/media_api_client.dart';
+import 'package:streamz/domain/models/broadcast_station.dart';
+import 'package:streamz/domain/models/history_item.dart';
+import 'package:streamz/domain/models/media_item.dart';
 
 class MediaRepository {
+
+  MediaRepository({required MediaScanner scanner, required ProgressStore progress}) : _scanner = scanner, _progress = progress;
+  static const _historyKey = 'client_view_history';
   final MediaScanner _scanner;
   final ProgressStore _progress;
   MediaApiClient? _client;
 
-  MediaRepository({required MediaScanner scanner, required ProgressStore progress}) : _scanner = scanner, _progress = progress;
-
-  void setClient(MediaApiClient client) => _client = client;
+  set client(MediaApiClient? client) => _client = client;
   void clearClient() => _client = null;
+
+  // ── History ──────────────────────────────────────────────────────────────
+
+  List<HistoryItem> getLocalHistory() {
+    final list = sl<SharedPreferences>().getStringList(_historyKey) ?? [];
+    return list.map((e) => HistoryItem.fromJson(jsonDecode(e))).toList();
+  }
+
+  Future<void> addToHistory(MediaItem item) async {
+    final prefs = sl<SharedPreferences>();
+    final history = getLocalHistory()
+      ..removeWhere((h) => h.media.id == item.id)
+      ..insert(0, HistoryItem(media: item, timestamp: DateTime.now()));
+    
+    if (history.length > 50) history.removeLast();
+    
+    final list = history.map((e) => jsonEncode(e.toJson())).toList();
+    await prefs.setStringList(_historyKey, list);
+  }
 
   // ── Remote ────────────────────────────────────────────────────────────────
 
@@ -24,8 +49,8 @@ class MediaRepository {
     final items = await _client!.fetchMedia();
     
     // Fetch progress data from local store
-    final Map<String, int> positions = {};
-    final Map<String, int> timestamps = {};
+    final positions = <String, int>{};
+    final timestamps = <String, int>{};
     for (final item in items) {
       positions[item.id] = _progress.getProgress(item.id);
       timestamps[item.id] = _progress.getTimestamp(item.id);
@@ -54,12 +79,12 @@ class MediaRepository {
     return _client!.browse(path);
   }
 
-  Future<List<Map<String, dynamic>>> fetchStations() async {
+  Future<List<BroadcastStation>> fetchStations() async {
     if (_client == null) return [];
     return _client!.fetchStations();
   }
 
-  Future<Map<String, dynamic>?> joinStation(String id) async {
+  Future<StationJoinResponse?> joinStation(String id) async {
     if (_client == null) return null;
     return _client!.joinStation(id);
   }
@@ -71,9 +96,7 @@ class MediaRepository {
 
   // ── Continue Watching ─────────────────────────────────────────────────────
 
-  List<MediaItem> continueWatching(List<MediaItem> allItems) {
-    return allItems.where((item) => item.isInProgress).toList()..sort((a, b) => b.lastPlayedTimestamp.compareTo(a.lastPlayedTimestamp));
-  }
+  List<MediaItem> continueWatching(List<MediaItem> allItems) => allItems.where((item) => item.isInProgress).toList()..sort((a, b) => b.lastPlayedTimestamp.compareTo(a.lastPlayedTimestamp));
 
   // ── Progress ──────────────────────────────────────────────────────────────
 

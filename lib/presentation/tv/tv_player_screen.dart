@@ -3,32 +3,34 @@
 // STREAMZ — TV Dedicated Media Player (VLC-Inspired Brutalist Edition)
 // ============================================================================
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
+import 'package:streamz/core/constants/app_strings.dart';
+import 'package:streamz/core/constants/app_text_styles.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/domain/models/broadcast_station.dart';
+import 'package:streamz/domain/models/media_item.dart';
+import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/player/player_viewmodel.dart';
+import 'package:streamz/presentation/player/widgets/low_fi_indicator.dart';
+import 'package:streamz/presentation/player/widgets/player_sync_tile.dart';
+import 'package:streamz/presentation/player/widgets/player_track_tile.dart';
+import 'package:streamz/presentation/shared/atmospheric_background.dart';
 import 'package:streamz/widget/glitch_effect.dart';
-
-import '../../core/theme/app_theme.dart';
-import '../../domain/models/media_item.dart';
-import '../client/client_viewmodel.dart';
-import '../player/player_viewmodel.dart';
-import '../shared/atmospheric_background.dart';
 
 
 class TVPlayerScreen extends StatefulWidget {
-  final List<MediaItem> items;
-  final int startIndex;
-  final bool isPathBased;
-  final Duration? startOffset;
-  final bool autoPlay;
 
   const TVPlayerScreen({
     super.key,
@@ -38,6 +40,11 @@ class TVPlayerScreen extends StatefulWidget {
     this.startOffset,
     this.autoPlay = true,
   });
+  final List<MediaItem> items;
+  final int startIndex;
+  final bool isPathBased;
+  final Duration? startOffset;
+  final bool autoPlay;
 
   @override
   State<TVPlayerScreen> createState() => _TVPlayerScreenState();
@@ -89,7 +96,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
   void _onVMChange() {
     if (mounted) {
       if (_vm.isStopped) {
-        Navigator.pop(context);
+        context.pop();
         return;
       }
       if (_vm.showOSD && !_wasOSDVisible) {
@@ -105,8 +112,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
 
   @override
   void dispose() {
-    _vm.removeListener(_onVMChange);
-    _vm.dispose();
+    _vm..removeListener(_onVMChange)
+    ..dispose();
     _osdFocusScope.dispose();
     _playPauseFocusNode.dispose();
     _sidebarFirstItemFocusNode.dispose();
@@ -159,12 +166,10 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     return KeyEventResult.ignored;
   }
 
-  bool _isExitKey(LogicalKeyboardKey key) {
-    return key == LogicalKeyboardKey.escape ||
+  bool _isExitKey(LogicalKeyboardKey key) => key == LogicalKeyboardKey.escape ||
         key == LogicalKeyboardKey.browserBack ||
         key == LogicalKeyboardKey.goBack ||
         key == LogicalKeyboardKey.exit;
-  }
 
   KeyEventResult _handleExitRequest() {
     if (_showSidebar) {
@@ -175,7 +180,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       _vm.hideOSD();
       return KeyEventResult.handled;
     }
-    Navigator.pop(context);
+    context.pop();
     return KeyEventResult.handled;
   }
 
@@ -200,7 +205,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaStop) {
-      Navigator.pop(context);
+      context.pop();
       return KeyEventResult.handled;
     }
     if (item?.isVideo == true && item?.isBroadcast != true) {
@@ -261,8 +266,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     final stations = clientVM.stations;
     if (stations.isEmpty) return;
 
-    final currentStationId = _vm.current?.folder; // Using folder as station ID for broadcasts
-    int idx = stations.indexWhere((s) => s['id'] == currentStationId);
+    final currentStationId = _vm.current?.folder;
+    var idx = stations.indexWhere((s) => s.id == currentStationId);
     
     if (idx == -1) {
       idx = 0;
@@ -272,22 +277,17 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     _switchStation(stations[idx]);
   }
 
-  void _switchStation(Map<String, dynamic> station) async {
+  Future<void> _switchStation(BroadcastStation station) async {
     final clientVM = context.read<ClientViewModel>();
-    final res = await clientVM.joinStation(station['id']);
+    final res = await clientVM.joinStation(station.id);
     if (res != null && mounted) {
-      final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
-      final startIndex = res['itemIndex'] as int? ?? 0;
-      final offsetMs = res['positionMs'] as int;
-      final isPaused = res['isPaused'] as bool? ?? false;
-
-      _vm.load(
-        items: items,
-        startIndex: startIndex,
+      unawaited(_vm.load(
+        items: res.playlist,
+        startIndex: res.itemIndex,
         isPathBased: false,
-        startOffset: Duration(milliseconds: offsetMs),
-        autoPlay: !isPaused,
-      );
+        startOffset: res.position,
+        autoPlay: !res.isPaused,
+      ));
     }
   }
 
@@ -316,41 +316,26 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                   Container(
                     padding: const EdgeInsets.all(32),
                     decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                    child: Text('LIVE BROADCAST STATIONS', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                    child: Text('LIVE BROADCAST STATIONS', style: AppTextStyles.barlowBold(28, spacing: 2, color: tokens.textPrimary)),
                   ),
                   if (stations.isEmpty)
                     Padding(
                       padding: const EdgeInsets.all(40),
-                      child: Text('NO ACTIVE BROADCASTS FOUND', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 16, letterSpacing: 2), textAlign: TextAlign.center),
+                      child: Text('NO ACTIVE BROADCASTS FOUND', style: AppTextStyles.mono(16, spacing: 2, color: tokens.textMuted), textAlign: TextAlign.center),
                     ),
-                  ...stations.map((s) => _TVTrackTile(
-                    label: s['name'].toString().toUpperCase(),
-                    isActive: _vm.current?.folder == s['id'],
+                  ...stations.map((s) => PlayerTrackTile(
+                    isTV: true,
+                    label: s.name.toUpperCase(),
+                    isActive: _vm.current?.folder == s.id,
                     onTap: () {
                       _switchStation(s);
-                      Navigator.pop(ctx);
+                      context.pop();
                     },
                   )),
                 ],
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLowFiIndicator(BuildContext context) {
-    final tokens = context.tokens;
-    return Positioned(
-      bottom: 200,
-      left: 60,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        color: tokens.warning,
-        child: Text(
-          'LOW-FI SIGNAL RECOVERY ACTIVATED',
-          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 4),
         ),
       ),
     );
@@ -402,7 +387,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                     ),
                     Selector<PlayerViewModel, bool>(
                       selector: (_, vm) => vm.isLowFiMode,
-                      builder: (context, lowFi, _) => lowFi ? _buildLowFiIndicator(context) : const SizedBox.shrink(),
+                      builder: (context, lowFi, _) => lowFi ? const LowFiIndicator(isTV: true) : const SizedBox.shrink(),
                     ),
                     if (_showSidebar)
                       GestureDetector(
@@ -474,22 +459,13 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
             const SizedBox(height: 60),
             Text(
               item.title.toUpperCase(),
-              style: GoogleFonts.barlowCondensed(
-                color: tokens.textPrimary,
-                fontSize: 40,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2,
-              ),
+              style: AppTextStyles.barlowBlack(40, spacing: 2, color: tokens.textPrimary),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
               'SIGNAL_TYPE // AUDIO_STREAM',
-              style: GoogleFonts.dmMono(
-                color: tokens.textMuted,
-                fontSize: 14,
-                letterSpacing: 4,
-              ),
+              style: AppTextStyles.mono(14, spacing: 4, color: tokens.textMuted),
             ),
           ],
         ),
@@ -505,7 +481,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       color: tokens.background,
       padding: const EdgeInsets.all(60),
       child: Center(
-        child: Container(
+        child: DecoratedBox(
           decoration: BoxDecoration(
             border: Border.all(color: tokens.border.withValues(alpha: 0.15), width: 1),
           ),
@@ -530,7 +506,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       duration: const Duration(milliseconds: 250),
       child: ExcludeFocus(
         excluding: !showOSD,
-        child: Container(
+        child: DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.bottomCenter,
@@ -590,7 +566,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                           children: [
                             Text(
                               'STREAMZ // ${idx + 1} OF $total',
-                              style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: (size.width * 0.008).clamp(9.0, 12.0), letterSpacing: 3),
+                              style: AppTextStyles.mono((size.width * 0.008).clamp(9.0, 12.0), spacing: 3, color: tokens.textMuted),
                             ),
                             if (isBroadcast) ...[
                               const SizedBox(width: 12),
@@ -598,8 +574,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 color: tokens.error,
                                 child: Text(
-                                  'LIVE',
-                                  style: GoogleFonts.dmMono(color: tokens.background, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                                  AppStrings.live,
+                                  style: AppTextStyles.mono(10, weight: FontWeight.bold, spacing: 1, color: tokens.background),
                                 ),
                               ),
                             ],
@@ -608,13 +584,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                         const SizedBox(height: 8),
                         Text(
                           (item?.title ?? '').toUpperCase(),
-                          style: GoogleFonts.barlowCondensed(
-                            color: tokens.textPrimary,
-                            fontSize: (size.width * 0.012).clamp(14.0, 20.0),
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1,
-                            height: 1.1,
-                          ),
+                          style: AppTextStyles.barlowBlack((size.width * 0.012).clamp(14.0, 20.0), spacing: 1, color: tokens.textPrimary).copyWith(height: 1.1),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -643,7 +613,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                         const SizedBox(width: 12),
                         _TVVlcBtn(icon: LucideIcons.settings2, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => _toggleSidebar(true)),
                         const SizedBox(width: 12),
-                        _TVVlcBtn(icon: LucideIcons.x, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => Navigator.pop(context), isDestructive: true),
+                        _TVVlcBtn(icon: LucideIcons.x, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => context.pop(), isDestructive: true),
                       ],
                     ),
                   ),
@@ -698,7 +668,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       top: 0,
       bottom: 0,
       width: sidebarWidth,
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: tokens.surface1,
           border: Border(left: BorderSide(color: tokens.textPrimary, width: 2)),
@@ -715,7 +685,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                 children: [
                   Icon(LucideIcons.settings2, color: tokens.textPrimary, size: (size.width * 0.02).clamp(20.0, 28.0)),
                   const SizedBox(width: 16),
-                  Text('SYSTEM_CONFIG', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: (size.width * 0.015).clamp(20.0, 28.0), fontWeight: FontWeight.bold, letterSpacing: 2)),
+                  Text('SYSTEM_CONFIG', style: AppTextStyles.barlowBold((size.width * 0.015).clamp(20.0, 28.0), spacing: 2, color: tokens.textPrimary)),
                 ],
               ),
             ),
@@ -828,8 +798,9 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                     child: Text('${type.toUpperCase()} SIGNAL SELECT', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
                   ),
                   if (type == 'subtitles')
-                    _TVTrackTile(label: 'DISABLE SUBTITLES', isActive: current.id == 'no', onTap: () { _vm.setSubtitleTrack(SubtitleTrack.no()); Navigator.pop(ctx); }),
-                  ...tracks.map((t) => _TVTrackTile(
+                    PlayerTrackTile(isTV: true, label: 'DISABLE SUBTITLES', isActive: current.id == 'no', onTap: () { _vm.setSubtitleTrack(SubtitleTrack.no()); Navigator.pop(ctx); }),
+                  ...tracks.map((t) => PlayerTrackTile(
+                    isTV: true,
                     label: (t.title ?? t.language ?? t.id).toUpperCase(),
                     isActive: t.id == current.id,
                     onTap: () {
@@ -874,7 +845,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                     decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
                     child: Text('PLAYBACK RATE', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
                   ),
-                  ...speeds.map((s) => _TVTrackTile(
+                  ...speeds.map((s) => PlayerTrackTile(
+                    isTV: true,
                     label: '${s}X SPEED',
                     isActive: (s - current).abs() < 0.01,
                     onTap: () { _vm.setRate(s); Navigator.pop(ctx); },
@@ -913,7 +885,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                     decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
                     child: Text('ASPECT_CALIBRATION', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
                   ),
-                  ...fits.entries.map((e) => _TVTrackTile(
+                  ...fits.entries.map((e) => PlayerTrackTile(
+                    isTV: true,
                     label: e.value,
                     isActive: _vm.videoFit == e.key,
                     onTap: () { _vm.setVideoFit(e.key); Navigator.pop(ctx); },
@@ -953,7 +926,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                     decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
                     child: Text('AUTO_SHUTDOWN', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
                   ),
-                  ...options.map((m) => _TVTrackTile(
+                  ...options.map((m) => PlayerTrackTile(
+                    isTV: true,
                     label: m == 0 ? 'DISABLED' : '$m MINUTES',
                     isActive: _vm.sleepMinutesRemaining == m,
                     onTap: () { _vm.setSleepTimer(m); Navigator.pop(ctx); },
@@ -996,8 +970,8 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                     listenable: _vm,
                     builder: (_, child) => Column(
                       children: [
-                        _TVSyncTile(label: 'AUDIO OFFSET', value: _vm.audioDelay, onChanged: _vm.setAudioDelay),
-                        _TVSyncTile(label: 'SUBTITLE OFFSET', value: _vm.subDelay, onChanged: _vm.setSubtitleDelay),
+                        PlayerSyncTile(isTV: true, label: 'AUDIO OFFSET', value: _vm.audioDelay, onChanged: _vm.setAudioDelay),
+                        PlayerSyncTile(isTV: true, label: 'SUBTITLE OFFSET', value: _vm.subDelay, onChanged: _vm.setSubtitleDelay),
                       ],
                     ),
                   ),
@@ -1017,14 +991,14 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TVVlcBtn extends StatefulWidget {
+
+  const _TVVlcBtn({required this.icon, required this.size, this.onTap, this.isPrimary = false, this.isDestructive = false, this.focusNode});
   final IconData icon;
   final double size;
   final VoidCallback? onTap;
   final bool isPrimary;
   final bool isDestructive;
   final FocusNode? focusNode;
-
-  const _TVVlcBtn({required this.icon, required this.size, this.onTap, this.isPrimary = false, this.isDestructive = false, this.focusNode});
 
   @override
   State<_TVVlcBtn> createState() => _TVVlcBtnState();
@@ -1063,32 +1037,16 @@ class _TVVlcBtnState extends State<_TVVlcBtn> {
       ),
     );
   }
-
-  Widget _buildLowFiIndicator(BuildContext context) {
-    final tokens = context.tokens;
-    return Positioned(
-      bottom: 200,
-      left: 60,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        color: tokens.warning,
-        child: Text(
-          'LOW-FI SIGNAL RECOVERY ACTIVATED',
-          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 4),
-        ),
-      ),
-    );
-  }
 }
 
 class _TVSidebarItem extends StatefulWidget {
+
+  const _TVSidebarItem({required this.label, required this.icon, required this.onTap, this.isDestructive = false, this.focusNode});
   final String label;
   final IconData icon;
   final VoidCallback onTap;
   final bool isDestructive;
   final FocusNode? focusNode;
-
-  const _TVSidebarItem({required this.label, required this.icon, required this.onTap, this.isDestructive = false, this.focusNode});
 
   @override
   State<_TVSidebarItem> createState() => _TVSidebarItemState();
@@ -1136,149 +1094,6 @@ class _TVSidebarItemState extends State<_TVSidebarItem> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLowFiIndicator(BuildContext context) {
-    final tokens = context.tokens;
-    return Positioned(
-      bottom: 200,
-      left: 60,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        color: tokens.warning,
-        child: Text(
-          'LOW-FI SIGNAL RECOVERY ACTIVATED',
-          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 4),
-        ),
-      ),
-    );
-  }
-}
-
-class _TVTrackTile extends StatefulWidget {
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _TVTrackTile({required this.label, required this.isActive, required this.onTap});
-
-  @override
-  State<_TVTrackTile> createState() => _TVTrackTileState();
-}
-
-class _TVTrackTileState extends State<_TVTrackTile> {
-  bool _focused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Focus(
-      onFocusChange: (v) {
-        setState(() => _focused = v);
-        handleTVFocusScroll(v, context);
-      },
-      onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: _focused ? 1.02 : 1.0,
-          duration: const Duration(milliseconds: 150),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
-            decoration: BoxDecoration(
-              color: _focused ? tokens.textPrimary : (widget.isActive ? tokens.textPrimary.withValues(alpha: 0.05) : Colors.transparent),
-              border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.label,
-                    style: GoogleFonts.dmMono(
-                      fontSize: 16,
-                      fontWeight: _focused || widget.isActive ? FontWeight.bold : FontWeight.normal,
-                      color: _focused ? tokens.background : (widget.isActive ? tokens.textPrimary : tokens.textSecondary),
-                      letterSpacing: 2,
-                    ),
-                  ),
-                ),
-                if (widget.isActive) Icon(LucideIcons.check, color: _focused ? tokens.background : tokens.textPrimary, size: 24),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLowFiIndicator(BuildContext context) {
-    final tokens = context.tokens;
-    return Positioned(
-      bottom: 200,
-      left: 60,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        color: tokens.warning,
-        child: Text(
-          'LOW-FI SIGNAL RECOVERY ACTIVATED',
-          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 4),
-        ),
-      ),
-    );
-  }
-}
-
-class _TVSyncTile extends StatelessWidget {
-  final String label;
-  final double value;
-  final Function(double) onChanged;
-
-  const _TVSyncTile({required this.label, required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Container(
-      padding: const EdgeInsets.all(40),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 14, letterSpacing: 2)),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              _TVVlcBtn(icon: LucideIcons.minus, size: 64, onTap: () => onChanged(value - 0.1)),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    '${value.toStringAsFixed(1)}S',
-                    style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 32, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-              _TVVlcBtn(icon: LucideIcons.plus, size: 64, onTap: () => onChanged(value + 0.1)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLowFiIndicator(BuildContext context) {
-    final tokens = context.tokens;
-    return Positioned(
-      bottom: 200,
-      left: 60,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        color: tokens.warning,
-        child: Text(
-          'LOW-FI SIGNAL RECOVERY ACTIVATED',
-          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 4),
         ),
       ),
     );

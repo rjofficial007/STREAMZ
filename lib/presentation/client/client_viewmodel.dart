@@ -1,63 +1,29 @@
 // presentation/client/client_viewmodel.dart
 
 import 'dart:async';
-
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-import '../player/player_screen.dart';
-import '../../core/di/service_locator.dart';
-import '../../data/network/media_api_client.dart';
-import '../../data/network/udp_discovery.dart';
-import '../../data/repositories/media_repository.dart';
-import '../../data/repositories/server_repository.dart';
-import '../../domain/models/media_item.dart';
-import '../../domain/models/remote_command.dart';
-import '../../domain/services/device_id_service.dart';
-import '../../domain/services/download_service.dart';
-import '../../domain/services/queue_service.dart';
-import '../../domain/services/remote_command_service.dart';
+import 'package:streamz/core/di/service_locator.dart';
+import 'package:streamz/data/network/media_api_client.dart';
+import 'package:streamz/data/network/udp_discovery.dart';
+import 'package:streamz/data/repositories/media_repository.dart';
+import 'package:streamz/data/repositories/server_repository.dart';
+import 'package:streamz/domain/models/broadcast_station.dart';
+import 'package:streamz/domain/models/history_item.dart';
+import 'package:streamz/domain/models/media_item.dart';
+import 'package:streamz/domain/models/remote_command.dart';
+import 'package:streamz/domain/services/device_id_service.dart';
+import 'package:streamz/domain/services/download_service.dart';
+import 'package:streamz/domain/services/queue_service.dart';
+import 'package:streamz/domain/services/remote_command_service.dart';
+import 'package:streamz/presentation/player/player_screen.dart';
 
 class ClientViewModel extends ChangeNotifier {
-  final MediaRepository _mediaRepo = sl<MediaRepository>();
-  final ServerRepository _serverRepo = sl<ServerRepository>();
-  final UdpDiscovery _discovery = sl<UdpDiscovery>();
-  final RemoteCommandService remote = sl<RemoteCommandService>();
-  final DeviceIdService _deviceId = sl<DeviceIdService>();
-
-  String _targetIp = '';
-  bool _isLoading = false;
-  bool _isDiscovering = false;
-  String? _connectionError;
-  List<MediaItem> _remoteMedia = [];
-  List<Map<String, dynamic>> _stations = [];
-
-  final List<String> _ipHistory = [];
-  StreamSubscription? _cmdSub;
-  Timer? _refreshTimer;
-
-  // Anti-spam timer for remote commands
-  DateTime _lastActionTime = DateTime.fromMillisecondsSinceEpoch(0);
-
-  // ── Getters ───────────────────────────────────────────────────────────────
-  String get targetIp => _targetIp;
-  bool get isLoading => _isLoading;
-  bool get isDiscovering => _isDiscovering;
-  String? get connectionError => _connectionError;
-  List<MediaItem> get remoteMedia => List.unmodifiable(_remoteMedia);
-  List<Map<String, dynamic>> get stations => List.unmodifiable(_stations);
-  List<String> get ipHistory => List.unmodifiable(_ipHistory);
-  bool get isConnected => _targetIp.isNotEmpty;
-
-  List<MediaItem> get continueWatching => _mediaRepo.continueWatching(_remoteMedia);
-
-  List<MediaItem> get videos => _remoteMedia.where((m) => m.isVideo).toList();
-  List<MediaItem> get audio => _remoteMedia.where((m) => m.isAudio).toList();
-  List<MediaItem> get images => _remoteMedia.where((m) => m.isImage).toList();
 
   ClientViewModel() {
+    _loadLocalHistory();
     // Global Navigation Hook: Translates Remote WS Commands into Flutter UI Focus movements
     _cmdSub = remote.commands.listen((cmd) {
       // FIX: Targeted command filtering
@@ -164,6 +130,43 @@ class ClientViewModel extends ChangeNotifier {
       }
     });
   }
+  final MediaRepository _mediaRepo = sl<MediaRepository>();
+  final ServerRepository _serverRepo = sl<ServerRepository>();
+  final UdpDiscovery _discovery = sl<UdpDiscovery>();
+  final RemoteCommandService remote = sl<RemoteCommandService>();
+  final DeviceIdService _deviceId = sl<DeviceIdService>();
+
+  String _targetIp = '';
+  bool _isLoading = false;
+  bool _isDiscovering = false;
+  String? _connectionError;
+  List<MediaItem> _remoteMedia = [];
+  List<BroadcastStation> _stations = [];
+  List<HistoryItem> _localHistory = [];
+
+  final List<String> _ipHistory = [];
+  StreamSubscription? _cmdSub;
+  Timer? _refreshTimer;
+
+  // Anti-spam timer for remote commands
+  DateTime _lastActionTime = DateTime.fromMillisecondsSinceEpoch(0);
+
+  // ── Getters ───────────────────────────────────────────────────────────────
+  String get targetIp => _targetIp;
+  bool get isLoading => _isLoading;
+  bool get isDiscovering => _isDiscovering;
+  String? get connectionError => _connectionError;
+  List<MediaItem> get remoteMedia => List.unmodifiable(_remoteMedia);
+  List<BroadcastStation> get stations => List.unmodifiable(_stations);
+  List<HistoryItem> get localHistory => List.unmodifiable(_localHistory);
+  List<String> get ipHistory => List.unmodifiable(_ipHistory);
+  bool get isConnected => _targetIp.isNotEmpty;
+
+  List<MediaItem> get continueWatching => _mediaRepo.continueWatching(_remoteMedia);
+
+  List<MediaItem> get videos => _remoteMedia.where((m) => m.isVideo).toList();
+  List<MediaItem> get audio => _remoteMedia.where((m) => m.isAudio).toList();
+  List<MediaItem> get images => _remoteMedia.where((m) => m.isImage).toList();
 
   // ── Discovery ─────────────────────────────────────────────────────────────
 
@@ -206,7 +209,7 @@ class ClientViewModel extends ChangeNotifier {
       if (!ok) throw Exception('Server not reachable');
 
       _targetIp = ip.trim();
-      _mediaRepo.setClient(client);
+      _mediaRepo.client = client;
 
       _remoteMedia = await _mediaRepo.fetchRemoteMedia();
       _stations = await _mediaRepo.fetchStations();
@@ -243,13 +246,27 @@ class ClientViewModel extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<Map<String, dynamic>?> joinStation(String id) => _mediaRepo.joinStation(id);
+  Future<StationJoinResponse?> joinStation(String id) => _mediaRepo.joinStation(id);
+
+  // ── History ──────────────────────────────────────────────────────────────
+
+  void _loadLocalHistory() {
+    try {
+      _localHistory = _mediaRepo.getLocalHistory();
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> addToHistory(MediaItem item) async {
+    await _mediaRepo.addToHistory(item);
+    _loadLocalHistory();
+  }
 
   void disconnect() {
     _refreshTimer?.cancel();
     _refreshTimer = null;
     remote.disconnect();
-    _mediaRepo.clearClient();
+    _mediaRepo.client = null;
     _targetIp = '';
     _remoteMedia = [];
     notifyListeners();
@@ -258,7 +275,7 @@ class ClientViewModel extends ChangeNotifier {
   /// Preview mode — uses local server as if it were remote
   void preparePreview() {
     _targetIp = '127.0.0.1';
-    _mediaRepo.setClient(MediaApiClient('127.0.0.1'));
+    _mediaRepo.client = MediaApiClient('127.0.0.1');
     notifyListeners();
   }
 
@@ -266,7 +283,7 @@ class ClientViewModel extends ChangeNotifier {
 
   Future<List<Map<String, dynamic>>> browseRemote(String path) async {
     if (_targetIp.isEmpty) return [];
-    return await _mediaRepo.browseRemote(path);
+    return _mediaRepo.browseRemote(path);
   }
 
   void downloadMedia({required MediaItem item, required bool isPathBased}) {

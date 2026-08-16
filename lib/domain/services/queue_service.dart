@@ -1,20 +1,9 @@
 import 'package:flutter/foundation.dart';
-import '../models/media_item.dart';
+import 'package:streamz/domain/models/media_item.dart';
 
 class QueueItem {
-  final MediaItem media;
-  final String addedBy;
-  int votes;
-  final DateTime addedAt;
 
   QueueItem({required this.media, required this.addedBy, this.votes = 0, DateTime? addedAt}) : addedAt = addedAt ?? DateTime.now();
-
-  Map<String, dynamic> toJson() => {
-    'media': media.toJson(),
-    'addedBy': addedBy,
-    'votes': votes,
-    'addedAt': addedAt.toIso8601String(),
-  };
 
   factory QueueItem.fromJson(Map<String, dynamic> json) => QueueItem(
     media: MediaItem.fromJson(json['media']),
@@ -22,6 +11,17 @@ class QueueItem {
     votes: json['votes'] ?? 0,
     addedAt: json['addedAt'] != null ? DateTime.parse(json['addedAt']) : null,
   );
+  final MediaItem media;
+  final String addedBy;
+  int votes;
+  final DateTime addedAt;
+
+  Map<String, dynamic> toJson() => {
+    'media': media.toJson(),
+    'addedBy': addedBy,
+    'votes': votes,
+    'addedAt': addedAt.toIso8601String(),
+  };
 }
 
 class QueueService extends ChangeNotifier {

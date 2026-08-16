@@ -17,14 +17,46 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
-import '../../core/di/service_locator.dart';
-import '../../data/repositories/media_repository.dart';
-import '../../domain/models/media_item.dart';
-import '../../domain/models/remote_command.dart';
-import '../../domain/services/player_service.dart';
-import '../../domain/services/remote_command_service.dart';
+import 'package:streamz/core/di/service_locator.dart';
+import 'package:streamz/data/repositories/media_repository.dart';
+import 'package:streamz/domain/models/media_item.dart';
+import 'package:streamz/domain/models/remote_command.dart';
+import 'package:streamz/domain/services/player_service.dart';
+import 'package:streamz/domain/services/remote_command_service.dart';
 
 class PlayerViewModel extends ChangeNotifier {
+
+  PlayerViewModel() {
+    _playerService = PlayerService(repo: _repo, remote: _remote);
+    videoController = VideoController(_playerService.player);
+
+    // Wake OSD whenever any remote command arrives.
+    _remoteSub = _remote.commands.listen((cmd) {
+      if (_isDisposed) return;
+      
+      if (cmd.type == 'intercom') {
+        _handleIntercom(cmd.value?.toString() ?? '');
+      }
+      
+      wakeOSD();
+    });
+
+    _bufferSub = player.stream.buffering.listen((isBuffering) {
+      if (_isDisposed) return;
+      if (isBuffering && !_isLowFiMode) {
+        // If we buffer for more than 3s, enter Low-Fi mode
+        Timer(const Duration(seconds: 3), () {
+          if (!_isDisposed && player.state.buffering) {
+            _isLowFiMode = true;
+            notifyListeners();
+          }
+        });
+      } else if (!isBuffering && _isLowFiMode) {
+        _isLowFiMode = false;
+        notifyListeners();
+      }
+    });
+  }
   late final PlayerService _playerService;
   late final VideoController videoController;
 
@@ -76,38 +108,6 @@ class PlayerViewModel extends ChangeNotifier {
 
   set snapshotCallback(Future<String?> Function()? cb) => _playerService.snapshotCallback = cb;
 
-  PlayerViewModel() {
-    _playerService = PlayerService(repo: _repo, remote: _remote);
-    videoController = VideoController(_playerService.player);
-
-    // Wake OSD whenever any remote command arrives.
-    _remoteSub = _remote.commands.listen((cmd) {
-      if (_isDisposed) return;
-      
-      if (cmd.type == 'intercom') {
-        _handleIntercom(cmd.value?.toString() ?? '');
-      }
-      
-      wakeOSD();
-    });
-
-    _bufferSub = player.stream.buffering.listen((isBuffering) {
-      if (_isDisposed) return;
-      if (isBuffering && !_isLowFiMode) {
-        // If we buffer for more than 3s, enter Low-Fi mode
-        Timer(const Duration(seconds: 3), () {
-          if (!_isDisposed && player.state.buffering) {
-            _isLowFiMode = true;
-            notifyListeners();
-          }
-        });
-      } else if (!isBuffering && _isLowFiMode) {
-        _isLowFiMode = false;
-        notifyListeners();
-      }
-    });
-  }
-
   void _handleIntercom(String msg) {
     _intercomMessage = msg;
     _preIntercomVolume = player.state.volume;
@@ -126,6 +126,12 @@ class PlayerViewModel extends ChangeNotifier {
 
   Future<void> load({required List<MediaItem> items, required int startIndex, bool isPathBased = false, Duration? startOffset, bool autoPlay = true}) async {
     await _playerService.load(items: items, startIndex: startIndex, isPathBased: isPathBased, startOffset: startOffset, autoPlay: autoPlay);
+    
+    // Log to local history if we successfully loaded an item
+    if (_playerService.current != null) {
+      unawaited(sl<MediaRepository>().addToHistory(_playerService.current!));
+    }
+
     if (!_isDisposed) {
       wakeOSD();
       notifyListeners();

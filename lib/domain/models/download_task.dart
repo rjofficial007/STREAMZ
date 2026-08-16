@@ -14,6 +14,8 @@ import 'package:flutter/foundation.dart';
 enum DownloadStatus { queued, downloading, completed, failed, cancelled }
 
 class DownloadTask {
+
+  DownloadTask({required this.id, required this.title, required this.type, required this.totalBytes, this.isPathBased = false});
   final String id;
   final String title;
   final String type;
@@ -28,8 +30,6 @@ class DownloadTask {
 
   // Closure set by DownloadService to cancel an in-progress download.
   Future<void> Function()? cancelTask;
-
-  DownloadTask({required this.id, required this.title, required this.type, required this.totalBytes, this.isPathBased = false});
 
   bool get isCompleted => status == DownloadStatus.completed;
   bool get isActive => status == DownloadStatus.queued || status == DownloadStatus.downloading;

@@ -19,14 +19,16 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 
-import '../../core/di/service_locator.dart';
-import '../../data/repositories/media_repository.dart';
-import '../../domain/models/media_item.dart';
-import '../../domain/models/remote_command.dart';
-import '../services/device_id_service.dart';
-import '../services/remote_command_service.dart';
+import 'package:streamz/core/di/service_locator.dart';
+import 'package:streamz/data/repositories/media_repository.dart';
+import 'package:streamz/domain/models/media_item.dart';
+import 'package:streamz/domain/models/remote_command.dart';
+import 'package:streamz/domain/services/device_id_service.dart';
+import 'package:streamz/domain/services/remote_command_service.dart';
 
 class PlayerService extends ChangeNotifier {
+
+  PlayerService({required MediaRepository repo, required RemoteCommandService remote}) : player = Player(), _repo = repo, _remote = remote;
   final Player player;
   final MediaRepository _repo;
   final RemoteCommandService _remote;
@@ -51,8 +53,6 @@ class PlayerService extends ChangeNotifier {
 
   // Simple version-based cancellation token for async operations.
   int _loadVersion = 0;
-
-  PlayerService({required MediaRepository repo, required RemoteCommandService remote}) : player = Player(), _repo = repo, _remote = remote;
 
   // ── Accessors ─────────────────────────────────────────────────────────────
 
@@ -100,7 +100,7 @@ class PlayerService extends ChangeNotifier {
     // Cancel any in-flight timers from a previous load before re-assigning.
     _saveTimer?.cancel();
     _statusTimer?.cancel();
-    _cmdSub?.cancel();
+    await _cmdSub?.cancel();
 
     _playlist = items;
     // FIX: clamp only if list is non-empty; otherwise default to 0.
@@ -348,7 +348,7 @@ class PlayerService extends ChangeNotifier {
     if (pos > 0) _repo.saveProgress(item.id, pos);
   }
 
-  void _reportStatus() async {
+  Future<void> _reportStatus() async {
     final item = current;
     if (item == null || _isStopped) return;
     final dur = player.state.duration.inSeconds;
@@ -399,7 +399,7 @@ class PlayerService extends ChangeNotifier {
     _saveTimer?.cancel();
     _statusTimer?.cancel();
     _syncTimer?.cancel();
-    _cmdSub?.cancel();
+    await _cmdSub?.cancel();
 
     final item = current;
     if (item != null) {

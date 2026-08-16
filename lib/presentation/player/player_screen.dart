@@ -3,33 +3,36 @@
 // STREAMZ — Universal Media Player Screen (VLC-Inspired Brutalist Edition)
 // ============================================================================
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
-
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
-import '../../domain/models/media_item.dart';
-import '../../widget/glitch_effect.dart';
-import '../../widget/technical_overlay.dart';
-import '../client/client_viewmodel.dart';
-import 'player_viewmodel.dart';
+import 'package:streamz/core/constants/app_icons.dart';
+import 'package:streamz/core/constants/app_strings.dart';
+import 'package:streamz/core/constants/app_text_styles.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/domain/models/broadcast_station.dart';
+import 'package:streamz/domain/models/media_item.dart';
+import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/player/player_viewmodel.dart';
+import 'package:streamz/presentation/player/widgets/low_fi_indicator.dart';
+import 'package:streamz/presentation/player/widgets/player_sync_tile.dart';
+import 'package:streamz/presentation/player/widgets/player_track_tile.dart';
+import 'package:streamz/widget/glitch_effect.dart';
+import 'package:streamz/widget/technical_overlay.dart';
 
 
 class PlayerScreen extends StatefulWidget {
-  final List<MediaItem> items;
-  final int startIndex;
-  final bool isPathBased;
-  final Duration? startOffset;
-  final bool autoPlay;
 
   const PlayerScreen({
     super.key,
@@ -39,6 +42,11 @@ class PlayerScreen extends StatefulWidget {
     this.startOffset,
     this.autoPlay = true,
   });
+  final List<MediaItem> items;
+  final int startIndex;
+  final bool isPathBased;
+  final Duration? startOffset;
+  final bool autoPlay;
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -90,7 +98,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _onVMChange() {
     if (mounted) {
       if (_vm.isStopped) {
-        Navigator.pop(context);
+        context.pop();
         return;
       }
       if (_vm.showOSD && !_wasOSDVisible) {
@@ -107,8 +115,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   @override
   void dispose() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    _vm.removeListener(_onVMChange);
-    _vm.dispose();
+    _vm
+      ..removeListener(_onVMChange)
+      ..dispose();
     _osdFocusScope.dispose();
     _primaryFocusNode.dispose();
     _sidebarFirstItemFocusNode.dispose();
@@ -171,7 +180,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaStop) {
-      Navigator.pop(context);
+      context.pop();
       return KeyEventResult.handled;
     }
     if (item?.isVideo == true && item?.isBroadcast != true) {
@@ -224,22 +233,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // ── Station Switching ─────────────────────────────────────────────────────
 
-  void _switchStation(Map<String, dynamic> station) async {
+  Future<void> _switchStation(BroadcastStation station) async {
     final clientVM = context.read<ClientViewModel>();
-    final res = await clientVM.joinStation(station['id']);
+    final res = await clientVM.joinStation(station.id);
     if (res != null && mounted) {
-      final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
-      final startIndex = res['itemIndex'] as int? ?? 0;
-      final offsetMs = res['positionMs'] as int;
-      final isPaused = res['isPaused'] as bool? ?? false;
-
-      _vm.load(
-        items: items,
-        startIndex: startIndex,
+      unawaited(_vm.load(
+        items: res.playlist,
+        startIndex: res.itemIndex,
         isPathBased: false,
-        startOffset: Duration(milliseconds: offsetMs),
-        autoPlay: !isPaused,
-      );
+        startOffset: res.position,
+        autoPlay: !res.isPaused,
+      ));
     }
   }
 
@@ -269,18 +273,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                    child: Text('LIVE STATIONS', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                    child: Text('LIVE STATIONS', style: AppTextStyles.barlowBold(24, spacing: 2, color: tokens.textPrimary)),
                   ),
                   Flexible(
                     child: ListView(
                       shrinkWrap: true,
                       padding: EdgeInsets.zero,
-                      children: stations.map((s) => _MobileTrackTile(
-                        label: s['name'].toString().toUpperCase(),
-                        isActive: _vm.current?.folder == s['id'],
+                      children: stations.map((s) => PlayerTrackTile(
+                        label: s.name.toUpperCase(),
+                        isActive: _vm.current?.folder == s.id,
                         onTap: () {
                           _switchStation(s);
-                          Navigator.pop(ctx);
+                          context.pop();
                         },
                       )).toList(),
                     ),
@@ -289,22 +293,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLowFiIndicator(BuildContext context) {
-    final tokens = context.tokens;
-    return Positioned(
-      bottom: 100,
-      left: 20,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        color: tokens.warning,
-        child: Text(
-          'LOW-FI SIGNAL RECOVERY',
-          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2),
         ),
       ),
     );
@@ -359,7 +347,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     _buildGestureFeedback(context),
                     _buildOSD(context),
                     _buildIntercomOverlay(context),
-                    if (_vm.isLowFiMode) _buildLowFiIndicator(context),
+                    if (_vm.isLowFiMode) const LowFiIndicator(isTV: false),
                     if (_showTechnicalOverlay)
                       Positioned(
                         top: DS.s80,
@@ -406,8 +394,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return _buildVideoLayout(context, item);
   }
 
-  Widget _buildVideoLayout(BuildContext context, MediaItem item) {
-    return Container(
+  Widget _buildVideoLayout(BuildContext context, MediaItem item) => Container(
       color: Colors.black,
       child: Video(
         controller: _vm.videoController,
@@ -415,7 +402,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         fit: _vm.videoFit,
       ),
     );
-  }
 
 
 
@@ -452,12 +438,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
                   item.title.toUpperCase(),
-                  style: GoogleFonts.barlowCondensed(
-                    color: tokens.textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1,
-                  ),
+                  style: AppTextStyles.barlowBlack(22, spacing: 1, color: tokens.textPrimary),
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -466,7 +447,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               const SizedBox(height: 4),
               Text(
                 'SIGNAL_TYPE // AUDIO_STREAM',
-                style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 8, letterSpacing: 2),
+                style: AppTextStyles.mono(8, spacing: 2, color: tokens.textMuted),
               ),
             ],
           ),
@@ -481,7 +462,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       color: tokens.background,
       padding: const EdgeInsets.all(24),
       child: Center(
-        child: Container(
+        child: DecoratedBox(
           decoration: BoxDecoration(border: Border.all(color: tokens.border.withValues(alpha: 0.15), width: 1)),
           child: Image.network(
             _vm.mediaUrl,
@@ -496,9 +477,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // ── OSD (Mobile VLC Style) ────────────────────────────────────────────────
 
-  Widget _buildOSD(BuildContext context) {
-    final tokens = context.tokens;
-    return AnimatedOpacity(
+  Widget _buildOSD(BuildContext context) => AnimatedOpacity(
       opacity: _vm.showOSD ? 1.0 : 0.0,
       duration: const Duration(milliseconds: 250),
       child: ExcludeFocus(
@@ -516,7 +495,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
       ),
     );
-  }
 
 
   Widget _buildTopBar(BuildContext context) {
@@ -537,7 +515,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
         child: Row(
           children: [
-            _MobileIconBtn(icon: LucideIcons.chevronLeft, size: 32, onTap: () => Navigator.pop(context)),
+            _MobileIconBtn(icon: AppIcons.back, size: 32, onTap: () => context.pop()),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
@@ -546,13 +524,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 children: [
                   Text(
                     (item?.title ?? '').toUpperCase(),
-                    style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    style: AppTextStyles.barlowBold(14, spacing: 1, color: tokens.textPrimary),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     'CMD // ${_vm.currentIndex + 1} OF ${_vm.playlist.length}',
-                    style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 8, letterSpacing: 1),
+                    style: AppTextStyles.mono(8, spacing: 1, color: tokens.textMuted),
                   ),
                 ],
               ),
@@ -596,7 +574,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   color: tokens.error,
-                  child: Text('LIVE', style: GoogleFonts.dmMono(color: tokens.background, fontSize: 8, fontWeight: FontWeight.bold)),
+                  child: Text(AppStrings.live, style: AppTextStyles.mono(8, weight: FontWeight.bold, color: tokens.background)),
                 ),
 
               const Spacer(),
@@ -654,7 +632,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       top: 0,
       bottom: 0,
       width: 220,
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: tokens.surface1,
           border: Border(left: BorderSide(color: tokens.textPrimary, width: 1)),
@@ -670,7 +648,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   children: [
                     Icon(LucideIcons.settings2, color: tokens.textPrimary, size: 16),
                     const SizedBox(width: 8),
-                    Text('TOOLS', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    Text('TOOLS', style: AppTextStyles.barlowBold(18, spacing: 1, color: tokens.textPrimary)),
                   ],
                 ),
               ),
@@ -790,8 +768,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     child: Text(type.toUpperCase(), style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2)),
                   ),
                   if (type == 'subtitles')
-                    _MobileTrackTile(label: 'DISABLED', isActive: current.id == 'no', onTap: () { _vm.setSubtitleTrack(SubtitleTrack.no()); Navigator.pop(ctx); }),
-                  ...tracks.map((t) => _MobileTrackTile(
+                    PlayerTrackTile(label: 'DISABLED', isActive: current.id == 'no', onTap: () { _vm.setSubtitleTrack(SubtitleTrack.no()); Navigator.pop(ctx); }),
+                  ...tracks.map((t) => PlayerTrackTile(
                     label: (t.title ?? t.language ?? t.id).toUpperCase(),
                     isActive: t.id == current.id,
                     onTap: () {
@@ -830,7 +808,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: speeds.map((s) => _MobileTrackTile(
+                children: speeds.map((s) => PlayerTrackTile(
                   label: '${s}X SPEED',
                   isActive: (s - current).abs() < 0.01,
                   onTap: () { _vm.setRate(s); Navigator.pop(ctx); },
@@ -863,7 +841,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: fits.entries.map((e) => _MobileTrackTile(
+                children: fits.entries.map((e) => PlayerTrackTile(
                   label: e.value,
                   isActive: _vm.videoFit == e.key,
                   onTap: () { _vm.setVideoFit(e.key); Navigator.pop(ctx); },
@@ -896,7 +874,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: options.map((m) => _MobileTrackTile(
+                children: options.map((m) => PlayerTrackTile(
                   label: m == 0 ? 'OFF' : '$m MINUTES',
                   isActive: _vm.sleepMinutesRemaining == m,
                   onTap: () { _vm.setSleepTimer(m); Navigator.pop(ctx); },
@@ -931,8 +909,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 builder: (_, child) => Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _MobileSyncTile(label: 'AUDIO OFFSET', value: _vm.audioDelay, onChanged: _vm.setAudioDelay),
-                    _MobileSyncTile(label: 'SUBTITLE OFFSET', value: _vm.subDelay, onChanged: _vm.setSubtitleDelay),
+                    PlayerSyncTile(label: 'AUDIO OFFSET', value: _vm.audioDelay, onChanged: _vm.setAudioDelay),
+                    PlayerSyncTile(label: 'SUBTITLE OFFSET', value: _vm.subDelay, onChanged: _vm.setSubtitleDelay),
                   ],
                 ),
               ),
@@ -949,13 +927,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _MobileIconBtn extends StatefulWidget {
+
+  const _MobileIconBtn({required this.icon, required this.onTap, this.size = 44, this.isPrimary = false}) : isDestructive = false;
   final IconData icon;
   final VoidCallback onTap;
   final double size;
   final bool isPrimary;
   final bool isDestructive;
-
-  const _MobileIconBtn({required this.icon, required this.onTap, this.size = 44, this.isPrimary = false, this.isDestructive = false});
 
   @override
   State<_MobileIconBtn> createState() => _MobileIconBtnState();
@@ -977,25 +955,9 @@ class _MobileIconBtnState extends State<_MobileIconBtn> {
           height: widget.size,
           decoration: BoxDecoration(
             color: _focused ? tokens.textPrimary : (widget.isPrimary ? tokens.textPrimary : Colors.transparent),
-            border: Border.all(color: widget.isDestructive ? tokens.error : (_focused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15))),
+            border: Border.all(color: _focused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15)),
           ),
-          child: Icon(widget.icon, color: _focused ? tokens.background : (widget.isPrimary ? tokens.background : (widget.isDestructive ? tokens.error : tokens.textPrimary)), size: widget.size * 0.5),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLowFiIndicator(BuildContext context) {
-    final tokens = context.tokens;
-    return Positioned(
-      bottom: 100,
-      left: 20,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        color: tokens.warning,
-        child: Text(
-          'LOW-FI SIGNAL RECOVERY',
-          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2),
+          child: Icon(widget.icon, color: _focused ? tokens.background : (widget.isPrimary ? tokens.background : tokens.textPrimary), size: widget.size * 0.5),
         ),
       ),
     );
@@ -1003,13 +965,13 @@ class _MobileIconBtnState extends State<_MobileIconBtn> {
 }
 
 class _MobileSidebarItem extends StatefulWidget {
+
+  const _MobileSidebarItem({required this.label, required this.icon, required this.onTap, this.isDestructive = false, this.focusNode});
   final String label;
   final IconData icon;
   final VoidCallback onTap;
   final bool isDestructive;
   final FocusNode? focusNode;
-
-  const _MobileSidebarItem({required this.label, required this.icon, required this.onTap, this.isDestructive = false, this.focusNode});
 
   @override
   State<_MobileSidebarItem> createState() => _MobileSidebarItemState();
@@ -1041,133 +1003,9 @@ class _MobileSidebarItemState extends State<_MobileSidebarItem> {
             children: [
               Icon(widget.icon, color: color, size: 14),
               const SizedBox(width: 12),
-              Text(label, style: GoogleFonts.dmMono(color: color, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              Text(widget.label, style: GoogleFonts.dmMono(color: color, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLowFiIndicator(BuildContext context) {
-    final tokens = context.tokens;
-    return Positioned(
-      bottom: 100,
-      left: 20,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        color: tokens.warning,
-        child: Text(
-          'LOW-FI SIGNAL RECOVERY',
-          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2),
-        ),
-      ),
-    );
-  }
-
-  String get label => widget.label;
-}
-
-class _MobileTrackTile extends StatefulWidget {
-  final String label;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _MobileTrackTile({required this.label, required this.isActive, required this.onTap});
-
-  @override
-  State<_MobileTrackTile> createState() => _MobileTrackTileState();
-}
-
-class _MobileTrackTileState extends State<_MobileTrackTile> {
-  bool _focused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Focus(
-      onFocusChange: (v) {
-        setState(() => _focused = v);
-        handleTVFocusScroll(v, context);
-      },
-      onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-      child: InkWell(
-        onTap: widget.onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: _focused ? tokens.textPrimary : (widget.isActive ? tokens.textPrimary.withValues(alpha: 0.05) : Colors.transparent),
-            border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-          ),
-          child: Row(
-            children: [
-              Expanded(child: Text(widget.label, style: GoogleFonts.dmMono(color: _focused ? tokens.background : (widget.isActive ? tokens.textPrimary : tokens.textSecondary), fontSize: 11, fontWeight: widget.isActive ? FontWeight.bold : FontWeight.normal))),
-              if (widget.isActive) Icon(LucideIcons.check, color: _focused ? tokens.background : tokens.textPrimary, size: 12),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLowFiIndicator(BuildContext context) {
-    final tokens = context.tokens;
-    return Positioned(
-      bottom: 100,
-      left: 20,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        color: tokens.warning,
-        child: Text(
-          'LOW-FI SIGNAL RECOVERY',
-          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2),
-        ),
-      ),
-    );
-  }
-}
-
-class _MobileSyncTile extends StatelessWidget {
-  final String label;
-  final double value;
-  final Function(double) onChanged;
-
-  const _MobileSyncTile({required this.label, required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 8, letterSpacing: 2)),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _MobileIconBtn(icon: LucideIcons.minus, size: 32, onTap: () => onChanged(value - 0.1)),
-              Expanded(child: Center(child: Text('${value.toStringAsFixed(1)}S', style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)))),
-              _MobileIconBtn(icon: LucideIcons.plus, size: 32, onTap: () => onChanged(value + 0.1)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLowFiIndicator(BuildContext context) {
-    final tokens = context.tokens;
-    return Positioned(
-      bottom: 100,
-      left: 20,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        color: tokens.warning,
-        child: Text(
-          'LOW-FI SIGNAL RECOVERY',
-          style: GoogleFonts.dmMono(color: tokens.background, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 2),
         ),
       ),
     );

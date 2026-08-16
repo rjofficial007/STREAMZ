@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
-import '../core/theme/design_tokens.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
 
 /// A Brutalist-style technical overlay for monitoring playback and system stats.
 class TechnicalOverlay extends StatelessWidget {
-  final Map<String, String> stats;
-  final VoidCallback onClose;
 
   const TechnicalOverlay({
     super.key,
     required this.stats,
     required this.onClose,
   });
+  final Map<String, String> stats;
+  final VoidCallback onClose;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(BuildContext context) => Container(
       color: DS.bg.withValues(alpha: 0.85),
       padding: const EdgeInsets.all(DS.s24),
       child: Column(
@@ -78,5 +77,4 @@ class TechnicalOverlay extends StatelessWidget {
         ],
       ),
     );
-  }
 }

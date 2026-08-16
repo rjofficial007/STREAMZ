@@ -12,8 +12,8 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_background/flutter_background.dart';
 import 'package:network_info_plus/network_info_plus.dart';
+import 'package:streamz/core/utils/logger.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import '../../core/utils/logger.dart';
 
 /// Owned by GetIt as a singleton. Handles background execution,
 /// WakeLock, and network monitoring for the server.

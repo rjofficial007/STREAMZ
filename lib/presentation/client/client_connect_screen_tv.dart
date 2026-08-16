@@ -3,16 +3,17 @@
 // STREAMZ — TV Client Connection Screen (NOC Dashboard - V2)
 // ============================================================================
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
-
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
-import '../shared/noc_decorations.dart';
-import 'client_viewmodel.dart';
-import 'interface_selection_screen.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/shared/noc_decorations.dart';
 
 class ClientConnectScreenTV extends StatefulWidget {
   const ClientConnectScreenTV({super.key});
@@ -58,15 +59,7 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
     if (!mounted) return;
 
     if (ok) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ChangeNotifierProvider.value(
-            value: context.read<ClientViewModel>(), 
-            child: const InterfaceSelectionScreen()
-          ),
-        ),
-      );
+      if (mounted) context.pushReplacement('/client/interface');
     }
   }
 
@@ -235,8 +228,7 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
     );
   }
 
-  Widget _buildQuickActions(ClientViewModel vm) {
-    return Row(
+  Widget _buildQuickActions(ClientViewModel vm) => Row(
       children: [
         Expanded(
           child: _TVConnectCard(
@@ -263,7 +255,6 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
         ),
       ],
     );
-  }
 
   Widget _buildHeader(BuildContext context, ClientViewModel vm) {
     final tokens = context.tokens;
@@ -374,9 +365,9 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
 }
 
 class _StatusModule extends StatelessWidget {
+  const _StatusModule({required this.label, required this.value});
   final String label;
   final String value;
-  const _StatusModule({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -393,12 +384,6 @@ class _StatusModule extends StatelessWidget {
 }
 
 class _TVConnectCard extends StatefulWidget {
-  final String label;
-  final String subLabel;
-  final String code;
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool autofocus;
 
   const _TVConnectCard({
     required this.label,
@@ -408,6 +393,12 @@ class _TVConnectCard extends StatefulWidget {
     required this.onTap,
     this.autofocus = false,
   });
+  final String label;
+  final String subLabel;
+  final String code;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool autofocus;
 
   @override
   State<_TVConnectCard> createState() => _TVConnectCardState();
@@ -512,8 +503,7 @@ class _TVConnectCardState extends State<_TVConnectCard> {
     );
   }
 
-  Widget _buildCorner(BuildContext context, Alignment alignment, Color color) {
-    return Align(
+  Widget _buildCorner(BuildContext context, Alignment alignment, Color color) => Align(
       alignment: alignment,
       child: Container(
         width: 16,
@@ -529,14 +519,13 @@ class _TVConnectCardState extends State<_TVConnectCard> {
         ),
       ),
     );
-  }
 }
 
 class _HistoryTileTV extends StatefulWidget {
-  final String ip;
-  final VoidCallback onTap;
 
   const _HistoryTileTV({required this.ip, required this.onTap});
+  final String ip;
+  final VoidCallback onTap;
 
   @override
   State<_HistoryTileTV> createState() => _HistoryTileTVState();
@@ -610,11 +599,11 @@ class _HistoryTileTVState extends State<_HistoryTileTV> {
 }
 
 class _DialogBtn extends StatefulWidget {
+
+  const _DialogBtn({required this.label, required this.onTap, this.isPrimary = false});
   final String label;
   final VoidCallback onTap;
   final bool isPrimary;
-
-  const _DialogBtn({required this.label, required this.onTap, this.isPrimary = false});
 
   @override
   State<_DialogBtn> createState() => _DialogBtnState();

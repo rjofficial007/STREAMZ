@@ -1,17 +1,6 @@
 // domain/models/media_item.dart
 
 class MediaItem {
-  final String id;
-  final String title;
-  final String? artist;
-  final String? album;
-  final int duration;
-  final String type;
-  final String folder;
-  final int lastPosition;
-  final int lastPlayedTimestamp;
-  final bool isBroadcast;
-  final Map<String, String> metadata;
 
   const MediaItem({
     required this.id,
@@ -26,6 +15,29 @@ class MediaItem {
     this.isBroadcast = false,
     this.metadata = const {},
   });
+
+  factory MediaItem.fromJson(Map<String, dynamic> json) => MediaItem(
+        id: json['id']?.toString() ?? '',
+        title: json['title']?.toString() ?? 'Unknown',
+        artist: json['artist']?.toString(),
+        album: json['album']?.toString(),
+        duration: (json['duration'] as num?)?.toInt() ?? 0,
+        type: json['type']?.toString() ?? 'video',
+        folder: json['folder']?.toString() ?? 'Unknown',
+        isBroadcast: json['isBroadcast'] ?? false,
+        metadata: Map<String, String>.from(json['metadata'] ?? {}),
+      );
+  final String id;
+  final String title;
+  final String? artist;
+  final String? album;
+  final int duration;
+  final String type;
+  final String folder;
+  final int lastPosition;
+  final int lastPlayedTimestamp;
+  final bool isBroadcast;
+  final Map<String, String> metadata;
 
   bool get isVideo => type.toLowerCase() == 'video';
   bool get isAudio => type.toLowerCase() == 'audio';
@@ -46,18 +58,6 @@ class MediaItem {
         'isBroadcast': isBroadcast,
         'metadata': metadata,
       };
-
-  factory MediaItem.fromJson(Map<String, dynamic> json) => MediaItem(
-        id: json['id']?.toString() ?? '',
-        title: json['title']?.toString() ?? 'Unknown',
-        artist: json['artist']?.toString(),
-        album: json['album']?.toString(),
-        duration: (json['duration'] as num?)?.toInt() ?? 0,
-        type: json['type']?.toString() ?? 'video',
-        folder: json['folder']?.toString() ?? 'Unknown',
-        isBroadcast: json['isBroadcast'] ?? false,
-        metadata: Map<String, String>.from(json['metadata'] ?? {}),
-      );
 
   MediaItem copyWith({
     String? title,

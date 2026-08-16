@@ -3,19 +3,19 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'streamz_theme.dart';
+import 'package:streamz/core/theme/streamz_theme.dart';
 
 class ThemeService extends ChangeNotifier {
+
+  ThemeService(this._prefs) {
+    _loadSettings();
+  }
   static const String _themeKey = 'streamz_theme_identity';
   static const String _motionKey = 'streamz_reduced_motion';
   final SharedPreferences _prefs;
 
   late StreamzTheme _currentTheme;
   late bool _reducedMotion;
-
-  ThemeService(this._prefs) {
-    _loadSettings();
-  }
 
   StreamzTheme get currentTheme => _currentTheme;
   bool get reducedMotion => _reducedMotion;

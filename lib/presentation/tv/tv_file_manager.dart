@@ -7,17 +7,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
-
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
-import '../../domain/models/media_item.dart';
-import '../client/client_viewmodel.dart';
-import 'tv_player_screen.dart';
-import '../shared/file_item.dart';
-import '../shared/atmospheric_background.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/domain/models/broadcast_station.dart';
+import 'package:streamz/domain/models/media_item.dart';
+import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/shared/atmospheric_background.dart';
+import 'package:streamz/presentation/shared/file_item.dart';
+import 'package:streamz/presentation/tv/tv_player_screen.dart';
 
 // --- Web UI Color Palette & Styles (Sync with TVHomeScreen) ---
 // DEPRECATED: Use context.tokens instead
@@ -25,9 +26,9 @@ const Color kWebBlack = DS.bg;
 const Color kWebSurface = DS.surface1;
 const Color kWebSurface2 = DS.surface2;
 const Color kWebWhite = DS.accent;
-final Color kWebBorder = DS.borderDefault;
-final Color kWebTextMuted = DS.textMuted;
-final Color kWebText = DS.textSecondary;
+const Color kWebBorder = DS.borderDefault;
+const Color kWebTextMuted = DS.textMuted;
+const Color kWebText = DS.textSecondary;
 
 class TVFileManagerScreen extends StatefulWidget {
   const TVFileManagerScreen({super.key});
@@ -72,8 +73,9 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
     _searchFocusNode.dispose();
     super.dispose();
   }
@@ -112,7 +114,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
     });
     try {
       final raw = await context.read<ClientViewModel>().browseRemote(path);
-      final items = raw.map((e) => SFileItem.fromJson(e)).toList()
+      final items = raw.map(SFileItem.fromJson).toList()
         ..sort((a, b) {
           if (a.isDirectory && !b.isDirectory) return -1;
           if (!a.isDirectory && b.isDirectory) return 1;
@@ -140,8 +142,9 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
       _searchQuery = '';
     });
     if (cat == 'folder') {
-      _navStack.clear();
-      _navStack.add('');
+      _navStack
+        ..clear()
+        ..add('');
       _loadPath('');
     } else if (cat == 'station') {
       context.read<ClientViewModel>().refresh();
@@ -189,26 +192,17 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
     }
   }
 
-  void _tuneIn(Map<String, dynamic> station) async {
+  Future<void> _tuneIn(BroadcastStation station) async {
     final vm = context.read<ClientViewModel>();
-    final res = await vm.joinStation(station['id']);
+    final res = await vm.joinStation(station.id);
     if (res != null && mounted) {
-      final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
-      final startIndex = res['itemIndex'] as int? ?? 0;
-      final offsetMs = res['positionMs'] as int;
-      final isPaused = res['isPaused'] as bool? ?? false;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TVPlayerScreen(
-            items: items,
-            startIndex: startIndex,
-            isPathBased: false,
-            startOffset: Duration(milliseconds: offsetMs),
-            autoPlay: !isPaused,
-          ),
-        ),
-      );
+      unawaited(context.push('/tv-player', extra: {
+        'items': res.playlist,
+        'startIndex': res.itemIndex,
+        'isPathBased': false,
+        'startOffset': res.position,
+        'autoPlay': !res.isPaused,
+      }));
     }
   }
 
@@ -250,7 +244,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
               children: [
                 Container(
                   padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
+                  decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: kWebBorder))),
                   child: Text(
                       item.name.toUpperCase(),
                       style: GoogleFonts.barlowCondensed(color: kWebWhite, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 1),
@@ -296,7 +290,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
   Widget build(BuildContext context) {
     final vm = context.watch<ClientViewModel>();
     final size = MediaQuery.sizeOf(context);
-    final sidePadding = 0.0;
+    const sidePadding = 0.0;
 
     return PopScope(
       canPop: false,
@@ -331,7 +325,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
                   toolbarHeight: (size.height * 0.08).clamp(50.0, 80.0),
                   leadingWidth: sidePadding + 48,
                   leading: Padding(
-                    padding: EdgeInsets.only(left: sidePadding),
+                    padding: EdgeInsets.zero,
                     child: Actions(
                       actions: {
                         ActivateIntent: CallbackAction<ActivateIntent>(
@@ -391,8 +385,8 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
                 SliverToBoxAdapter(
                   child: Container(
                     height: (size.height * 0.08).clamp(50.0, 70.0),
-                    margin: EdgeInsets.symmetric(vertical:00),
-                    decoration: BoxDecoration(
+                    margin: EdgeInsets.zero,
+                    decoration: const BoxDecoration(
                       border: Border.symmetric(horizontal: BorderSide(color: kWebBorder)),
                     ),
                     child: Row(
@@ -410,7 +404,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
                 // Search Bar
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: sidePadding, vertical: 0),
+                    padding: EdgeInsets.zero,
                     child: Focus(
                       onKeyEvent: (node, event) {
                         if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.arrowDown) {
@@ -434,7 +428,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
                         ),
                         child: Row(
                           children: [
-                            Icon(LucideIcons.search, color: kWebTextMuted, size: 20),
+                            const Icon(LucideIcons.search, color: kWebTextMuted, size: 20),
                             const SizedBox(width: 12),
                             Expanded(
                               child: TextField(
@@ -490,7 +484,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(LucideIcons.alertTriangle, size: 64, color: kWebTextMuted),
+                const Icon(LucideIcons.alertTriangle, size: 64, color: kWebTextMuted),
                 const SizedBox(height: 24),
                 Text('SIGNAL ERROR // ${_error?.toUpperCase()}', style: GoogleFonts.dmMono(color: kWebWhite, fontSize: 14, letterSpacing: 2)),
                 const SizedBox(height: 32),
@@ -548,7 +542,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
       );
     }
 
-    int crossAxisCount = (size.width ~/ 220).clamp(3, 10);
+    final crossAxisCount = (size.width ~/ 220).clamp(3, 10);
 
     return SliverPadding(
       padding: EdgeInsets.symmetric(horizontal: sidePadding),
@@ -573,12 +567,12 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TVInlinePlayer extends StatefulWidget {
+
+  const _TVInlinePlayer({required this.playlist, required this.startIndex, required this.vm, required this.onClose});
   final List<SFileItem> playlist;
   final int startIndex;
   final ClientViewModel vm;
   final VoidCallback onClose;
-
-  const _TVInlinePlayer({required this.playlist, required this.startIndex, required this.vm, required this.onClose});
 
   @override
   State<_TVInlinePlayer> createState() => _TVInlinePlayerState();
@@ -610,12 +604,12 @@ class _TVInlinePlayerState extends State<_TVInlinePlayer> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TVGridCard extends StatefulWidget {
+
+  const _TVGridCard({required this.item, required this.vm, required this.onTap, required this.onLongPress});
   final SFileItem item;
   final ClientViewModel vm;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
-
-  const _TVGridCard({required this.item, required this.vm, required this.onTap, required this.onLongPress});
 
   @override
   State<_TVGridCard> createState() => _TVGridCardState();
@@ -684,7 +678,7 @@ class _TVGridCardState extends State<_TVGridCard> with SingleTickerProviderState
           onLongPress: widget.onLongPress,
           child: ScaleTransition(
             scale: _scale,
-            child: Container(
+            child: DecoratedBox(
               decoration: BoxDecoration(
                 color: _focused ? kWebWhite : kWebSurface2,
                 border: Border.all(color: _focused ? kWebWhite : kWebBorder, width: _focused ? 4 : 0),
@@ -717,7 +711,7 @@ class _TVGridCardState extends State<_TVGridCard> with SingleTickerProviderState
                     child: Container(
                       alignment: Alignment.centerLeft,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(border: Border(top: BorderSide(color: kWebBorder))),
+                      decoration: const BoxDecoration(border: Border(top: BorderSide(color: kWebBorder))),
                       child: Text(
                         widget.item.name.toUpperCase(),
                         maxLines: 1,
@@ -746,11 +740,11 @@ class _TVGridCardState extends State<_TVGridCard> with SingleTickerProviderState
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TopNavBtn extends StatefulWidget {
+
+  const _TopNavBtn({required this.label, required this.isActive, required this.onTap});
   final String label;
   final bool isActive;
   final VoidCallback onTap;
-
-  const _TopNavBtn({required this.label, required this.isActive, required this.onTap});
 
   @override
   State<_TopNavBtn> createState() => _TopNavBtnState();
@@ -760,8 +754,7 @@ class _TopNavBtnState extends State<_TopNavBtn> {
   bool _focused = false;
 
   @override
-  Widget build(BuildContext context) {
-    return Expanded(
+  Widget build(BuildContext context) => Expanded(
       child: Actions(
         actions: {
           ActivateIntent: CallbackAction<ActivateIntent>(
@@ -780,7 +773,7 @@ class _TopNavBtnState extends State<_TopNavBtn> {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: widget.isActive ? kWebWhite : (_focused ? kWebWhite.withValues(alpha: 0.1) : Colors.transparent),
-                border: Border(right: BorderSide(color: kWebBorder)),
+                border: const Border(right: BorderSide(color: kWebBorder)),
               ),
               child: Text(
                 widget.label,
@@ -796,7 +789,6 @@ class _TopNavBtnState extends State<_TopNavBtn> {
         ),
       ),
     );
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -804,12 +796,11 @@ class _TopNavBtnState extends State<_TopNavBtn> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _HardwareBtn extends StatefulWidget {
+
+  const _HardwareBtn({required this.label, required this.onTap, this.width});
   final String label;
   final VoidCallback onTap;
-  final bool isPrimary;
   final double? width;
-
-  const _HardwareBtn({required this.label, required this.onTap, this.isPrimary = false, this.width});
 
   @override
   State<_HardwareBtn> createState() => _HardwareBtnState();
@@ -820,8 +811,8 @@ class _HardwareBtnState extends State<_HardwareBtn> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = widget.isPrimary ? kWebWhite : (_focused ? kWebWhite.withValues(alpha: 0.1) : Colors.transparent);
-    final fg = widget.isPrimary ? kWebBlack : kWebWhite;
+    final bg = _focused ? kWebWhite.withValues(alpha: 0.1) : Colors.transparent;
+    const fg = kWebWhite;
 
     return Actions(
       actions: {
@@ -842,7 +833,7 @@ class _HardwareBtnState extends State<_HardwareBtn> {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: bg,
-              border: Border(left: BorderSide(color: kWebBorder)),
+              border: const Border(left: BorderSide(color: kWebBorder)),
             ),
             child: Text(
               widget.label,
@@ -865,10 +856,10 @@ class _HardwareBtnState extends State<_HardwareBtn> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TVStationCard extends StatefulWidget {
-  final Map<String, dynamic> station;
-  final VoidCallback onTap;
 
   const _TVStationCard({required this.station, required this.onTap});
+  final BroadcastStation station;
+  final VoidCallback onTap;
 
   @override
   State<_TVStationCard> createState() => _TVStationCardState();
@@ -894,9 +885,9 @@ class _TVStationCardState extends State<_TVStationCard> with SingleTickerProvide
 
   @override
   Widget build(BuildContext context) {
-    final nowPlaying = widget.station['nowPlaying'];
-    final title = widget.station['name'].toString().toUpperCase();
-    final itemTitle = nowPlaying != null ? nowPlaying['item']['title'].toString().toUpperCase() : 'AWAITING SIGNAL';
+    final nowPlaying = widget.station.nowPlaying;
+    final title = widget.station.name.toUpperCase();
+    final itemTitle = nowPlaying != null ? nowPlaying.item.title.toUpperCase() : 'AWAITING SIGNAL';
 
     return Actions(
       actions: {
@@ -964,12 +955,12 @@ class _TVStationCardState extends State<_TVStationCard> with SingleTickerProvide
 }
 
 class _TVModalBtn extends StatefulWidget {
+
+  const _TVModalBtn({required this.label, required this.onTap, this.autoFocus = false, this.isDestructive = false});
   final String label;
   final VoidCallback onTap;
   final bool autoFocus;
   final bool isDestructive;
-
-  const _TVModalBtn({required this.label, required this.onTap, this.autoFocus = false, this.isDestructive = false});
 
   @override
   State<_TVModalBtn> createState() => _TVModalBtnState();
@@ -979,8 +970,7 @@ class _TVModalBtnState extends State<_TVModalBtn> {
   bool _focused = false;
 
   @override
-  Widget build(BuildContext context) {
-    return Actions(
+  Widget build(BuildContext context) => Actions(
       actions: {
         ActivateIntent: CallbackAction<ActivateIntent>(
           onInvoke: (_) {
@@ -999,7 +989,7 @@ class _TVModalBtnState extends State<_TVModalBtn> {
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
             decoration: BoxDecoration(
               color: _focused ? (widget.isDestructive ? DS.danger : kWebWhite) : Colors.transparent,
-              border: Border(bottom: BorderSide(color: kWebBorder)),
+              border: const Border(bottom: BorderSide(color: kWebBorder)),
             ),
             child: Text(
               widget.label,
@@ -1014,5 +1004,4 @@ class _TVModalBtnState extends State<_TVModalBtn> {
         ),
       ),
     );
-  }
 }

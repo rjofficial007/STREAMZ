@@ -1,6 +1,8 @@
 // domain/models/stream_session.dart
 
 class StreamSession {
+
+  const StreamSession({required this.sessionId, required this.clientId, required this.title, this.mediaId, required this.progress, this.position, required this.mediaType, this.snapshot, this.vibeColors, required this.lastUpdated});
   final String sessionId;
   final String clientId;
   final String title;
@@ -11,8 +13,6 @@ class StreamSession {
   final String? snapshot; // Base64 low-res image
   final List<String>? vibeColors; // Hex codes
   final DateTime lastUpdated;
-
-  const StreamSession({required this.sessionId, required this.clientId, required this.title, this.mediaId, required this.progress, this.position, required this.mediaType, this.snapshot, this.vibeColors, required this.lastUpdated});
 
   bool get isStale => DateTime.now().difference(lastUpdated).inSeconds > 15;
 

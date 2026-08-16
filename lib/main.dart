@@ -3,22 +3,22 @@
 // STREAMZ — Application Entry Point
 // ============================================================================
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/foundation.dart';
 import 'package:streamz/core/di/service_locator.dart';
-import 'presentation/client/client_viewmodel.dart';
+import 'package:streamz/core/navigation/app_router.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/theme_service.dart';
+import 'package:streamz/core/util/lifecycle_broadcaster.dart';
+import 'package:streamz/domain/services/download_service.dart';
+import 'package:streamz/domain/services/remote_command_service.dart';
+import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/server/server_viewmodel.dart';
 import 'package:window_manager/window_manager.dart';
-import 'core/theme/app_theme.dart';
-import 'core/theme/theme_service.dart';
-import 'domain/services/download_service.dart';
-import 'domain/services/remote_command_service.dart';
-import 'presentation/home/role_selection_screen.dart';
-import 'presentation/server/server_viewmodel.dart';
-import 'core/util/lifecycle_broadcaster.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,7 +26,7 @@ Future<void> main() async {
   // Initialize Window Manager for Desktop
   if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows)) {
     await windowManager.ensureInitialized();
-    WindowOptions windowOptions = const WindowOptions(
+    const windowOptions = WindowOptions(
       fullScreen: true,
       titleBarStyle: TitleBarStyle.hidden,
       center: true,
@@ -101,11 +101,11 @@ class _StreamzAppState extends State<StreamzApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final themeService = context.watch<ThemeService>();
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'STREAMZ',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.themeFor(themeService.currentTheme),
-      home: const RoleSelectionScreen(),
+      routerConfig: appRouter,
       scrollBehavior: const MaterialScrollBehavior().copyWith(dragDevices: {PointerDeviceKind.mouse, PointerDeviceKind.touch, PointerDeviceKind.stylus, PointerDeviceKind.trackpad}),
       // [CRITICAL TV FIX]: Spread WidgetsApp.defaultShortcuts FIRST.
       // Omitting this deletes the native D-Pad Up/Down/Left/Right bindings.

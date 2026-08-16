@@ -2,12 +2,9 @@
 // Shared decorative components for the STREAMZ NOC aesthetic.
 
 import 'package:flutter/material.dart';
-import '../../core/theme/design_tokens.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
 
 class NocGridBackground extends StatelessWidget {
-  final double spacing;
-  final Color? color;
-  final Widget? child;
 
   const NocGridBackground({
     super.key,
@@ -15,17 +12,18 @@ class NocGridBackground extends StatelessWidget {
     this.color,
     this.child,
   });
+  final double spacing;
+  final Color? color;
+  final Widget? child;
 
   @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
+  Widget build(BuildContext context) => CustomPaint(
       painter: GridPainter(
         spacing: spacing,
         color: color ?? DS.borderSubtle,
       ),
       child: child,
     );
-  }
 }
 
 class GridPainter extends CustomPainter {
@@ -51,9 +49,6 @@ class GridPainter extends CustomPainter {
 }
 
 class NocScanningLine extends StatefulWidget {
-  final Color? color;
-  final Duration duration;
-  final bool reducedMotion;
 
   const NocScanningLine({
     super.key,
@@ -61,6 +56,9 @@ class NocScanningLine extends StatefulWidget {
     this.duration = const Duration(seconds: 4),
     this.reducedMotion = false,
   });
+  final Color? color;
+  final Duration duration;
+  final bool reducedMotion;
 
   @override
   State<NocScanningLine> createState() => _NocScanningLineState();
@@ -106,8 +104,7 @@ class _NocScanningLineState extends State<NocScanningLine> with SingleTickerProv
     
     return AnimatedBuilder(
       animation: _animation,
-      builder: (context, child) {
-        return Stack(
+      builder: (context, child) => Stack(
           children: [
             Positioned(
               top: MediaQuery.sizeOf(context).height * _animation.value,
@@ -134,21 +131,20 @@ class _NocScanningLineState extends State<NocScanningLine> with SingleTickerProv
               ),
             ),
           ],
-        );
-      },
+        ),
     );
   }
 }
 
 class NocTelemetryViz extends StatefulWidget {
-  final Color? color;
-  final bool isActive;
 
   const NocTelemetryViz({
     super.key,
     this.color,
     this.isActive = true,
   });
+  final Color? color;
+  final bool isActive;
 
   @override
   State<NocTelemetryViz> createState() => _NocTelemetryVizState();
@@ -165,8 +161,9 @@ class _NocTelemetryVizState extends State<NocTelemetryViz> with SingleTickerProv
     _controller.addListener(() {
       if (widget.isActive) {
         setState(() {
-          _points.removeAt(0);
-          _points.add(0.2 + (0.6 * (DateTime.now().millisecondsSinceEpoch % 1000) / 1000));
+          _points
+            ..removeAt(0)
+            ..add(0.2 + (0.6 * (DateTime.now().millisecondsSinceEpoch % 1000) / 1000));
         });
       }
     });
@@ -189,10 +186,10 @@ class _NocTelemetryVizState extends State<NocTelemetryViz> with SingleTickerProv
 }
 
 class TelemetryPainter extends CustomPainter {
-  final List<double> points;
-  final Color color;
 
   TelemetryPainter({required this.points, required this.color});
+  final List<double> points;
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -204,7 +201,7 @@ class TelemetryPainter extends CustomPainter {
     final path = Path();
     final stepX = size.width / (points.length - 1);
 
-    for (int i = 0; i < points.length; i++) {
+    for (var i = 0; i < points.length; i++) {
       final x = i * stepX;
       final y = size.height * (1 - points[i]);
       if (i == 0) {
@@ -222,10 +219,6 @@ class TelemetryPainter extends CustomPainter {
 }
 
 class NocCornerBracket extends StatelessWidget {
-  final Alignment alignment;
-  final double size;
-  final double thickness;
-  final Color? color;
 
   const NocCornerBracket({
     super.key,
@@ -234,6 +227,10 @@ class NocCornerBracket extends StatelessWidget {
     this.thickness = 1.5,
     this.color,
   });
+  final Alignment alignment;
+  final double size;
+  final double thickness;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {

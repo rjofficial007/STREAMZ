@@ -10,9 +10,9 @@ import 'package:flutter/foundation.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:photo_manager/photo_manager.dart';
 
-import '../../core/utils/file_type_utils.dart';
-import '../../core/utils/logger.dart';
-import '../../domain/models/media_item.dart';
+import 'package:streamz/core/utils/file_type_utils.dart';
+import 'package:streamz/core/utils/logger.dart';
+import 'package:streamz/domain/models/media_item.dart';
 
 class MediaScanner {
   final List<AssetEntity> localAssets = [];
@@ -29,8 +29,9 @@ class MediaScanner {
   // ── Stealth Media Logic ───────────────────────────────────────────────────
 
   void setStealthConfig(List<String> paths, String pin) {
-    _stealthPaths.clear();
-    _stealthPaths.addAll(paths);
+    _stealthPaths
+      ..clear()
+      ..addAll(paths);
     _stealthPin = pin;
   }
 
@@ -148,7 +149,7 @@ class MediaScanner {
       final entities = dir.listSync(recursive: true, followLinks: false);
       for (final entity in entities) {
         if (entity is File) {
-          bool isStealth = false;
+          var isStealth = false;
           for (final sp in stealthPaths) {
             if (entity.path.startsWith(sp)) {
               isStealth = true;

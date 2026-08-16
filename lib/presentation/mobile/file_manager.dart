@@ -6,16 +6,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
-
-import '../../core/theme/app_theme.dart';
-import '../../domain/models/media_item.dart';
-import '../client/client_viewmodel.dart';
-import '../player/player_screen.dart';
-import '../shared/file_item.dart';
-import 'downloads_sheet.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/domain/models/broadcast_station.dart';
+import 'package:streamz/domain/models/media_item.dart';
+import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/mobile/downloads_sheet.dart';
+import 'package:streamz/presentation/player/player_screen.dart';
+import 'package:streamz/presentation/shared/file_item.dart';
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -23,11 +24,11 @@ import 'downloads_sheet.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _Category {
+  const _Category({required this.id, required this.label, required this.icon, this.filterType});
   final String id;
   final String label;
   final IconData icon;
   final SFileType? filterType;
-  const _Category({required this.id, required this.label, required this.icon, this.filterType});
 }
 
 const _kCategories = [
@@ -54,7 +55,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
 
   List<SFileItem> _items = [];
   List<SFileItem> _allItems = [];
-  List<Map<String, dynamic>> _stations = [];
+  List<BroadcastStation> _stations = [];
   bool _isLoading = true;
   String? _error;
 
@@ -77,7 +78,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
   String get _title {
     if (_activeCategory != null) return _activeCategoryLabel ?? 'FILES';
     if (_currentPath == null || _currentPath!.isEmpty) return 'SYS DIRECTORY';
-    final parts = _currentPath!.replaceAll('\\', '/').split('/');
+    final parts = _currentPath!.replaceAll(r'\', '/').split('/');
     return parts.where((s) => s.isNotEmpty).lastOrNull ?? 'ROOT';
   }
 
@@ -132,7 +133,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     });
     try {
       final raw = await _vm.browseRemote(path);
-      final items = raw.map((e) => SFileItem.fromJson(e)).toList();
+      final items = raw.map(SFileItem.fromJson).toList();
       if (mounted) {
         setState(() {
           _items = _sort(items);
@@ -153,7 +154,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     final dirs = items.where((i) => i.isDirectory).toList();
     final files = items.where((i) => !i.isDirectory).toList();
     int cmp(SFileItem a, SFileItem b) {
-      int r = 0;
+      var r = 0;
       switch (_sortBy) {
         case 'size': r = a.size.compareTo(b.size); break;
         case 'type': r = a.ext.compareTo(b.ext); break;
@@ -196,8 +197,9 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
         _activeCategory = null;
         _activeCategoryLabel = null;
       });
-      _navStack.clear();
-      _navStack.add(null);
+      _navStack
+        ..clear()
+        ..add(null);
       _loadHome();
       return true;
     }
@@ -237,23 +239,15 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     );
   }
 
-  void _tuneIn(Map<String, dynamic> station) async {
-    final res = await _vm.joinStation(station['id']);
+  Future<void> _tuneIn(BroadcastStation station) async {
+    final res = await _vm.joinStation(station.id);
     if (res != null && mounted) {
-      final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
-      final startIndex = res['itemIndex'] as int? ?? 0;
-      final offsetMs = res['positionMs'] as int;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => PlayerScreen(
-            items: items,
-            startIndex: startIndex,
-            isPathBased: false,
-            startOffset: Duration(milliseconds: offsetMs),
-          ),
-        ),
-      );
+      unawaited(context.push('/player', extra: {
+        'items': res.playlist,
+        'startIndex': res.itemIndex,
+        'isPathBased': false,
+        'startOffset': res.position,
+      }));
     }
   }
 
@@ -308,7 +302,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
 
   Widget _buildSliverAppBar(BuildContext context) {
     final tokens = context.tokens;
-    final iconSz = 20.0;
+    const iconSz = 20.0;
     final showNav = _searchActive || _currentPath != null || _activeCategory != null;
 
     return SliverAppBar(
@@ -511,9 +505,9 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     if (_activeCategory == 'live') {
       if (_stations.isEmpty) return _buildEmptySlivers(context);
       return [
-        SliverToBoxAdapter(child: const SizedBox(height: 16)),
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
         SliverToBoxAdapter(
-          child: Container(
+          child: DecoratedBox(
             decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))), color: tokens.border.withValues(alpha: 0.15)),
             child: GridView.builder(
               shrinkWrap: true,
@@ -548,7 +542,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
       SliverToBoxAdapter(child: _buildStorageCard(context)),
       // Categories Grid (3 Columns)
       SliverToBoxAdapter(
-        child: Container(
+        child: DecoratedBox(
           decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))), color: tokens.border.withValues(alpha: 0.15)),
           child: GridView.count(
             crossAxisCount: 3,
@@ -610,7 +604,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
           ),
         ),
       ),
-      SliverToBoxAdapter(child: const SizedBox(height: 100)),
+      const SliverToBoxAdapter(child: SizedBox(height: 100)),
     ];
   }
 
@@ -622,8 +616,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
     final total = _allItems.length;
     final other = total - imgs - vids - auds;
 
-    Widget legend(String label, int count, Color color) {
-      return Row(
+    Widget legend(String label, int count, Color color) => Row(
         children: [
           Container(width: 8, height: 8, color: color),
           const SizedBox(width: 8),
@@ -631,7 +624,6 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
           Text(count.toString(), style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: tokens.textPrimary)),
         ],
       );
-    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -784,8 +776,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
 
   // ── List & Grid Slivers ───────────────────────────────────────────────────
 
-  List<Widget> _buildListSlivers(List<SFileItem> items) {
-    return [
+  List<Widget> _buildListSlivers(List<SFileItem> items) => [
       SliverPadding(
         padding: const EdgeInsets.only(bottom: 100),
         sliver: SliverList(
@@ -802,7 +793,6 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
         ),
       ),
     ];
-  }
 
   List<Widget> _buildGridSlivers(BuildContext context, List<SFileItem> items) {
     final dirs = items.where((i) => i.isDirectory).toList();
@@ -828,7 +818,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
             ),
           ),
         ),
-        SliverToBoxAdapter(child: const SizedBox(height: 24)),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
       ],
 
       if (files.isNotEmpty) ...[
@@ -852,10 +842,10 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen> wit
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _BrutalistInteractiveCard extends StatefulWidget {
-  final Widget child;
-  final VoidCallback onTap;
 
   const _BrutalistInteractiveCard({required this.child, required this.onTap});
+  final Widget child;
+  final VoidCallback onTap;
 
   @override
   State<_BrutalistInteractiveCard> createState() => _BrutalistInteractiveCardState();
@@ -874,7 +864,7 @@ class _BrutalistInteractiveCardState extends State<_BrutalistInteractiveCard> {
         widget.onTap();
       },
       onTapCancel: () => setState(() => _isFocused = false),
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: _isFocused ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.background,
         ),
@@ -889,13 +879,13 @@ class _BrutalistInteractiveCardState extends State<_BrutalistInteractiveCard> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _FileListTile extends StatefulWidget {
+
+  const _FileListTile({required this.item, required this.vm, required this.isFirst, required this.onTap, required this.onDownload});
   final SFileItem item;
   final ClientViewModel vm;
   final bool isFirst;
   final VoidCallback onTap;
   final VoidCallback onDownload;
-
-  const _FileListTile({required this.item, required this.vm, required this.isFirst, required this.onTap, required this.onDownload});
 
   @override
   State<_FileListTile> createState() => _FileListTileState();
@@ -907,7 +897,7 @@ class _FileListTileState extends State<_FileListTile> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final iconBoxSz = 44.0;
+    const iconBoxSz = 44.0;
 
     String? thumbUrl;
     if (widget.item.isPlayable) {
@@ -1013,12 +1003,12 @@ class _FileListTileState extends State<_FileListTile> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _FileGridCard extends StatefulWidget {
+
+  const _FileGridCard({required this.item, required this.vm, required this.onTap, required this.onDownload});
   final SFileItem item;
   final ClientViewModel vm;
   final VoidCallback onTap;
   final VoidCallback onDownload;
-
-  const _FileGridCard({required this.item, required this.vm, required this.onTap, required this.onDownload});
 
   @override
   State<_FileGridCard> createState() => _FileGridCardState();
@@ -1140,10 +1130,10 @@ class _FileGridCardState extends State<_FileGridCard> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _MobileStationCard extends StatefulWidget {
-  final Map<String, dynamic> station;
-  final VoidCallback onTap;
 
   const _MobileStationCard({required this.station, required this.onTap});
+  final BroadcastStation station;
+  final VoidCallback onTap;
 
   @override
   State<_MobileStationCard> createState() => _MobileStationCardState();
@@ -1155,9 +1145,9 @@ class _MobileStationCardState extends State<_MobileStationCard> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final nowPlaying = widget.station['nowPlaying'];
-    final title = widget.station['name'].toString().toUpperCase();
-    final itemTitle = nowPlaying != null ? nowPlaying['item']['title'].toString().toUpperCase() : 'AWAITING SIGNAL';
+    final nowPlaying = widget.station.nowPlaying;
+    final title = widget.station.name.toUpperCase();
+    final itemTitle = nowPlaying != null ? nowPlaying.item.title.toUpperCase() : 'AWAITING SIGNAL';
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -1208,11 +1198,11 @@ class _MobileStationCardState extends State<_MobileStationCard> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SortMenuButton extends StatelessWidget {
+
+  const _SortMenuButton({required this.sortBy, required this.sortAsc, required this.onChanged});
   final String sortBy;
   final bool sortAsc;
   final void Function(String by, bool asc) onChanged;
-
-  const _SortMenuButton({required this.sortBy, required this.sortAsc, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {

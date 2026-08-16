@@ -86,7 +86,7 @@ class VideoThumbnailService {
 
       // 2. Wait for duration metadata to decide where to seek
       // We wait up to 2 seconds for metadata to load
-      int waitCount = 0;
+      var waitCount = 0;
       while (_player.state.duration == Duration.zero && waitCount < 4) {
         await Future.delayed(const Duration(milliseconds: 500));
         waitCount++;

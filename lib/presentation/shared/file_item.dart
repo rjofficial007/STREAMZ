@@ -4,18 +4,11 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../core/utils/file_type_utils.dart';
+import 'package:streamz/core/utils/file_type_utils.dart';
 
 enum SFileType { folder, image, video, audio, document, apk, archive, other }
 
 class SFileItem {
-  final String name;
-  final String path;
-  final bool isDirectory;
-  final int size;
-  final SFileType type;
-  final bool isPathBased;
-  final int itemCount;
 
   const SFileItem({required this.name, required this.path, required this.isDirectory, required this.size, required this.type, this.isPathBased = true, this.itemCount = 0});
 
@@ -26,7 +19,7 @@ class SFileItem {
     final size = (json['size'] as num?)?.toInt() ?? 0;
     final count = (json['itemCount'] as num?)?.toInt() ?? 0;
 
-    SFileType type = SFileType.other;
+    var type = SFileType.other;
     if (isDir) {
       type = SFileType.folder;
     } else {
@@ -57,6 +50,13 @@ class SFileItem {
 
     return SFileItem(name: name, path: path, isDirectory: isDir, size: size, type: type, isPathBased: true, itemCount: count);
   }
+  final String name;
+  final String path;
+  final bool isDirectory;
+  final int size;
+  final SFileType type;
+  final bool isPathBased;
+  final int itemCount;
 
   String get ext => name.contains('.') ? name.split('.').last.toLowerCase() : '';
 

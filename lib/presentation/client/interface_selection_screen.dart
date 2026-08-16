@@ -3,19 +3,19 @@
 // STREAMZ — Interface Gateway (Samsung-Style / Brutalist Edition)
 // ============================================================================
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
-
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
-import '../mobile/mobile_selection_screen.dart';
-import '../tv/tv_selection_screen.dart';
-import '../player/player_screen.dart';
-import '../../domain/models/media_item.dart';
-import 'client_viewmodel.dart';
-import 'interface_selection_screen_tv.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/domain/models/broadcast_station.dart';
+import 'package:streamz/domain/models/history_item.dart';
+import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/client/interface_selection_screen_tv.dart';
 
 class InterfaceSelectionScreen extends StatefulWidget {
   const InterfaceSelectionScreen({super.key});
@@ -116,7 +116,7 @@ class _InterfaceSelectionScreenState extends State<InterfaceSelectionScreen> {
       delegate: SliverChildListDelegate([
         _GatewayAnalysisCard(vm: vm),
         
-        Container(
+        DecoratedBox(
           decoration: BoxDecoration(
             border: Border.symmetric(horizontal: BorderSide(color: tokens.textPrimary)), 
           ),
@@ -127,12 +127,7 @@ class _InterfaceSelectionScreenState extends State<InterfaceSelectionScreen> {
                   child: _QuickActionCard(
                     label: 'TV USER',
                     icon: LucideIcons.tv,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ChangeNotifierProvider.value(value: vm, child: const TVSelectionScreen()),
-                      ),
-                    ),
+                    onTap: () => context.push('/client/tv'),
                   ),
                 ),
                 VerticalDivider(width: 1, thickness: 1, color: tokens.textPrimary),
@@ -140,12 +135,7 @@ class _InterfaceSelectionScreenState extends State<InterfaceSelectionScreen> {
                   child: _QuickActionCard(
                     label: 'MOBILE USER',
                     icon: LucideIcons.smartphone,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ChangeNotifierProvider.value(value: vm, child: const MobileSelectionScreen()),
-                      ),
-                    ),
+                    onTap: () => context.push('/client/mobile'),
                   ),
                 ),
                 VerticalDivider(width: 1, thickness: 1, color: tokens.textPrimary),
@@ -177,37 +167,52 @@ class _InterfaceSelectionScreenState extends State<InterfaceSelectionScreen> {
             isFirst: e.key == 0, 
             onTap: () => _tuneIn(context, vm, e.value),
           )),
+
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+          child: Text('RECENTLY VIEWED', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2)),
+        ),
+
+        if (vm.localHistory.isEmpty)
+           Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text('NO HISTORY FOUND', style: GoogleFonts.dmMono(color: tokens.textDisabled, fontSize: 9, letterSpacing: 2)),
+          )
+        else
+          ...vm.localHistory.asMap().entries.map((e) => _ViewHistoryTile(
+            item: e.value, 
+            isFirst: e.key == 0,
+            onTap: () {
+               context.push('/player', extra: {
+                'items': [e.value.media],
+                'startIndex': 0,
+                'isPathBased': false,
+              });
+            },
+          )),
           
         const SizedBox(height: 100),
       ]),
     );
   }
 
-  void _tuneIn(BuildContext context, ClientViewModel vm, Map<String, dynamic> station) async {
-    final res = await vm.joinStation(station['id']);
+  Future<void> _tuneIn(BuildContext context, ClientViewModel vm, BroadcastStation station) async {
+    final res = await vm.joinStation(station.id);
     if (res != null && context.mounted) {
-      final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
-      final startIndex = res['itemIndex'] as int? ?? 0;
-      final offsetMs = res['positionMs'] as int;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => PlayerScreen(
-            items: items,
-            startIndex: startIndex,
-            isPathBased: false,
-            startOffset: Duration(milliseconds: offsetMs),
-          ),
-        ),
-      );
+      unawaited(context.push('/player', extra: {
+        'items': res.playlist,
+        'startIndex': res.itemIndex,
+        'isPathBased': false,
+        'startOffset': res.position,
+      }));
     }
   }
 }
 
 
 class _GatewayAnalysisCard extends StatelessWidget {
-  final ClientViewModel vm;
   const _GatewayAnalysisCard({required this.vm});
+  final ClientViewModel vm;
 
   @override
   Widget build(BuildContext context) {
@@ -294,11 +299,11 @@ class _GatewayAnalysisCard extends StatelessWidget {
 }
 
 class _QuickActionCard extends StatefulWidget {
+
+  const _QuickActionCard({required this.label, required this.icon, required this.onTap});
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-
-  const _QuickActionCard({required this.label, required this.icon, required this.onTap});
 
   @override
   State<_QuickActionCard> createState() => _QuickActionCardState();
@@ -343,11 +348,11 @@ class _QuickActionCardState extends State<_QuickActionCard> {
 }
 
 class _StationTile extends StatefulWidget {
-  final Map<String, dynamic> station;
-  final bool isFirst;
-  final VoidCallback onTap;
 
   const _StationTile({required this.station, required this.isFirst, required this.onTap});
+  final BroadcastStation station;
+  final bool isFirst;
+  final VoidCallback onTap;
 
   @override
   State<_StationTile> createState() => _StationTileState();
@@ -359,9 +364,9 @@ class _StationTileState extends State<_StationTile> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final title = widget.station['name'].toString().toUpperCase();
-    final nowPlaying = widget.station['nowPlaying'];
-    final itemTitle = nowPlaying != null ? nowPlaying['item']['title'].toString().toUpperCase() : 'AWAITING SIGNAL';
+    final title = widget.station.name.toUpperCase();
+    final nowPlaying = widget.station.nowPlaying;
+    final itemTitle = nowPlaying != null ? nowPlaying.item.title.toUpperCase() : 'AWAITING SIGNAL';
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -409,6 +414,74 @@ class _StationTileState extends State<_StationTile> {
   }
 }
 
+class _ViewHistoryTile extends StatefulWidget {
+
+  const _ViewHistoryTile({required this.item, required this.isFirst, required this.onTap});
+  final HistoryItem item;
+  final bool isFirst;
+  final VoidCallback onTap;
+
+  @override
+  State<_ViewHistoryTile> createState() => _ViewHistoryTileState();
+}
+
+class _ViewHistoryTileState extends State<_ViewHistoryTile> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final title = widget.item.media.title.toUpperCase();
+    final time = '${widget.item.timestamp.day}/${widget.item.timestamp.month} ${widget.item.timestamp.hour}:${widget.item.timestamp.minute.toString().padLeft(2, '0')}';
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: Container(
+        decoration: BoxDecoration(
+          color: _pressed ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.surface1,
+          border: Border(
+            bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)), 
+            top: widget.isFirst ? BorderSide(color: tokens.border.withValues(alpha: 0.15)) : BorderSide.none
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: tokens.surface2, border: Border.all(color: tokens.border.withValues(alpha: 0.15))),
+              child: Icon(widget.item.media.isVideo ? LucideIcons.video : LucideIcons.music, color: tokens.textSecondary, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 3),
+                  Text('VIEWED: $time', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 9, letterSpacing: 1)),
+                ],
+              ),
+            ),
+            Icon(LucideIcons.play, color: tokens.textMuted, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _EmptySignalsPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -430,8 +503,8 @@ class _EmptySignalsPlaceholder extends StatelessWidget {
 }
 
 class _BlinkingDot extends StatefulWidget {
-  final bool isOnline;
   const _BlinkingDot({required this.isOnline});
+  final bool isOnline;
 
   @override
   State<_BlinkingDot> createState() => _BlinkingDotState();

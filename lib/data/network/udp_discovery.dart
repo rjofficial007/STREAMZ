@@ -5,7 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import '../../core/utils/logger.dart';
+import 'package:streamz/core/utils/logger.dart';
 
 const _kPort = 8888;
 const _kMulticast = '239.1.2.3';

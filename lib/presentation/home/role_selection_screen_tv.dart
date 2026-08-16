@@ -3,21 +3,19 @@
 // STREAMZ — TV Role Selection (NOC Dashboard)
 // ============================================================================
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
-import '../../core/theme/theme_service.dart';
-import '../client/client_connect_screen.dart';
-import '../client/client_viewmodel.dart';
-import '../server/server_dashboard.dart';
-import '../shared/noc_decorations.dart';
-import 'permission_screen.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/core/theme/theme_service.dart';
+import 'package:streamz/presentation/shared/noc_decorations.dart';
 
 class RoleSelectionScreenTV extends StatefulWidget {
   const RoleSelectionScreenTV({super.key});
@@ -48,9 +46,9 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
       if (!mounted) return;
 
       if (granted) {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const ServerDashboard()));
+        unawaited(context.push('/server'));
       } else {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const PermissionScreen()));
+        unawaited(context.push('/server/permissions'));
       }
     } finally {
       if (mounted) setState(() => _navigating = false);
@@ -60,12 +58,7 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
   void _handleClientTap() {
     if (_navigating) return;
     setState(() => _navigating = true);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ChangeNotifierProvider(create: (_) => ClientViewModel(), child: const ClientConnectScreen()),
-      ),
-    ).whenComplete(() {
+    context.push('/client/connect').whenComplete(() {
       if (mounted) setState(() => _navigating = false);
     });
   }
@@ -207,9 +200,9 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
 }
 
 class _StatusModule extends StatelessWidget {
+  const _StatusModule({required this.label, required this.value});
   final String label;
   final String value;
-  const _StatusModule({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -226,12 +219,6 @@ class _StatusModule extends StatelessWidget {
 }
 
 class _TVActionCard extends StatefulWidget {
-  final String label;
-  final String subLabel;
-  final String code;
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool autofocus;
 
   const _TVActionCard({
     required this.label,
@@ -241,6 +228,12 @@ class _TVActionCard extends StatefulWidget {
     required this.onTap,
     this.autofocus = false,
   });
+  final String label;
+  final String subLabel;
+  final String code;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool autofocus;
 
   @override
   State<_TVActionCard> createState() => _TVActionCardState();

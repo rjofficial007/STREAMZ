@@ -3,19 +3,19 @@
 // STREAMZ — TV Interface Selection Gateway (Samsung-Style)
 // ============================================================================
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
-import '../../domain/models/media_item.dart';
-import '../client/client_viewmodel.dart';
-import '../player/player_screen.dart';
-import 'tv_file_manager.dart';
-import 'tv_home_screen.dart';
-import 'tv_selection_screen_tv.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/domain/models/broadcast_station.dart';
+import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/tv/tv_selection_screen_tv.dart';
 
 class TVSelectionScreen extends StatelessWidget {
   const TVSelectionScreen({super.key});
@@ -79,7 +79,7 @@ class TVSelectionScreen extends StatelessWidget {
       delegate: SliverChildListDelegate([
         _SessionAnalysisCard(vm: vm, mode: 'TV MODE'),
 
-        Container(
+        DecoratedBox(
           decoration: BoxDecoration(
             border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
             color: tokens.border.withValues(alpha: 0.15),
@@ -95,22 +95,12 @@ class TVSelectionScreen extends StatelessWidget {
               _QuickActionCard(
                 label: 'MODERN UI',
                 icon: LucideIcons.tv,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChangeNotifierProvider.value(value: vm, child: const TVHomeScreen()),
-                  ),
-                ),
+                onTap: () => context.push('/client/tv/home'),
               ),
               _QuickActionCard(
                 label: 'FILE SYSTEM',
                 icon: LucideIcons.folderOpen,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChangeNotifierProvider.value(value: vm, child: const TVFileManagerScreen()),
-                  ),
-                ),
+                onTap: () => context.push('/client/tv/files'),
               ),
               _QuickActionCard(
                 label: 'DISCONNECT',
@@ -139,31 +129,23 @@ class TVSelectionScreen extends StatelessWidget {
     );
   }
 
-  void _tuneIn(BuildContext context, ClientViewModel vm, Map<String, dynamic> station) async {
-    final res = await vm.joinStation(station['id']);
+  Future<void> _tuneIn(BuildContext context, ClientViewModel vm, BroadcastStation station) async {
+    final res = await vm.joinStation(station.id);
     if (res != null && context.mounted) {
-      final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
-      final startIndex = res['itemIndex'] as int? ?? 0;
-      final offsetMs = res['positionMs'] as int;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => PlayerScreen(
-            items: items,
-            startIndex: startIndex,
-            isPathBased: false,
-            startOffset: Duration(milliseconds: offsetMs),
-          ),
-        ),
-      );
+      unawaited(context.push('/player', extra: {
+        'items': res.playlist,
+        'startIndex': res.itemIndex,
+        'isPathBased': false,
+        'startOffset': res.position,
+      }));
     }
   }
 }
 
 class _SessionAnalysisCard extends StatelessWidget {
+  const _SessionAnalysisCard({required this.vm, required this.mode});
   final ClientViewModel vm;
   final String mode;
-  const _SessionAnalysisCard({required this.vm, required this.mode});
 
   @override
   Widget build(BuildContext context) {
@@ -260,11 +242,11 @@ class _SessionAnalysisCard extends StatelessWidget {
 }
 
 class _QuickActionCard extends StatefulWidget {
+
+  const _QuickActionCard({required this.label, required this.icon, required this.onTap});
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-
-  const _QuickActionCard({required this.label, required this.icon, required this.onTap});
 
   @override
   State<_QuickActionCard> createState() => _QuickActionCardState();
@@ -322,11 +304,11 @@ class _QuickActionCardState extends State<_QuickActionCard> {
 }
 
 class _StationTile extends StatefulWidget {
-  final Map<String, dynamic> station;
-  final bool isFirst;
-  final VoidCallback onTap;
 
   const _StationTile({required this.station, required this.isFirst, required this.onTap});
+  final BroadcastStation station;
+  final bool isFirst;
+  final VoidCallback onTap;
 
   @override
   State<_StationTile> createState() => _StationTileState();
@@ -340,9 +322,9 @@ class _StationTileState extends State<_StationTile> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final isActive = _pressed || _focused;
-    final title = widget.station['name'].toString().toUpperCase();
-    final nowPlaying = widget.station['nowPlaying'];
-    final itemTitle = nowPlaying != null ? nowPlaying['item']['title'].toString().toUpperCase() : 'AWAITING SIGNAL';
+    final title = widget.station.name.toUpperCase();
+    final nowPlaying = widget.station.nowPlaying;
+    final itemTitle = nowPlaying != null ? nowPlaying.item.title.toUpperCase() : 'AWAITING SIGNAL';
 
     return Actions(
       actions: {
@@ -438,8 +420,8 @@ class _EmptySignalsPlaceholder extends StatelessWidget {
 }
 
 class _BlinkingDot extends StatefulWidget {
-  final bool isOnline;
   const _BlinkingDot({required this.isOnline});
+  final bool isOnline;
 
   @override
   State<_BlinkingDot> createState() => _BlinkingDotState();

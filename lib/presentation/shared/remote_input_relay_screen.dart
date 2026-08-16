@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
-import '../../core/theme/design_tokens.dart';
-import '../../widget/remote_trackpad.dart';
-import '../client/client_viewmodel.dart';
-import '../server/server_viewmodel.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/server/server_viewmodel.dart';
+import 'package:streamz/widget/remote_trackpad.dart';
 
 class RemoteInputRelayScreen extends StatefulWidget {
-  final bool isServerMode;
   const RemoteInputRelayScreen({super.key, this.isServerMode = false});
+  final bool isServerMode;
 
   @override
   State<RemoteInputRelayScreen> createState() => _RemoteInputRelayScreenState();
@@ -60,7 +61,7 @@ class _RemoteInputRelayScreenState extends State<RemoteInputRelayScreen> {
         ),
         leading: IconButton(
           icon: const Icon(LucideIcons.chevronLeft),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => context.pop(),
         ),
       ),
       body: SingleChildScrollView(
@@ -174,15 +175,14 @@ class _RemoteInputRelayScreenState extends State<RemoteInputRelayScreen> {
 }
 
 class _NavBtn extends StatelessWidget {
+
+  const _NavBtn({required this.icon, required this.label, required this.onTap});
   final IconData icon;
   final String label;
   final VoidCallback onTap;
 
-  const _NavBtn({required this.icon, required this.label, required this.onTap});
-
   @override
-  Widget build(BuildContext context) {
-    return InkWell(
+  Widget build(BuildContext context) => InkWell(
       onTap: onTap,
       child: Container(
         color: DS.surface1,
@@ -196,5 +196,4 @@ class _NavBtn extends StatelessWidget {
         ),
       ),
     );
-  }
 }

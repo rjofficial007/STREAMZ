@@ -1,11 +1,12 @@
 // presentation/client/qr_scanner_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
 
 class QRScannerScreen extends StatefulWidget {
   const QRScannerScreen({super.key});
@@ -38,7 +39,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
             onDetect: (capture) {
               for (final barcode in capture.barcodes) {
                 if (barcode.rawValue != null) {
-                  Navigator.pop(context, barcode.rawValue);
+                  context.pop(barcode.rawValue);
                   break;
                 }
               }
@@ -63,16 +64,16 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                         actions: {
                           ActivateIntent: CallbackAction<ActivateIntent>(
                             onInvoke: (_) {
-                              Navigator.pop(context);
+                              context.pop();
                               return null;
                             },
                           ),
                         },
                         child: Focus(
-                          onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
+                          onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => context.pop()),
                           child: IconButton(
                             icon: Icon(LucideIcons.x, color: tokens.textPrimary, size: 24),
-                            onPressed: () => Navigator.pop(context),
+                            onPressed: () => context.pop(),
                           ),
                         ),
                       ),
@@ -130,12 +131,12 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 }
 
 class _ScannerOverlayShape extends ShapeBorder {
+
+  const _ScannerOverlayShape({this.borderColor = Colors.white, this.borderWidth = 1.0, this.overlayColor = const Color(0x88000000), this.cutOutSize = 250.0});
   final Color borderColor;
   final double borderWidth;
   final Color overlayColor;
   final double cutOutSize;
-
-  const _ScannerOverlayShape({this.borderColor = Colors.white, this.borderWidth = 1.0, this.overlayColor = const Color(0x88000000), this.cutOutSize = 250.0});
 
   @override
   EdgeInsetsGeometry get dimensions => const EdgeInsets.all(10);
@@ -171,8 +172,9 @@ class _ScannerOverlayShape extends ShapeBorder {
 
     // Corner markers
     void corner(Offset a, Offset b, Offset c) {
-      canvas.drawLine(a, b, paint);
-      canvas.drawLine(b, c, paint);
+      canvas
+        ..drawLine(a, b, paint)
+        ..drawLine(b, c, paint);
     }
 
     corner(Offset(center.dx - half, center.dy - half + cLen), Offset(center.dx - half, center.dy - half), Offset(center.dx - half + cLen, center.dy - half));

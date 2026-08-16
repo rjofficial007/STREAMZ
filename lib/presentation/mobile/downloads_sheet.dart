@@ -7,14 +7,15 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
-import '../../domain/models/download_task.dart';
-import '../../domain/services/download_service.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/domain/models/download_task.dart';
+import 'package:streamz/domain/services/download_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHOW HELPER
@@ -60,7 +61,8 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
     try {
       if (defaultTargetPlatform == TargetPlatform.windows) {
         final res = await Process.run('wmic', ['logicaldisk', 'where', 'DeviceID="C:"', 'get', 'FreeSpace,Size', '/Value']);
-        int free = 0, total = 0;
+        var free = 0;
+        var total = 0;
         for (final line in res.stdout.toString().split('\n')) {
           if (line.trim().startsWith('FreeSpace=')) {
             free = int.tryParse(line.split('=')[1].trim()) ?? 0;
@@ -112,13 +114,13 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
         content: Text("CONFIRM REMOVAL OF '${task.title.toUpperCase()}'?", style: Theme.of(ctx).textTheme.labelMedium?.copyWith(fontSize: 12)),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dlgCtx),
+            onPressed: () => context.pop(),
             child: Text('CANCEL', style: Theme.of(ctx).textTheme.labelSmall),
           ),
           TextButton(
             onPressed: () {
               ctx.read<DownloadService>().delete(task);
-              Navigator.pop(dlgCtx);
+              context.pop();
             },
             child: Text('DELETE', style: Theme.of(ctx).textTheme.labelSmall?.copyWith(color: tokens.error)),
           ),
@@ -146,7 +148,7 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
       minChildSize: 0.5,
       maxChildSize: 0.95,
       expand: false,
-      builder: (_, scrollCtrl) => Container(
+      builder: (_, scrollCtrl) => DecoratedBox(
         decoration: BoxDecoration(
           color: tokens.background,
           border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15), width: 1)),
@@ -192,16 +194,16 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
                         actions: {
                           ActivateIntent: CallbackAction<ActivateIntent>(
                             onInvoke: (_) {
-                              Navigator.pop(context);
+                              context.pop();
                               return null;
                             },
                           ),
                         },
                         child: Focus(
-                          onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
+                          onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => context.pop()),
                           child: IconButton(
                             icon: Icon(LucideIcons.x, color: tokens.textPrimary, size: 24),
-                            onPressed: () => Navigator.pop(context),
+                            onPressed: () => context.pop(),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                           ),
@@ -305,11 +307,11 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _FilterChip extends StatefulWidget {
+
+  const _FilterChip({required this.label, required this.isActive, required this.onTap});
   final String label;
   final bool isActive;
   final VoidCallback onTap;
-
-  const _FilterChip({required this.label, required this.isActive, required this.onTap});
 
   @override
   State<_FilterChip> createState() => _FilterChipState();
@@ -361,10 +363,10 @@ class _FilterChipState extends State<_FilterChip> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ActiveCard extends StatelessWidget {
-  final DownloadTask task;
-  final VoidCallback onDelete;
 
   const _ActiveCard({required this.task, required this.onDelete});
+  final DownloadTask task;
+  final VoidCallback onDelete;
 
   IconData get _icon {
     if (task.type == 'video') return LucideIcons.video;
@@ -438,10 +440,10 @@ class _ActiveCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CompletedCard extends StatelessWidget {
-  final DownloadTask task;
-  final VoidCallback onDelete;
 
   const _CompletedCard({required this.task, required this.onDelete});
+  final DownloadTask task;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {

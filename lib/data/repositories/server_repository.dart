@@ -4,20 +4,45 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../domain/models/connection_record.dart';
+import 'package:streamz/domain/models/connection_record.dart';
+import 'package:streamz/domain/models/history_item.dart';
 
 class ServerRepository {
-  static const _logsKey = 'access_logs';
-  static const _stationsKey = 'broadcast_stations';
-
-  final SharedPreferences _prefs;
-  final List<ConnectionRecord> _history = [];
 
   ServerRepository(this._prefs) {
     _loadHistory();
+    _loadViewHistory();
   }
+  static const _logsKey = 'access_logs';
+  static const _stationsKey = 'broadcast_stations';
+  static const _historyKey = 'media_view_history';
+
+  final SharedPreferences _prefs;
+  final List<ConnectionRecord> _history = [];
+  final List<HistoryItem> _viewHistory = [];
 
   List<ConnectionRecord> get connectionHistory => List.unmodifiable(_history);
+  List<HistoryItem> get viewHistory => List.unmodifiable(_viewHistory);
+
+  // ── View History ─────────────────────────────────────────────────────────
+
+  void _loadViewHistory() {
+    final list = _prefs.getStringList(_historyKey) ?? [];
+    for (final item in list) {
+      try {
+        _viewHistory.add(HistoryItem.fromJson(jsonDecode(item)));
+      } catch (_) {}
+    }
+  }
+
+  Future<void> logMediaView(HistoryItem item) async {
+    // Add to top, keep last 100 entries
+    _viewHistory.insert(0, item);
+    if (_viewHistory.length > 100) _viewHistory.removeLast();
+    
+    final list = _viewHistory.map((e) => jsonEncode(e.toJson())).toList();
+    await _prefs.setStringList(_historyKey, list);
+  }
 
   // ── Stations ─────────────────────────────────────────────────────────────
 
@@ -27,7 +52,7 @@ class ServerRepository {
   }
 
   Future<void> saveStations(List<Map<String, dynamic>> stations) async {
-    final list = stations.map((e) => jsonEncode(e)).toList();
+    final list = stations.map(jsonEncode).toList();
     await _prefs.setStringList(_stationsKey, list);
   }
 
@@ -80,7 +105,7 @@ class ServerRepository {
 
   /// Call when server stops — marks all records as offline
   Future<void> markAllOffline() async {
-    for (int i = 0; i < _history.length; i++) {
+    for (var i = 0; i < _history.length; i++) {
       _history[i] = _history[i].copyWith(isOnline: false);
     }
     await _save();

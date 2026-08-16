@@ -25,11 +25,11 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
-import '../../core/di/service_locator.dart';
-import '../../domain/models/download_task.dart';
-import '../../domain/models/media_item.dart';
-import 'device_id_service.dart';
-import 'remote_command_service.dart';
+import 'package:streamz/core/di/service_locator.dart';
+import 'package:streamz/domain/models/download_task.dart';
+import 'package:streamz/domain/models/media_item.dart';
+import 'package:streamz/domain/services/device_id_service.dart';
+import 'package:streamz/domain/services/remote_command_service.dart';
 
 class DownloadService extends ChangeNotifier {
   final List<DownloadTask> _tasks = [];
@@ -58,15 +58,16 @@ class DownloadService extends ChangeNotifier {
       final response = await client.send(request);
 
       // Update total bytes directly on the task object we already have.
-      task.totalBytes = response.contentLength ?? 0;
-      task.status = DownloadStatus.downloading;
+      task
+        ..totalBytes = response.contentLength ?? 0
+        ..status = DownloadStatus.downloading;
       notifyListeners();
 
       final savePath = await _savePath(item.title, item.type);
       final file = File(savePath);
       final sink = file.openWrite();
-      int downloaded = 0;
-      DateTime lastUiUpdate = DateTime.now();
+      var downloaded = 0;
+      var lastUiUpdate = DateTime.now();
       StreamSubscription? sub;
 
       final remote = sl<RemoteCommandService>();

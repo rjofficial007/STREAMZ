@@ -2,10 +2,10 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 class GlitchEffect extends StatefulWidget {
-  final Widget child;
-  final bool active;
 
   const GlitchEffect({super.key, required this.child, this.active = false});
+  final Widget child;
+  final bool active;
 
   @override
   State<GlitchEffect> createState() => _GlitchEffectState();
@@ -50,13 +50,11 @@ class _GlitchEffectState extends State<GlitchEffect> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildGlitchLayer(Color color, double offset) {
-    return Transform.translate(
+  Widget _buildGlitchLayer(Color color, double offset) => Transform.translate(
       offset: Offset(offset, 0),
       child: ColorFiltered(
         colorFilter: ColorFilter.mode(color, BlendMode.modulate),
         child: widget.child,
       ),
     );
-  }
 }

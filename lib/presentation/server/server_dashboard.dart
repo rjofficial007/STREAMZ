@@ -1,6 +1,6 @@
 // presentation/server/server_dashboard.dart
 // ============================================================================
-// STREAMZ — Server NOC Dashboard (Samsung-Style / Brutalist Pro Suite)
+// STREAMZ — Server NOC Dashboard (Brutalist Pro Suite)
 // ============================================================================
 
 import 'dart:async';
@@ -9,29 +9,30 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:streamz/core/di/service_locator.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/data/network/http_server.dart';
+import 'package:streamz/data/repositories/server_repository.dart';
+import 'package:streamz/domain/models/broadcast_station.dart';
+import 'package:streamz/domain/models/connection_record.dart';
+import 'package:streamz/domain/models/media_item.dart';
+import 'package:streamz/domain/services/station_service.dart';
+import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/server/server_viewmodel.dart';
+import 'package:streamz/presentation/server/widgets/server_engine_card.dart';
+import 'package:streamz/presentation/server/widgets/server_quick_action_grid.dart';
+import 'package:streamz/presentation/server/widgets/server_telemetry_tile.dart';
+import 'package:streamz/presentation/shared/atmospheric_background.dart';
+import 'package:streamz/presentation/shared/remote_input_relay_screen.dart';
+import 'package:streamz/presentation/shared/theme_settings_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import '../../core/di/service_locator.dart';
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
-import '../../data/network/http_server.dart';
-import '../../domain/models/broadcast_station.dart';
-import '../../domain/models/connection_record.dart';
-import '../../domain/models/media_item.dart';
-import '../../domain/models/stream_session.dart';
-import '../../domain/services/station_service.dart';
-import '../client/client_viewmodel.dart';
-import '../mobile/mobile_selection_screen.dart';
-import '../shared/atmospheric_background.dart';
-import '../shared/remote_input_relay_screen.dart';
-import '../shared/theme_settings_screen.dart';
-import '../tv/tv_selection_screen.dart';
-import 'server_viewmodel.dart';
 
 class ServerDashboard extends StatefulWidget {
   const ServerDashboard({super.key});
@@ -47,6 +48,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
   @override
   void initState() {
     super.initState();
+    // Autostart server on dashboard entry.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ServerViewModel>().startServer();
     });
@@ -54,9 +56,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
 
   bool _goBack() {
     if (_navStack.length > 1) {
-      setState(() {
-        _navStack.removeLast();
-      });
+      setState(_navStack.removeLast);
       return true;
     }
     return false;
@@ -74,6 +74,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
     if (_currentPath == 'filters') return 'BROADCAST FILTERS';
     if (_currentPath == 'directories') return 'MOUNTED DIRECTORIES';
     if (_currentPath == 'stations') return 'BROADCAST STATIONS';
+    if (_currentPath == 'history') return 'VIEW LOGS';
     return _currentPath!.toUpperCase();
   }
 
@@ -141,6 +142,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
               child: Focus(
                 onKeyEvent: (_, ev) => handleTVSelectKey(ev, _goBack),
                 child: IconButton(
+                  tooltip: 'BACK',
                   icon: Icon(LucideIcons.chevronLeft, size: 20, color: tokens.textPrimary),
                   onPressed: _goBack,
                 ),
@@ -162,6 +164,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
               ),
               if (_currentPath == null)
                 IconButton(
+                  tooltip: 'SETTINGS',
                   icon: Icon(LucideIcons.settings, color: tokens.textPrimary, size: 20),
                   onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ThemeSettingsScreen())),
                 ),
@@ -184,7 +187,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 800),
-              child: _EngineAnalysisCard(state: state, isMobile: isMobile),
+              child: ServerEngineCard(state: state, isMobile: isMobile),
             ),
           ),
         ),
@@ -194,7 +197,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 800),
-              child: Container(
+              child: DecoratedBox(
                 decoration: BoxDecoration(
                   border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
                   color: tokens.border.withValues(alpha: 0.15),
@@ -207,27 +210,27 @@ class _ServerDashboardState extends State<ServerDashboard> {
                   mainAxisSpacing: 1,
                   crossAxisSpacing: 1,
                   children: [
-                    _QuickActionCard(
+                    ServerQuickActionCard(
                       label: 'TRAFFIC',
                       icon: LucideIcons.barChart,
                       onTap: () => _navigateTo('traffic'),
                     ),
-                    _QuickActionCard(
+                    ServerQuickActionCard(
                       label: 'LIVE LOGS',
                       icon: LucideIcons.terminal,
                       onTap: () => _navigateTo('live_logs'),
                     ),
-                    _QuickActionCard(
+                    ServerQuickActionCard(
                       label: 'HISTORY',
                       icon: LucideIcons.history,
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const _ConnectionHistoryScreen())),
                     ),
-                    _QuickActionCard(
+                    ServerQuickActionCard(
                       label: 'RELAY',
                       icon: LucideIcons.smartphoneNfc,
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RemoteInputRelayScreen(isServerMode: true))),
                     ),
-                    _QuickActionCard(
+                    ServerQuickActionCard(
                       label: 'REMOTE',
                       icon: LucideIcons.gamepad2,
                       onTap: () => showModalBottomSheet(
@@ -235,27 +238,27 @@ class _ServerDashboardState extends State<ServerDashboard> {
                         backgroundColor: tokens.background,
                         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                         isScrollControlled: true,
-                        builder: (_) => const _UniversalRemoteSheet(),
+                        builder: (_) => const UniversalRemoteSheet(),
                       ),
                     ),
-                    _QuickActionCard(label: 'QR CODE', icon: LucideIcons.qrCode, onTap: () => _showQRSheet(context, state)),
-                    _QuickActionCard(label: 'PREVIEW', icon: LucideIcons.monitor, onTap: () => _showPreviewSheet(context, state)),
-                    _QuickActionCard(label: 'WEB UI', icon: LucideIcons.globe, onTap: () => launchUrl(Uri.parse('http://${state.serverIp}:8080'))),
-                    _QuickActionCard(label: 'STATIONS', icon: LucideIcons.radio, onTap: () => _navigateTo('stations')),
-                    _QuickActionCard(
+                    ServerQuickActionCard(label: 'QR CODE', icon: LucideIcons.qrCode, onTap: () => _showQRSheet(context, state)),
+                    ServerQuickActionCard(label: 'PREVIEW', icon: LucideIcons.monitor, onTap: () => _showPreviewSheet(context, state)),
+                    ServerQuickActionCard(label: 'WEB UI', icon: LucideIcons.globe, onTap: () => launchUrl(Uri.parse('http://${state.serverIp}:8080'))),
+                    ServerQuickActionCard(label: 'STATIONS', icon: LucideIcons.radio, onTap: () => _navigateTo('stations')),
+                    ServerQuickActionCard(
                       label: 'THEME',
                       icon: LucideIcons.layout,
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ThemeSettingsScreen())),
                     ),
-                    _QuickActionCard(label: 'FILTERS', icon: LucideIcons.slidersHorizontal, onTap: () => _navigateTo('filters')),
-                    _QuickActionCard(label: 'DIRECTORIES', icon: LucideIcons.folderOpen, onTap: () => _navigateTo('directories')),
-                    _QuickActionCard(
+                    ServerQuickActionCard(label: 'FILTERS', icon: LucideIcons.slidersHorizontal, onTap: () => _navigateTo('filters')),
+                    ServerQuickActionCard(label: 'DIRECTORIES', icon: LucideIcons.folderOpen, onTap: () => _navigateTo('directories')),
+                    ServerQuickActionCard(
                       label: 'REMOTE MEDIA',
                       icon: LucideIcons.playCircle,
                       onTap: () => _showRemoteMediaSheet(context, state),
                     ),
-                    _QuickActionCard(label: 'CURATE', icon: LucideIcons.wand2, onTap: () => state.curateStation('all')),
-                    _QuickActionCard(label: 'SYNC ALL', icon: LucideIcons.refreshCw, onTap: () {
+                    ServerQuickActionCard(label: 'CURATE', icon: LucideIcons.wand2, onTap: () => state.curateStation('all')),
+                    ServerQuickActionCard(label: 'SYNC ALL', icon: LucideIcons.refreshCw, onTap: () {
                       if (state.activeSessions.isNotEmpty) {
                         final masterId = state.activeSessions.first.clientId;
                         sl<HttpServerService>().broadcast(jsonEncode({'type': 'media', 'action': 'set_sync_mode', 'value': 'master', 'targetId': masterId}));
@@ -280,7 +283,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 800),
-              child: Container(
+              child: DecoratedBox(
                 decoration: BoxDecoration(
                   border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
                   color: tokens.surface1.withValues(alpha: 0.4),
@@ -357,7 +360,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 800),
-              child: Container(
+              child: DecoratedBox(
                 decoration: BoxDecoration(
                   border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
                   color: tokens.surface1.withValues(alpha: 0.4),
@@ -387,7 +390,75 @@ class _ServerDashboardState extends State<ServerDashboard> {
       ];
     }
 
+    if (_currentPath == 'history') {
+      return [
+        _buildHistorySliver(state),
+      ];
+    }
+
     return [const SliverToBoxAdapter(child: Center(child: Text('ERROR')))];
+  }
+
+  Widget _buildHistorySliver(ServerViewModel state) {
+    final history = sl<ServerRepository>().viewHistory;
+    final tokens = context.tokens;
+
+    if (history.isEmpty) {
+      return SliverFillRemaining(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(LucideIcons.history, size: 64, color: tokens.textMuted),
+              const SizedBox(height: 24),
+              Text('NO VIEW HISTORY RECORDED', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 14, letterSpacing: 2)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return SliverPadding(
+      padding: const EdgeInsets.all(16),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (ctx, i) {
+            final item = history[i];
+            final time = '${item.timestamp.hour.toString().padLeft(2, '0')}:${item.timestamp.minute.toString().padLeft(2, '0')}';
+            return Container(
+              margin: const EdgeInsets.only(bottom: 1),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: tokens.surface1,
+                border: Border.all(color: tokens.border.withValues(alpha: 0.1)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    color: tokens.surface2,
+                    child: Icon(item.media.isVideo ? LucideIcons.video : LucideIcons.music, size: 20, color: tokens.textSecondary),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(item.media.title.toUpperCase(), style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 4),
+                        Text('CLIENT: ${item.clientIp} // $time', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+          childCount: history.length,
+        ),
+      ),
+    );
   }
 
   Widget _buildTelemetrySlivers(bool isMobile, ServerViewModel state) {
@@ -430,18 +501,14 @@ class _ServerDashboardState extends State<ServerDashboard> {
                 final targetId = session.clientId;
                 if (fromId == targetId) return;
                 
-                final fromSession = sessions.firstWhere((s) => s.clientId == fromId);
-                sl<HttpServerService>().broadcast(jsonEncode({'type': 'media', 'action': 'stop', 'targetId': fromId}));
-                sl<HttpServerService>().broadcast(jsonEncode({
-                  'type': 'media',
-                  'action': 'teleport',
-                  'value': {'mediaId': fromSession.mediaId, 'progress': fromSession.position},
-                  'targetId': targetId
-                }));
+                state.teleport(fromId, targetId);
               },
-              builder: (context, candidateData, rejectedData) {
-                return _TelemetryTile(session: session, isMobile: isMobile, isFirst: index == 0, isTarget: candidateData.isNotEmpty);
-              },
+              builder: (context, candidateData, rejectedData) => ServerTelemetryTile(
+                  session: session, 
+                  isMobile: isMobile, 
+                  isFirst: index == 0, 
+                  isTarget: candidateData.isNotEmpty
+                ),
             );
           },
           childCount: sessions.length,
@@ -541,22 +608,17 @@ class _ServerDashboardState extends State<ServerDashboard> {
 
   Future<void> _safePreview(BuildContext context, bool isTV, ServerViewModel state) async {
     final tokens = context.tokens;
-    showDialog(
+    unawaited(showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => Center(child: CircularProgressIndicator(color: tokens.accent)),
-    );
+    ));
     final vm = ClientViewModel();
     try {
       final ok = await vm.connect(state.serverIp);
       if (context.mounted) Navigator.pop(context);
       if (ok && context.mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ChangeNotifierProvider.value(value: vm, child: isTV ? const TVSelectionScreen() : const MobileSelectionScreen()),
-          ),
-        );
+        unawaited(context.push('/client/interface'));
       } else if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -583,339 +645,9 @@ class _ServerDashboardState extends State<ServerDashboard> {
 // COMPONENT WIDGETS
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _TelemetryTile extends StatefulWidget {
-  final StreamSession session;
-  final bool isMobile;
-  final bool isFirst;
-  final bool isTarget;
-
-  const _TelemetryTile({required this.session, required this.isMobile, required this.isFirst, this.isTarget = false});
-
-  @override
-  State<_TelemetryTile> createState() => _TelemetryTileState();
-}
-
-class _TelemetryTileState extends State<_TelemetryTile> {
-  bool _isFocused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final safeProgress = widget.session.progress.isFinite ? widget.session.progress.clamp(0.0, 1.0) : 0.0;
-
-    final tile = AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      decoration: BoxDecoration(
-        color: widget.isTarget ? tokens.accent.withValues(alpha: 0.2) : (_isFocused ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.surface1.withValues(alpha: 0.4)),
-        border: Border(
-          bottom: BorderSide(color: widget.isTarget || _isFocused ? tokens.accent : tokens.border.withValues(alpha: 0.15)),
-          top: widget.isFirst ? BorderSide(color: widget.isTarget || _isFocused ? tokens.accent : tokens.border.withValues(alpha: 0.15)) : BorderSide.none,
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: tokens.surface2,
-              border: Border.all(color: widget.isTarget || _isFocused ? tokens.accent : tokens.border.withValues(alpha: 0.15)),
-            ),
-            child: widget.session.snapshot != null
-                ? Image.memory(
-                    base64Decode(widget.session.snapshot!),
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
-                  )
-                : Icon(
-                    widget.session.mediaType == 'video' ? LucideIcons.film : (widget.session.mediaType == 'audio' ? LucideIcons.activity : LucideIcons.download),
-                    color: tokens.textSecondary,
-                    size: 20,
-                  ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.session.title.toUpperCase(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
-                ),
-                const SizedBox(height: 3),
-                Text('NODE: ${widget.session.clientId.toUpperCase()}', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 9, letterSpacing: 1)),
-                if (safeProgress > 0) ...[
-                  const SizedBox(height: 6),
-                  Stack(
-                    children: [
-                      Container(height: 1, color: tokens.surface2),
-                      FractionallySizedBox(
-                        widthFactor: safeProgress,
-                        child: Container(height: 1, color: tokens.telemetry),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-          _BrutalistIconButton(
-            icon: LucideIcons.gamepad2,
-            onTap: () => showModalBottomSheet(
-              context: context,
-              backgroundColor: tokens.background,
-              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-              isScrollControlled: true,
-              builder: (_) => _UniversalRemoteSheet(targetId: widget.session.clientId),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    return Draggable<String>(
-      data: widget.session.clientId,
-      feedback: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: 200,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: tokens.surface1,
-            border: Border.all(color: tokens.accent),
-          ),
-          child: Text(widget.session.title.toUpperCase(), style: GoogleFonts.dmMono(color: tokens.accent, fontSize: 10)),
-        ),
-      ),
-      child: Focus(
-        onFocusChange: (v) {
-          setState(() => _isFocused = v);
-          handleTVFocusScroll(v, context);
-        },
-        child: tile,
-      ),
-    );
-  }
-}
-
-class _EngineAnalysisCard extends StatefulWidget {
-  final ServerViewModel state;
-  final bool isMobile;
-  const _EngineAnalysisCard({required this.state, required this.isMobile});
-
-  @override
-  State<_EngineAnalysisCard> createState() => _EngineAnalysisCardState();
-}
-
-class _EngineAnalysisCardState extends State<_EngineAnalysisCard> {
-  bool _btnFocused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Container(
-      padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
-      decoration: BoxDecoration(
-        color: tokens.surface1.withValues(alpha: 0.4),
-        border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'ENGINE ANALYSIS',
-                style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
-              ),
-              _BlinkingDot(isOnline: widget.state.isRunning),
-            ],
-          ),
-          SizedBox(height: widget.isMobile ? 16 : 24),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('IP ADDRESS', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
-                    const SizedBox(height: 4),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        widget.state.serverIp.toUpperCase(),
-                        style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('UPTIME', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
-                    const SizedBox(height: 4),
-                    Text(
-                      'LIVE',
-                      style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: widget.isMobile ? 20 : 24),
-          Stack(
-            children: [
-              Container(height: 8, color: tokens.surface2),
-              if (widget.state.isRunning)
-                FractionallySizedBox(
-                  widthFactor: 1.0,
-                  child: Container(height: 8, color: tokens.accent),
-                ),
-            ],
-          ),
-          SizedBox(height: widget.isMobile ? 16 : 20),
-          Row(
-            children: [
-              Expanded(child: _legend(context, 'NODES', widget.state.connectedClients.toString(), tokens.accent)),
-              const SizedBox(width: 16),
-              Expanded(child: _legend(context, 'SPEED', '${widget.state.currentSpeedMb.toStringAsFixed(1)} MB/S', tokens.telemetry)),
-            ],
-          ),
-
-          SizedBox(height: widget.isMobile ? 16 : 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Actions(
-                  actions: {
-                    ActivateIntent: CallbackAction<ActivateIntent>(
-                      onInvoke: (_) {
-                        if (!widget.state.isInitializing) widget.state.isRunning ? widget.state.stopServer() : widget.state.startServer();
-                        return null;
-                      },
-                    ),
-                  },
-                  child: Focus(
-                    onFocusChange: (v) {
-                      setState(() => _btnFocused = v);
-                      handleTVFocusScroll(v, context);
-                    },
-                    onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.state.isInitializing ? null : () => widget.state.isRunning ? widget.state.stopServer() : widget.state.startServer()),
-                    child: InkWell(
-                      onTap: widget.state.isInitializing ? null : () => widget.state.isRunning ? widget.state.stopServer() : widget.state.startServer(),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: _btnFocused ? tokens.textPrimary : Colors.transparent,
-                          border: Border.all(color: tokens.textPrimary),
-                        ),
-                        child: Center(
-                          child: widget.state.isInitializing
-                              ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                              : Text(
-                                  widget.state.isRunning ? 'STOP ENGINE' : 'START ENGINE',
-                                  style: GoogleFonts.dmMono(color: _btnFocused ? tokens.background : tokens.textPrimary, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 2),
-                                ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _legend(BuildContext context, String label, String value, Color color) {
-    final tokens = context.tokens;
-    return Row(
-      children: [
-        Container(width: 8, height: 8, color: color),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10)),
-        ),
-        Text(
-          value,
-          style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: tokens.textPrimary),
-        ),
-      ],
-    );
-  }
-}
-
-class _QuickActionCard extends StatefulWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _QuickActionCard({required this.label, required this.icon, required this.onTap});
-
-  @override
-  State<_QuickActionCard> createState() => _QuickActionCardState();
-}
-
-class _QuickActionCardState extends State<_QuickActionCard> {
-  bool _isFocused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            widget.onTap();
-            return null;
-          },
-        ),
-      },
-      child: Focus(
-        onFocusChange: (v) {
-          setState(() => _isFocused = v);
-          handleTVFocusScroll(v, context);
-        },
-        onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-        child: InkWell(
-          onTap: widget.onTap,
-          onHover: (v) => setState(() => _isFocused = v),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            color: _isFocused ? tokens.textPrimary : tokens.background,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(widget.icon, color: _isFocused ? tokens.background : tokens.textPrimary, size: 24),
-                const SizedBox(height: 8),
-                Text(
-                  widget.label,
-                  style: GoogleFonts.dmMono(color: _isFocused ? tokens.background : tokens.textSecondary, fontSize: 9, letterSpacing: 1),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _RemoteMediaView extends StatefulWidget {
-  final ServerViewModel state;
   const _RemoteMediaView({required this.state});
+  final ServerViewModel state;
 
   @override
   State<_RemoteMediaView> createState() => _RemoteMediaViewState();
@@ -929,7 +661,7 @@ class _RemoteMediaViewState extends State<_RemoteMediaView> {
     sl<HttpServerService>().broadcast(jsonEncode({
       'type': 'media',
       'action': 'play',
-      'value': item.title,
+      'value': item.toJson(),
       if (_targetId != null) 'targetId': _targetId,
     }));
     Navigator.pop(context);
@@ -1053,9 +785,9 @@ class _RemoteMediaViewState extends State<_RemoteMediaView> {
   }
 }
 
-class _UniversalRemoteSheet extends StatelessWidget {
+class UniversalRemoteSheet extends StatelessWidget {
+  const UniversalRemoteSheet({super.key, this.targetId});
   final String? targetId;
-  const _UniversalRemoteSheet({this.targetId});
 
   void _cmd(BuildContext context, String type, String action, [dynamic value]) {
     context.read<ServerViewModel>().broadcastCommand(type, action, value: value, targetId: targetId);
@@ -1064,7 +796,7 @@ class _UniversalRemoteSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: tokens.background,
         border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
@@ -1076,10 +808,7 @@ class _UniversalRemoteSheet extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // const _RemoteAnalysisCard(),
-            
-                // Unified High-Density Control Grid
-                Container(
+                DecoratedBox(
                   decoration: BoxDecoration(
                     color: tokens.border.withValues(alpha: 0.15),
                   ),
@@ -1092,35 +821,35 @@ class _UniversalRemoteSheet extends StatelessWidget {
                     crossAxisSpacing: 1,
                     children: [
                       // Navigation Cluster
-                      _QuickActionCard(label: 'BACK', icon: LucideIcons.chevronLeft, onTap: () => _cmd(context, 'nav', 'back')),
-                      _QuickActionCard(label: 'UP', icon: LucideIcons.chevronUp, onTap: () => _cmd(context, 'nav', 'up')),
-                      _QuickActionCard(label: 'HOME', icon: LucideIcons.home, onTap: () => _cmd(context, 'nav', 'home')),
+                      ServerQuickActionCard(label: 'BACK', icon: LucideIcons.chevronLeft, onTap: () => _cmd(context, 'nav', 'back')),
+                      ServerQuickActionCard(label: 'UP', icon: LucideIcons.chevronUp, onTap: () => _cmd(context, 'nav', 'up')),
+                      ServerQuickActionCard(label: 'HOME', icon: LucideIcons.home, onTap: () => _cmd(context, 'nav', 'home')),
             
-                      _QuickActionCard(label: 'LEFT', icon: LucideIcons.chevronLeft, onTap: () => _cmd(context, 'nav', 'left')),
-                      _QuickActionCard(label: 'ENTER', icon: LucideIcons.circle, onTap: () => _cmd(context, 'nav', 'enter')),
-                      _QuickActionCard(label: 'RIGHT', icon: LucideIcons.chevronRight, onTap: () => _cmd(context, 'nav', 'right')),
+                      ServerQuickActionCard(label: 'LEFT', icon: LucideIcons.chevronLeft, onTap: () => _cmd(context, 'nav', 'left')),
+                      ServerQuickActionCard(label: 'ENTER', icon: LucideIcons.circle, onTap: () => _cmd(context, 'nav', 'enter')),
+                      ServerQuickActionCard(label: 'RIGHT', icon: LucideIcons.chevronRight, onTap: () => _cmd(context, 'nav', 'right')),
             
-                      _QuickActionCard(label: 'INFO', icon: LucideIcons.info, onTap: () => _cmd(context, 'nav', 'info')),
-                      _QuickActionCard(label: 'DOWN', icon: LucideIcons.chevronDown, onTap: () => _cmd(context, 'nav', 'down')),
-                      _QuickActionCard(label: 'MENU', icon: LucideIcons.menu, onTap: () => _cmd(context, 'nav', 'menu')),
+                      ServerQuickActionCard(label: 'INFO', icon: LucideIcons.info, onTap: () => _cmd(context, 'nav', 'info')),
+                      ServerQuickActionCard(label: 'DOWN', icon: LucideIcons.chevronDown, onTap: () => _cmd(context, 'nav', 'down')),
+                      ServerQuickActionCard(label: 'MENU', icon: LucideIcons.menu, onTap: () => _cmd(context, 'nav', 'menu')),
 
                       // Media Cluster
-                      _QuickActionCard(label: 'PREV', icon: LucideIcons.skipBack, onTap: () => _cmd(context, 'media', 'prev')),
-                      _QuickActionCard(label: 'PLAY/PAUSE', icon: LucideIcons.play, onTap: () => _cmd(context, 'media', 'toggle_play')),
-                      _QuickActionCard(label: 'NEXT', icon: LucideIcons.skipForward, onTap: () => _cmd(context, 'media', 'next')),
+                      ServerQuickActionCard(label: 'PREV', icon: LucideIcons.skipBack, onTap: () => _cmd(context, 'media', 'prev')),
+                      ServerQuickActionCard(label: 'PLAY/PAUSE', icon: LucideIcons.play, onTap: () => _cmd(context, 'media', 'toggle_play')),
+                      ServerQuickActionCard(label: 'NEXT', icon: LucideIcons.skipForward, onTap: () => _cmd(context, 'media', 'next')),
             
-                      _QuickActionCard(label: '-10S', icon: LucideIcons.rewind, onTap: () => _cmd(context, 'media', 'seek', -10)),
-                      _QuickActionCard(label: 'STOP', icon: LucideIcons.square, onTap: () => _cmd(context, 'media', 'stop')),
-                      _QuickActionCard(label: '+10S', icon: LucideIcons.fastForward, onTap: () => _cmd(context, 'media', 'seek', 10)),
+                      ServerQuickActionCard(label: '-10S', icon: LucideIcons.rewind, onTap: () => _cmd(context, 'media', 'seek', -10)),
+                      ServerQuickActionCard(label: 'STOP', icon: LucideIcons.square, onTap: () => _cmd(context, 'media', 'stop')),
+                      ServerQuickActionCard(label: '+10S', icon: LucideIcons.fastForward, onTap: () => _cmd(context, 'media', 'seek', 10)),
 
                       // System Cluster
-                      _QuickActionCard(label: 'VOL UP', icon: LucideIcons.volume2, onTap: () => _cmd(context, 'system', 'volume_up')),
-                      _QuickActionCard(label: 'MUTE', icon: LucideIcons.volumeX, onTap: () => _cmd(context, 'system', 'mute')),
-                      _QuickActionCard(label: 'SHUTDOWN', icon: LucideIcons.power, onTap: () => _cmd(context, 'system', 'shutdown')),
+                      ServerQuickActionCard(label: 'VOL UP', icon: LucideIcons.volume2, onTap: () => _cmd(context, 'system', 'volume_up')),
+                      ServerQuickActionCard(label: 'MUTE', icon: LucideIcons.volumeX, onTap: () => _cmd(context, 'system', 'mute')),
+                      ServerQuickActionCard(label: 'SHUTDOWN', icon: LucideIcons.power, onTap: () => _cmd(context, 'system', 'shutdown')),
             
-                      _QuickActionCard(label: 'VOL DOWN', icon: LucideIcons.volume1, onTap: () => _cmd(context, 'system', 'volume_down')),
-                      _QuickActionCard(label: 'SYNC ALL', icon: LucideIcons.refreshCw, onTap: () => _cmd(context, 'media', 'sync_all')),
-                      _QuickActionCard(label: 'KILL ALL', icon: LucideIcons.skull, onTap: () => _cmd(context, 'system', 'shutdown_all')),
+                      ServerQuickActionCard(label: 'VOL DOWN', icon: LucideIcons.volume1, onTap: () => _cmd(context, 'system', 'volume_down')),
+                      ServerQuickActionCard(label: 'SYNC ALL', icon: LucideIcons.refreshCw, onTap: () => _cmd(context, 'media', 'sync_all')),
+                      ServerQuickActionCard(label: 'KILL ALL', icon: LucideIcons.skull, onTap: () => _cmd(context, 'system', 'shutdown_all')),
                     ],
                   ),
                 ),
@@ -1185,9 +914,9 @@ class _DashboardCLIState extends State<_DashboardCLI> {
         break;
       case '/sync':
         if (targetId != null) {
-          // SLAVES FIRST to ensure they are ready for the master's sync events
-          vm.broadcastCommand('media', 'set_sync_mode', value: 'slave');
-          vm.broadcastCommand('media', 'set_sync_mode', value: 'master', targetId: targetId);
+          vm
+            ..broadcastCommand('media', 'set_sync_mode', value: 'slave')
+            ..broadcastCommand('media', 'set_sync_mode', value: 'master', targetId: targetId);
           _log.add('MSG: SYNC MODE ENABLED. MASTER: [$targetId]');
         } else {
           _log.add('ERR: SYNC REQUIRES MASTER NODE [--to=clientId]');
@@ -1217,7 +946,7 @@ class _DashboardCLIState extends State<_DashboardCLI> {
         _log.add('MSG: AUTO-PILOT INITIATED [VIBE=$vibe]');
         break;
       case '/clear':
-        setState(() => _log.clear());
+        setState(_log.clear);
         break;
       default:
         _log.add('ERR: UNKNOWN COMMAND [$action]');
@@ -1346,7 +1075,7 @@ class _ConnectionHistoryScreenState extends State<_ConnectionHistoryScreen> {
     final tokens = context.tokens;
     return Focus(
       onFocusChange: (v) => handleTVFocusScroll(v, context),
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: tokens.surface1,
           border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
@@ -1363,11 +1092,11 @@ class _ConnectionHistoryScreenState extends State<_ConnectionHistoryScreen> {
             Expanded(
               child: TextField(
                 style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 12),
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: 'QUERY IP...',
                   border: InputBorder.none,
                   isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 20),
+                  contentPadding: EdgeInsets.symmetric(vertical: 20),
                 ),
                 onChanged: (v) => setState(() => _query = v),
               ),
@@ -1380,9 +1109,9 @@ class _ConnectionHistoryScreenState extends State<_ConnectionHistoryScreen> {
 }
 
 class _HistoryCard extends StatefulWidget {
+  const _HistoryCard({required this.record, required this.isMobile});
   final ConnectionRecord record;
   final bool isMobile;
-  const _HistoryCard({required this.record, required this.isMobile});
 
   @override
   State<_HistoryCard> createState() => _HistoryCardState();
@@ -1460,7 +1189,7 @@ class _FolderPickerScreenState extends State<FolderPickerScreen> {
   void initState() {
     super.initState();
     if (Platform.isWindows) {
-      _path = 'C:\\';
+      _path = r'C:\';
     } else if (Platform.isAndroid) {
       _path = '/storage/emulated/0';
     } else {
@@ -1554,9 +1283,9 @@ class _FolderPickerScreenState extends State<FolderPickerScreen> {
 }
 
 class _TerminalHeader extends StatelessWidget {
+  const _TerminalHeader({required this.title, required this.icon});
   final String title;
   final IconData icon;
-  const _TerminalHeader({required this.title, required this.icon});
 
   @override
   Widget build(BuildContext context) {
@@ -1597,101 +1326,7 @@ class _TerminalHeader extends StatelessWidget {
   }
 }
 
-class _ActionCard extends StatefulWidget {
-  final IconData icon;
-  final String title;
-  final String meta;
-  final bool isRightBorder;
-  final bool isBottomBorder;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  const _ActionCard({
-    required this.icon,
-    required this.title,
-    required this.meta,
-    this.isRightBorder = false,
-    this.isBottomBorder = false,
-    this.isActive = true,
-    required this.onTap,
-  });
-
-  @override
-  State<_ActionCard> createState() => _ActionCardState();
-}
-
-class _ActionCardState extends State<_ActionCard> {
-  bool _isFocused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            widget.onTap();
-            return null;
-          },
-        ),
-      },
-      child: Focus(
-        onFocusChange: (v) {
-          setState(() => _isFocused = v);
-          handleTVFocusScroll(v, context);
-        },
-        onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-        child: InkWell(
-          onTap: widget.onTap,
-          onHover: (v) => setState(() => _isFocused = v),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            height: 120,
-            decoration: BoxDecoration(
-              color: _isFocused && widget.isActive ? tokens.textPrimary : Colors.transparent,
-              border: Border(
-                right: widget.isRightBorder ? BorderSide(color: tokens.border.withValues(alpha: 0.15)) : BorderSide.none,
-                bottom: widget.isBottomBorder ? BorderSide(color: tokens.border.withValues(alpha: 0.15)) : BorderSide.none,
-              ),
-            ),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(widget.icon, color: _isFocused && widget.isActive ? tokens.background : (widget.isActive ? tokens.textPrimary : tokens.textMuted), size: 24),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.title,
-                      style: GoogleFonts.dmMono(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                        color: _isFocused && widget.isActive ? tokens.background : (widget.isActive ? tokens.textPrimary : tokens.textMuted),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(widget.meta, style: GoogleFonts.dmMono(fontSize: 9, letterSpacing: 1, color: widget.isActive ? tokens.textMuted : tokens.error)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ToggleRow extends StatefulWidget {
-  final String label;
-  final IconData icon;
-  final bool value;
-  final bool isMobile;
-  final bool isLast;
-  final Function(bool) onChanged;
 
   const _ToggleRow({
     required this.label,
@@ -1701,6 +1336,12 @@ class _ToggleRow extends StatefulWidget {
     required this.onChanged,
     this.isLast = false,
   });
+  final String label;
+  final IconData icon;
+  final bool value;
+  final bool isMobile;
+  final bool isLast;
+  final Function(bool) onChanged;
 
   @override
   State<_ToggleRow> createState() => _ToggleRowState();
@@ -1757,10 +1398,10 @@ class _ToggleRowState extends State<_ToggleRow> {
 }
 
 class _StationsTab extends StatefulWidget {
+  const _StationsTab({required this.state, required this.pad, required this.isMobile});
   final ServerViewModel state;
   final double pad;
   final bool isMobile;
-  const _StationsTab({required this.state, required this.pad, required this.isMobile});
 
   @override
   State<_StationsTab> createState() => _StationsTabState();
@@ -1778,7 +1419,7 @@ class _StationsTabState extends State<_StationsTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
+            DecoratedBox(
               decoration: BoxDecoration(
                 border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
                 color: tokens.surface1.withValues(alpha: 0.4),
@@ -1902,7 +1543,7 @@ class _StationsTabState extends State<_StationsTab> {
                 Text('SELECT MEDIA (${selectedItems.length})', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2)),
                 const SizedBox(height: 10),
                 Flexible(
-                  child: Container(
+                  child: DecoratedBox(
                     decoration: BoxDecoration(border: Border.all(color: tokens.border.withValues(alpha: 0.15))),
                     child: items.isEmpty
                         ? Center(
@@ -1970,15 +1611,15 @@ class _StationsTabState extends State<_StationsTab> {
 }
 
 class _StationCard extends StatelessWidget {
+  const _StationCard({required this.station, required this.state, required this.isMobile});
   final BroadcastStation station;
   final ServerViewModel state;
   final bool isMobile;
-  const _StationCard({required this.station, required this.state, required this.isMobile});
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         border: Border.all(color: station.isActive ? tokens.border.withValues(alpha: 0.3) : tokens.border.withValues(alpha: 0.05)),
         color: tokens.surface1.withValues(alpha: 0.4),
@@ -2026,10 +1667,10 @@ class _StationCard extends StatelessWidget {
 }
 
 class _BrutalistIconButton extends StatefulWidget {
+  const _BrutalistIconButton({required this.icon, required this.onTap, this.color});
   final IconData icon;
   final VoidCallback onTap;
   final Color? color;
-  const _BrutalistIconButton({required this.icon, required this.onTap, this.color});
 
   @override
   State<_BrutalistIconButton> createState() => _BrutalistIconButtonState();
@@ -2075,8 +1716,8 @@ class _BrutalistIconButtonState extends State<_BrutalistIconButton> {
 }
 
 class _StationLiveStatus extends StatefulWidget {
-  final BroadcastStation station;
   const _StationLiveStatus({required this.station});
+  final BroadcastStation station;
 
   @override
   State<_StationLiveStatus> createState() => _StationLiveStatusState();
@@ -2163,8 +1804,8 @@ class _StationLiveStatusState extends State<_StationLiveStatus> {
 }
 
 class _LiveLogViewer extends StatelessWidget {
-  final ServerViewModel state;
   const _LiveLogViewer({required this.state});
+  final ServerViewModel state;
 
   @override
   Widget build(BuildContext context) {
@@ -2202,8 +1843,8 @@ class _LiveLogViewer extends StatelessWidget {
 }
 
 class _TrafficMonitor extends StatefulWidget {
-  final ServerViewModel state;
   const _TrafficMonitor({required this.state});
+  final ServerViewModel state;
 
   @override
   State<_TrafficMonitor> createState() => _TrafficMonitorState();
@@ -2217,10 +1858,13 @@ class _TrafficMonitorState extends State<_TrafficMonitor> {
   void initState() {
     super.initState();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {
-        _history.removeAt(0);
-        _history.add(widget.state.currentSpeedMb);
-      });
+      if (mounted) {
+        setState(() {
+          _history
+            ..removeAt(0)
+            ..add(widget.state.currentSpeedMb);
+        });
+      }
     });
   }
 
@@ -2281,50 +1925,9 @@ class _TrafficMonitorState extends State<_TrafficMonitor> {
   }
 }
 
-class _BlinkingDot extends StatefulWidget {
-  final bool isOnline;
-  const _BlinkingDot({required this.isOnline});
-
-  @override
-  State<_BlinkingDot> createState() => _BlinkingDotState();
-}
-
-class _BlinkingDotState extends State<_BlinkingDot> with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    if (!widget.isOnline) return Container(width: 8, height: 8, color: tokens.textMuted.withValues(alpha: 0.3));
-    return FadeTransition(
-      opacity: _ctrl,
-      child: Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: tokens.success,
-          boxShadow: [BoxShadow(color: tokens.success, blurRadius: 4)],
-        ),
-      ),
-    );
-  }
-}
-
 class _MountButton extends StatefulWidget {
-  final Function(String) onMounted;
   const _MountButton({required this.onMounted});
+  final Function(String) onMounted;
 
   @override
   State<_MountButton> createState() => _MountButtonState();
@@ -2375,10 +1978,10 @@ class _MountButtonState extends State<_MountButton> {
 }
 
 class _DirRow extends StatefulWidget {
+  const _DirRow({required this.path, required this.isLast, required this.onRemove});
   final String path;
   final bool isLast;
   final VoidCallback onRemove;
-  const _DirRow({required this.path, required this.isLast, required this.onRemove});
 
   @override
   State<_DirRow> createState() => _DirRowState();
@@ -2390,7 +1993,7 @@ class _DirRowState extends State<_DirRow> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    int count = 0;
+    var count = 0;
     if (!kIsWeb) {
       try {
         count = Directory(widget.path).listSync(followLinks: false).length;
@@ -2453,9 +2056,9 @@ class _DirRowState extends State<_DirRow> {
 }
 
 class _BrutalistCheckbox extends StatelessWidget {
+  const _BrutalistCheckbox({required this.value, required this.isFocused});
   final bool value;
   final bool isFocused;
-  const _BrutalistCheckbox({required this.value, required this.isFocused});
 
   @override
   Widget build(BuildContext context) {

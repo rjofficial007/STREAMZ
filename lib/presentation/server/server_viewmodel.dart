@@ -1,44 +1,56 @@
 // presentation/server/server_viewmodel.dart
 // ============================================================================
 // STREAMZ — Server ViewModel (Production-Fixed)
-//
-// BUGS FIXED:
-//   1. dispose() previously called stopServer() — server died when user
-//      navigated away from the dashboard. Now dispose() only cancels
-//      UI-facing timers. The server runs until the user explicitly taps STOP.
-//   2. WakeLock is now acquired before server start and released only on
-//      explicit stop — screen/WiFi sleep no longer kills the server.
-//   3. Android foreground service (flutter_background) acquired on start,
-//      released on stop. Includes WiFi lock via enableWifiLock: true.
-//   4. Network watchdog: detects IP changes every 15 s and hot-restarts the
-//      HTTP server on the new interface automatically.
-//   5. AppLifecycleState forwarded from root via AppLifecycleBroadcaster —
-//      re-acquires WakeLock if it was dropped during a background transition.
 // ============================================================================
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
-
-import '../../core/util/lifecycle_broadcaster.dart';
-import '../../core/di/service_locator.dart';
-import '../../core/utils/logger.dart';
-import '../../data/local/media_scanner.dart';
-import '../../data/network/http_server.dart';
-import '../../data/network/udp_discovery.dart';
-import '../../data/repositories/media_repository.dart';
-import '../../data/repositories/server_repository.dart';
-import '../../domain/models/broadcast_station.dart';
-import '../../domain/models/connection_record.dart';
-import '../../domain/models/media_item.dart';
-import '../../domain/models/stream_session.dart';
-import '../../domain/services/network_service.dart';
-import '../../domain/services/server_lifecycle_service.dart';
+import 'package:streamz/core/di/service_locator.dart';
+import 'package:streamz/core/util/lifecycle_broadcaster.dart';
+import 'package:streamz/core/utils/logger.dart';
+import 'package:streamz/data/local/media_scanner.dart';
+import 'package:streamz/data/network/http_server.dart';
+import 'package:streamz/data/network/udp_discovery.dart';
+import 'package:streamz/data/repositories/media_repository.dart';
+import 'package:streamz/data/repositories/server_repository.dart';
+import 'package:streamz/domain/models/broadcast_station.dart';
+import 'package:streamz/domain/models/connection_record.dart';
+import 'package:streamz/domain/models/media_item.dart';
+import 'package:streamz/domain/models/stream_session.dart';
+import 'package:streamz/domain/services/network_service.dart';
+import 'package:streamz/domain/services/platform_service.dart';
+import 'package:streamz/domain/services/server_lifecycle_service.dart';
 
 class ServerViewModel extends ChangeNotifier {
+
+  // ── Constructor ───────────────────────────────────────────────────────────
+
+  ServerViewModel() {
+    // Load default folders based on platform logic in PlatformService.
+    _sharedFolders = sl<PlatformService>().getDefaultSharedFolders();
+    _loadStations();
+    _wireCallbacks();
+    _httpServer.useModernWebUI = _useModernWebUI;
+
+    // Subscribe to app lifecycle events from the root observer.
+    _lifecycleBus.addManualListener(_onLifecycleChange);
+
+    // Wire up ServerLifecycleService callbacks
+    _lifecycleService.onNetworkChange = (newIp) async {
+      if (isRunning) {
+        logger.i('[ServerVM] IP changed to $newIp, restarting server');
+        _serverIp = newIp;
+        await _httpServer.stop();
+        _broadcaster.stop();
+        await _httpServer.start(ip: _serverIp, sharedFolders: _sharedFolders, getMediaItems: _getMediaItems);
+        await _broadcaster.start(_serverIp);
+        notifyListeners();
+      }
+    };
+  }
   final HttpServerService _httpServer = sl<HttpServerService>();
   final UdpBroadcaster _broadcaster = sl<UdpBroadcaster>();
   final MediaScanner _scanner = sl<MediaScanner>();
@@ -86,55 +98,14 @@ class ServerViewModel extends ChangeNotifier {
   double get currentSpeedMb => _currentSpeedMb;
   List<String> get serverLogs => _httpServer.logs;
 
-  // ── Constructor ───────────────────────────────────────────────────────────
-
-  ServerViewModel() {
-    _initDefaultFolders();
-    _loadStations();
-    _wireCallbacks();
-    _httpServer.useModernWebUI = _useModernWebUI;
-
-    // Subscribe to app lifecycle events from the root observer.
-    _lifecycleBus.addManualListener(_onLifecycleChange);
-
-    // Wire up ServerLifecycleService callbacks
-    _lifecycleService.onNetworkChange = (newIp) async {
-      if (isRunning) {
-        logger.i('[ServerVM] IP changed to $newIp, restarting server');
-        _serverIp = newIp;
-        await _httpServer.stop();
-        _broadcaster.stop();
-        await _httpServer.start(ip: _serverIp, sharedFolders: _sharedFolders, getMediaItems: _getMediaItems);
-        await _broadcaster.start(_serverIp);
-        notifyListeners();
-      }
-    };
-  }
-
   void _loadStations() {
     final list = _serverRepo.loadStations();
-    _stations = list.map((e) => BroadcastStation.fromJson(e)).toList();
+    _stations = list.map(BroadcastStation.fromJson).toList();
     _httpServer.stations = _stations;
   }
 
   Future<void> _saveStations() async {
     await _serverRepo.saveStations(_stations.map((e) => e.toJson()).toList());
-  }
-
-  void _initDefaultFolders() {
-    if (kIsWeb) return;
-    if (defaultTargetPlatform == TargetPlatform.windows) {
-      final home = Platform.environment['USERPROFILE'];
-      if (home != null) {
-        _sharedFolders = ['$home\\Videos', '$home\\Music', '$home\\Pictures'];
-      } else {
-        _sharedFolders = ['C:\\'];
-      }
-    } else if (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS) {
-      _sharedFolders = ['/storage/emulated/0'];
-    } else {
-      _sharedFolders = ['/'];
-    }
   }
 
   void _wireCallbacks() {
@@ -180,13 +151,15 @@ class ServerViewModel extends ChangeNotifier {
       await _scanner.scanPhotoManager(includeVideos: _shareVideos, includeImages: _shareImages);
       await _scanner.scanAudio();
 
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
-        final home = Platform.environment['USERPROFILE'];
-        if (home != null) {
-          for (final sub in ['Videos', 'Pictures', 'Music', 'Downloads']) {
-            await _scanner.scanDirectory('$home\\$sub', includeVideos: _shareVideos, includeAudio: _shareMusic, includeImages: _shareImages, onBatch: (_) => notifyListeners());
-          }
-        }
+      // Scan manually shared directories.
+      for (final folder in _sharedFolders) {
+        await _scanner.scanDirectory(
+          folder, 
+          includeVideos: _shareVideos, 
+          includeAudio: _shareMusic, 
+          includeImages: _shareImages, 
+          onBatch: (_) => notifyListeners()
+        );
       }
 
       await _httpServer.start(ip: _serverIp, sharedFolders: _sharedFolders, getMediaItems: _getMediaItems);
@@ -212,7 +185,7 @@ class ServerViewModel extends ChangeNotifier {
       await Future.any([
         Future.wait([
           _httpServer.stop(),
-          Future.microtask(() => _broadcaster.stop()),
+          Future.microtask(_broadcaster.stop),
         ]),
         Future.delayed(const Duration(seconds: 3), () => logger.w('[ServerVM] Stop timeout')),
       ]);
@@ -230,11 +203,7 @@ class ServerViewModel extends ChangeNotifier {
 
   List<MediaItem> _getMediaItems() => _mediaRepo.getLocalMediaItems(shareVideos: _shareVideos, shareMusic: _shareMusic, shareImages: _shareImages);
 
-  List<MediaItem> getLocalMediaItems({bool? shareVideos, bool? shareMusic, bool? shareImages}) {
-    return _mediaRepo.getLocalMediaItems(shareVideos: shareVideos ?? _shareVideos, shareMusic: shareMusic ?? _shareMusic, shareImages: shareImages ?? _shareImages);
-  }
-
-  // ── Network Watchdog removed — now in ServerLifecycleService ───────────
+  List<MediaItem> getLocalMediaItems({bool? shareVideos, bool? shareMusic, bool? shareImages}) => _mediaRepo.getLocalMediaItems(shareVideos: shareVideos ?? _shareVideos, shareMusic: shareMusic ?? _shareMusic, shareImages: shareImages ?? _shareImages);
 
   // ── Communication ────────────────────────────────────────────────────────
 
@@ -242,8 +211,9 @@ class ServerViewModel extends ChangeNotifier {
     final payload = {
       'type': type,
       'action': action,
-      if (value != null) 'value': value,
-      if (targetId != null) 'targetId': targetId,
+      'senderId': 'SERVER',
+      'value': value,
+      'targetId': targetId,
     };
     _httpServer.broadcast(jsonEncode(payload));
   }
@@ -266,9 +236,12 @@ class ServerViewModel extends ChangeNotifier {
   }
 
   void teleport(String fromId, String toId) {
+    // Session retrieval by clientId. We assume the session is active if the node is connected.
     final session = _activeSessions.values.firstWhere((s) => s.clientId == fromId, orElse: () => throw Exception('Session not found'));
     
-    // Stop from, play on to
+    // Teleportation logic:
+    // 1. Tell the source node to stop.
+    // 2. Tell the target node to start playing the SAME media at the SAME position.
     stopClient(fromId);
     broadcastCommand(
       'media', 
@@ -401,7 +374,7 @@ class ServerViewModel extends ChangeNotifier {
 
   void curateStation(String vibe) {
     final all = _mediaRepo.getLocalMediaItems(shareVideos: true, shareMusic: true, shareImages: false);
-    List<MediaItem> filtered = [];
+    var filtered = <MediaItem>[];
     if (vibe == 'video') {
       filtered = all.where((m) => m.isVideo).toList();
     } else if (vibe == 'audio') {
@@ -430,22 +403,15 @@ class ServerViewModel extends ChangeNotifier {
     });
   }
 
-  // ── Network Detection ─────────────────────────────────────────────────────
-
-  // Removed _detectIp as it is now handled by NetworkService.
-
   // ── Dispose ───────────────────────────────────────────────────────────────
 
   @override
   void dispose() {
     // CRITICAL: Do NOT call stopServer() here.
     // The HTTP server must outlive the ServerDashboard widget.
-    // Only cancel UI-facing timers that should die with the widget.
     _speedTimer?.cancel();
     _sessionPruneTimer?.cancel();
     _lifecycleBus.removeManualListener(_onLifecycleChange);
-    // _networkWatchdog intentionally NOT cancelled — keeps running.
-    // _httpServer, _broadcaster, WakeLock, background service — NOT touched.
     super.dispose();
   }
 }

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
 
 class RemoteTrackpad extends StatefulWidget {
-  final Function(Offset delta) onMove;
-  final VoidCallback onTap;
 
   const RemoteTrackpad({super.key, required this.onMove, required this.onTap});
+  final Function(Offset delta) onMove;
+  final VoidCallback onTap;
 
   @override
   State<RemoteTrackpad> createState() => _RemoteTrackpadState();
@@ -15,8 +15,7 @@ class _RemoteTrackpadState extends State<RemoteTrackpad> {
   bool _active = false;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+  Widget build(BuildContext context) => GestureDetector(
       onPanStart: (_) => setState(() => _active = true),
       onPanEnd: (_) => setState(() => _active = false),
       onPanUpdate: (d) => widget.onMove(d.delta),
@@ -47,5 +46,4 @@ class _RemoteTrackpadState extends State<RemoteTrackpad> {
         ),
       ),
     );
-  }
 }

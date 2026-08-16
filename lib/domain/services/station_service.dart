@@ -3,7 +3,7 @@
 // STREAMZ — Station Management Service
 // ============================================================================
 
-import '../models/broadcast_station.dart';
+import 'package:streamz/domain/models/broadcast_station.dart';
 
 class StationService {
   StationPlaybackState? getPlaybackState(BroadcastStation station) {
@@ -19,8 +19,8 @@ class StationService {
     // Use modulo to find where we are in the repeating playlist cycle.
     final currentCycleMs = elapsed.inMilliseconds % totalMs;
 
-    int accumulatedMs = 0;
-    for (int i = 0; i < station.playlist.length; i++) {
+    var accumulatedMs = 0;
+    for (var i = 0; i < station.playlist.length; i++) {
       final item = station.playlist[i];
       // MediaItem.duration is in seconds, convert to ms for comparison.
       final itemMs = item.duration * 1000;

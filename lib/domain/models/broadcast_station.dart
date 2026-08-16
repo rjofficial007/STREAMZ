@@ -3,16 +3,9 @@
 // STREAMZ — Broadcast Station Model
 // ============================================================================
 
-import 'media_item.dart';
+import 'package:streamz/domain/models/media_item.dart';
 
 class BroadcastStation {
-  final String id;
-  final String name;
-  final List<MediaItem> playlist;
-  final DateTime startTime;
-  final bool isPaused;
-  final DateTime? pausedAt;
-  final bool isActive;
 
   BroadcastStation({
     required this.id,
@@ -22,11 +15,29 @@ class BroadcastStation {
     this.isPaused = false,
     this.pausedAt,
     this.isActive = true,
+    this.nowPlaying,
   });
 
-  Duration get totalDuration {
-    return playlist.fold<Duration>(Duration.zero, (total, item) => total + Duration(seconds: item.duration));
-  }
+  factory BroadcastStation.fromJson(Map<String, dynamic> json) => BroadcastStation(
+        id: json['id'],
+        name: json['name'],
+        playlist: json['playlist'] != null ? (json['playlist'] as List).map((e) => MediaItem.fromJson(e)).toList() : [],
+        startTime: DateTime.parse(json['startTime']),
+        isPaused: json['isPaused'] ?? false,
+        pausedAt: json['pausedAt'] != null ? DateTime.parse(json['pausedAt']) : null,
+        isActive: json['isActive'] ?? true,
+        nowPlaying: json['nowPlaying'] != null ? StationPlaybackState.fromJson(json['nowPlaying']) : null,
+      );
+  final String id;
+  final String name;
+  final List<MediaItem> playlist;
+  final DateTime startTime;
+  final bool isPaused;
+  final DateTime? pausedAt;
+  final bool isActive;
+  final StationPlaybackState? nowPlaying;
+
+  Duration get totalDuration => playlist.fold<Duration>(Duration.zero, (total, item) => total + Duration(seconds: item.duration));
 
   BroadcastStation copyWith({
     String? id,
@@ -36,8 +47,8 @@ class BroadcastStation {
     bool? isPaused,
     DateTime? pausedAt,
     bool? isActive,
-  }) {
-    return BroadcastStation(
+    StationPlaybackState? nowPlaying,
+  }) => BroadcastStation(
       id: id ?? this.id,
       name: name ?? this.name,
       playlist: playlist ?? this.playlist,
@@ -45,8 +56,8 @@ class BroadcastStation {
       isPaused: isPaused ?? this.isPaused,
       pausedAt: pausedAt ?? this.pausedAt,
       isActive: isActive ?? this.isActive,
+      nowPlaying: nowPlaying ?? this.nowPlaying,
     );
-  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -56,25 +67,43 @@ class BroadcastStation {
         'isPaused': isPaused,
         'pausedAt': pausedAt?.toIso8601String(),
         'isActive': isActive,
+        if (nowPlaying != null) 'nowPlaying': nowPlaying!.toJson(),
       };
-
-  factory BroadcastStation.fromJson(Map<String, dynamic> json) => BroadcastStation(
-        id: json['id'],
-        name: json['name'],
-        playlist: (json['playlist'] as List).map((e) => MediaItem.fromJson(e)).toList(),
-        startTime: DateTime.parse(json['startTime']),
-        isPaused: json['isPaused'] ?? false,
-        pausedAt: json['pausedAt'] != null ? DateTime.parse(json['pausedAt']) : null,
-        isActive: json['isActive'] ?? true,
-      );
 }
 
 class StationPlaybackState {
+
+  StationPlaybackState({required this.item, required this.position, required this.itemIndex});
+
+  factory StationPlaybackState.fromJson(Map<String, dynamic> json) => StationPlaybackState(
+    item: MediaItem.fromJson(json['item']),
+    position: Duration(milliseconds: json['positionMs'] ?? 0),
+    itemIndex: json['itemIndex'] ?? 0,
+  );
   final MediaItem item;
   final Duration position;
   final int itemIndex;
 
-  StationPlaybackState({required this.item, required this.position, required this.itemIndex});
-
   Map<String, dynamic> toJson() => {'item': item.toJson(), 'positionMs': position.inMilliseconds, 'itemIndex': itemIndex};
+}
+
+class StationJoinResponse {
+
+  StationJoinResponse({
+    required this.playlist,
+    required this.itemIndex,
+    required this.position,
+    required this.isPaused,
+  });
+
+  factory StationJoinResponse.fromJson(Map<String, dynamic> json) => StationJoinResponse(
+    playlist: (json['playlist'] as List).map((e) => MediaItem.fromJson(e)).toList(),
+    itemIndex: json['itemIndex'] ?? 0,
+    position: Duration(milliseconds: json['positionMs'] ?? 0),
+    isPaused: json['isPaused'] ?? false,
+  );
+  final List<MediaItem> playlist;
+  final int itemIndex;
+  final Duration position;
+  final bool isPaused;
 }

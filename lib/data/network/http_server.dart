@@ -29,26 +29,32 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart' as shelf_router;
 import 'package:shelf_web_socket/shelf_web_socket.dart';
+import 'package:streamz/core/di/service_locator.dart';
+import 'package:streamz/core/utils/file_type_utils.dart';
+import 'package:streamz/core/utils/logger.dart';
+import 'package:streamz/data/local/media_scanner.dart';
+import 'package:streamz/data/local/thumbnail_cache.dart';
+import 'package:streamz/data/network/modern_web_html.dart';
+import 'package:streamz/data/network/web_html.dart';
+import 'package:streamz/data/repositories/server_repository.dart';
+import 'package:streamz/domain/models/broadcast_station.dart';
+import 'package:streamz/domain/models/history_item.dart';
+import 'package:streamz/domain/models/media_item.dart';
+import 'package:streamz/domain/models/stream_session.dart';
+import 'package:streamz/domain/services/queue_service.dart';
+import 'package:streamz/domain/services/station_service.dart';
+import 'package:streamz/domain/services/video_thumbnail_service.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-
-import '../../core/di/service_locator.dart';
-import '../../core/utils/file_type_utils.dart';
-import '../../data/local/media_scanner.dart';
-import '../../data/local/thumbnail_cache.dart';
-import '../../core/utils/logger.dart';
-import '../../domain/models/broadcast_station.dart';
-import '../../domain/models/media_item.dart';
-import '../../domain/models/stream_session.dart';
-import '../../domain/services/queue_service.dart';
-import '../../domain/services/station_service.dart';
-import '../../domain/services/video_thumbnail_service.dart';
-import 'modern_web_html.dart';
-import 'web_html.dart';
 
 typedef SessionUpdateCallback = void Function(String sessionId, StreamSession? session);
 typedef ConnectionLogCallback = void Function(String ip);
 
 class HttpServerService {
+
+  HttpServerService({required MediaScanner scanner, required ThumbnailCache thumbCache, required VideoThumbnailService thumbGenerator})
+    : _scanner = scanner,
+      _thumbCache = thumbCache,
+      _thumbGenerator = thumbGenerator;
   final MediaScanner _scanner;
   final ThumbnailCache _thumbCache;
   final VideoThumbnailService _thumbGenerator;
@@ -59,6 +65,7 @@ class HttpServerService {
 
   // FIX: Typed list instead of List<dynamic>.
   final List<WebSocketChannel> _sockets = [];
+  final Map<String, WebSocketChannel> _clientSockets = {};
   final List<String> _logs = [];
   int _totalBytesSent = 0;
 
@@ -67,11 +74,6 @@ class HttpServerService {
   SessionUpdateCallback? onSessionUpdate;
   ConnectionLogCallback? onConnection;
   void Function()? onSocketsChanged;
-
-  HttpServerService({required MediaScanner scanner, required ThumbnailCache thumbCache, required VideoThumbnailService thumbGenerator})
-    : _scanner = scanner,
-      _thumbCache = thumbCache,
-      _thumbGenerator = thumbGenerator;
 
   bool get isRunning => _server != null;
   int get socketCount => _sockets.length;
@@ -115,274 +117,278 @@ class HttpServerService {
   Future<void> start({required String ip, required List<String> sharedFolders, required List<MediaItem> Function() getMediaItems}) async {
     if (_server != null) await stop();
 
-    final router = shelf_router.Router();
-
-    // Static assets
-    router.get('/assets/images/<name>', (shelf.Request r, String name) async {
-      _addLog('GET /assets/images/$name');
-      // Validate name to prevent path injection via this endpoint.
-      if (name.contains('/') || name.contains('\\') || name.contains('..')) {
-        return shelf.Response.forbidden('Invalid asset name');
-      }
-      try {
-        final data = await rootBundle.load('assets/images/$name');
-        final bytes = data.buffer.asUint8List();
-        final ct = (name.endsWith('.jpg') || name.endsWith('.jpeg')) ? 'image/jpeg' : 'image/png';
-        return shelf.Response.ok(bytes, headers: {'Content-Type': ct, 'Cache-Control': 'public, max-age=86400'});
-      } catch (_) {
-        return shelf.Response.notFound('Asset not found');
-      }
-    });
-
-    // Web interface
-    router.get('/', (_) {
-      _addLog('GET / [WEB_UI]');
-      final html = useModernWebUI ? kModernWebInterfaceHtml : kWebInterfaceHtml;
-      return shelf.Response.ok(html, headers: {'content-type': 'text/html; charset=utf-8'});
-    });
-
-    // Media list
-    router.get('/api/media', (_) async {
-      _addLog('GET /api/media');
-      final items = getMediaItems();
-      final body = await compute(_jsonEncode, items.map((e) => e.toJson()).toList());
-      return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
-    });
-
-    // Stations
-    router.get('/api/stations', (_) async {
-      final svc = sl<StationService>();
-      final results = stations.map((s) {
-        final state = svc.getPlaybackState(s);
-        return {...s.toJson(), 'nowPlaying': state?.toJson()};
-      }).toList();
-      final body = await compute(_jsonEncode, results);
-      return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
-    });
-
-    router.get('/api/stations/join/<id>', (shelf.Request r, String id) async {
-      final station = stations.firstWhere((s) => s.id == id, orElse: () => throw Exception('Station not found'));
-      final svc = sl<StationService>();
-      final state = svc.getPlaybackState(station);
-      if (state == null) return shelf.Response.notFound('No active content');
-
-      final Map<String, dynamic> response = {
-        ...state.toJson(),
-        'isPaused': station.isPaused,
-        'playlist': station.playlist.map((e) => e.copyWith(isBroadcast: true).toJson()).toList(),
-      };
-
-      final body = await compute(_jsonEncode, response);
-      return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
-    });
-
-    // Directory browse
-    router.get('/api/browse', (shelf.Request r) async {
-      final rawPath = r.url.queryParameters['path'] ?? '';
-
-      if (rawPath.isEmpty) {
-        // Return shared folder roots.
-        final roots = sharedFolders.map((f) {
-          return {'name': f, 'path': f, 'isDirectory': true, 'itemCount': 0};
+    final router = shelf_router.Router()
+      ..get('/assets/images/<name>', (shelf.Request r, String name) async {
+        _addLog('GET /assets/images/$name');
+        if (name.contains('/') || name.contains(r'\') || name.contains('..')) {
+          return shelf.Response.forbidden('Invalid asset name');
+        }
+        try {
+          final data = await rootBundle.load('assets/images/$name');
+          final bytes = data.buffer.asUint8List();
+          final ct = (name.endsWith('.jpg') || name.endsWith('.jpeg')) ? 'image/jpeg' : 'image/png';
+          return shelf.Response.ok(bytes, headers: {'Content-Type': ct, 'Cache-Control': 'public, max-age=86400'});
+        } catch (_) {
+          return shelf.Response.notFound('Asset not found');
+        }
+      })
+      ..get('/', (_) {
+        _addLog('GET / [WEB_UI]');
+        final html = useModernWebUI ? kModernWebInterfaceHtml : kWebInterfaceHtml;
+        return shelf.Response.ok(html, headers: {'content-type': 'text/html; charset=utf-8'});
+      })
+      ..get('/api/media', (_) async {
+        _addLog('GET /api/media');
+        final items = getMediaItems();
+        final body = await compute(_jsonEncode, items.map((e) => e.toJson()).toList());
+        return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
+      })
+      ..get('/api/stations', (_) async {
+        final svc = sl<StationService>();
+        final results = stations.map((s) {
+          final state = svc.getPlaybackState(s);
+          return {...s.toJson(), 'nowPlaying': state?.toJson()};
         }).toList();
-        final body = await compute(_jsonEncode, roots);
+        final body = await compute(_jsonEncode, results);
         return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
-      }
+      })
+      ..get('/api/stations/join/<id>', (shelf.Request r, String id) async {
+        final station = stations.firstWhere((s) => s.id == id, orElse: () => throw Exception('Station not found'));
+        final svc = sl<StationService>();
+        final state = svc.getPlaybackState(station);
+        if (state == null) return shelf.Response.notFound('No active content');
 
-      if (!_isPathAllowed(rawPath, sharedFolders)) {
-        return shelf.Response.forbidden('Access denied');
-      }
+        final response = <String, dynamic>{
+          ...state.toJson(),
+          'isPaused': station.isPaused,
+          'playlist': station.playlist.map((e) => e.copyWith(isBroadcast: true).toJson()).toList(),
+        };
 
-      try {
-        final dir = Directory(Uri.decodeComponent(rawPath));
-        if (!await dir.exists()) {
-          return shelf.Response.notFound('Not found');
+        final body = await compute(_jsonEncode, response);
+        return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
+      })
+      ..get('/api/browse', (shelf.Request r) async {
+        final rawPath = r.url.queryParameters['path'] ?? '';
+
+        if (rawPath.isEmpty) {
+          final roots = sharedFolders.map((f) => {'name': f, 'path': f, 'isDirectory': true, 'itemCount': 0}).toList();
+          final body = await compute(_jsonEncode, roots);
+          return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
         }
 
-        // FIX: Timeout on directory listing to prevent hung handlers.
-        // OPTIMIZED: Removed synchronous itemCount calculation for subdirectories.
-        final entries = <Map<String, dynamic>>[];
-        await dir
-            .list(followLinks: false)
-            .handleError((_) {})
-            .asyncMap((entity) async {
-              final stat = await entity.stat();
-              final name = entity.uri.pathSegments.lastWhere((s) => s.isNotEmpty, orElse: () => entity.path);
-              return {'name': name, 'path': entity.path, 'isDirectory': entity is Directory, 'size': stat.size, 'itemCount': 0};
-            })
-            .timeout(const Duration(seconds: 10), onTimeout: (sink) => sink.close())
-            .forEach(entries.add);
+        if (!_isPathAllowed(rawPath, sharedFolders)) {
+          return shelf.Response.forbidden('Access denied');
+        }
 
-        entries.sort((a, b) {
-          if (a['isDirectory'] == true && b['isDirectory'] != true) return -1;
-          if (a['isDirectory'] != true && b['isDirectory'] == true) return 1;
-          return (a['name'] as String).toLowerCase().compareTo((b['name'] as String).toLowerCase());
-        });
+        try {
+          final dir = Directory(Uri.decodeComponent(rawPath));
+          if (!await dir.exists()) {
+            return shelf.Response.notFound('Not found');
+          }
 
-        final body = await compute(_jsonEncode, entries);
-        return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
-      } catch (e) {
-        return shelf.Response.internalServerError(body: e.toString());
-      }
-    });
+          final entries = <Map<String, dynamic>>[];
+          await dir
+              .list(followLinks: false)
+              .handleError((_) {})
+              .asyncMap((entity) async {
+                final stat = await entity.stat();
+                final name = entity.uri.pathSegments.lastWhere((s) => s.isNotEmpty, orElse: () => entity.path);
+                return {'name': name, 'path': entity.path, 'isDirectory': entity is Directory, 'size': stat.size, 'itemCount': 0};
+              })
+              .timeout(const Duration(seconds: 10), onTimeout: (sink) => sink.close())
+              .forEach(entries.add);
 
-    // Raw file serving
-    router.get('/api/file', (shelf.Request r) async {
-      final path = r.url.queryParameters['path'] ?? '';
-      _addLog('GET /api/file?path=${p.basename(path)}');
-      if (path.isEmpty || !_isPathAllowed(path, sharedFolders)) {
-        return shelf.Response.forbidden('Access denied');
-      }
-      return _serveFile(r, File(Uri.decodeComponent(path)));
-    });
+          entries.sort((a, b) {
+            if (a['isDirectory'] == true && b['isDirectory'] != true) return -1;
+            if (a['isDirectory'] != true && b['isDirectory'] == true) return 1;
+            return (a['name'] as String).toLowerCase().compareTo((b['name'] as String).toLowerCase());
+          });
 
-    // Thumbnail
-    router.get('/api/thumbnail/<id>', (shelf.Request r, String id) async {
-      final decodedId = Uri.decodeComponent(id);
-      return _serveThumbnail(decodedId, sharedFolders);
-    });
+          final body = await compute(_jsonEncode, entries);
+          return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
+        } catch (e) {
+          return shelf.Response.internalServerError(body: e.toString());
+        }
+      })
+      ..get('/api/file', (shelf.Request r) async {
+        final path = r.url.queryParameters['path'] ?? '';
+        _addLog('GET /api/file?path=${p.basename(path)}');
+        if (path.isEmpty || !_isPathAllowed(path, sharedFolders)) {
+          return shelf.Response.forbidden('Access denied');
+        }
+        return _serveFile(r, File(Uri.decodeComponent(path)));
+      })
+      ..get('/api/thumbnail/<id>', (shelf.Request r, String id) async {
+        final decodedId = Uri.decodeComponent(id);
+        return _serveThumbnail(decodedId, sharedFolders);
+      })
+      ..get('/stream/<id>', (shelf.Request r, String id) async {
+        var f = _scanner.fileById(id);
+        MediaItem? item;
 
-    // Stream by media library ID
-    router.get('/stream/<id>', (shelf.Request r, String id) async {
-      File? f = _scanner.fileById(id);
-      if (f == null) {
-        final asset = _scanner.assetById(id);
-        if (asset != null) f = await asset.file;
         if (f == null) {
-          final song = _scanner.songById(id);
-          if (song != null) f = File(song.data);
+          final asset = _scanner.assetById(id);
+          if (asset != null) f = await asset.file;
+          if (f == null) {
+            final song = _scanner.songById(id);
+            if (song != null) f = File(song.data);
+          }
         }
-      }
-      if (f == null || !f.existsSync()) {
+
+        if (f != null && f.existsSync()) {
+          try {
+            final all = getMediaItems();
+            item = all.firstWhere((m) => m.id == id);
+          } catch (_) {}
+
+          if (item != null) {
+            final connInfo = r.context['shelf.io.connection_info'] as HttpConnectionInfo?;
+            final ip = connInfo?.remoteAddress.address ?? 'Unknown';
+            
+            unawaited(sl<ServerRepository>().logMediaView(HistoryItem(
+              media: item,
+              timestamp: DateTime.now(),
+              clientIp: ip,
+            )));
+          }
+
+          return _serveFile(r, f);
+        }
+        
         return shelf.Response.notFound('File not found');
-      }
-      return _serveFile(r, f);
-    });
+      })
+      ..get(
+        '/ws',
+        webSocketHandler((WebSocketChannel ws, _) {
+          _sockets.add(ws);
+          _addLog('WS_CONNECT: [ACTIVE: ${_sockets.length}]');
+          onSocketsChanged?.call();
 
-    // WebSocket
-    router.get(
-      '/ws',
-      webSocketHandler((WebSocketChannel ws, _) {
-        _sockets.add(ws);
-        _addLog('WS_CONNECT: [ACTIVE: ${_sockets.length}]');
-        onSocketsChanged?.call();
+          ws.stream.listen(
+            (message) {
+              try {
+                final data = jsonDecode(message as String) as Map<String, dynamic>;
+                final senderId = data['clientId']?.toString() ?? data['senderId']?.toString();
+                if (senderId != null) {
+                  _clientSockets[senderId] = ws;
+                }
 
-        ws.stream.listen(
-          (message) {
-            try {
-              final data = jsonDecode(message as String) as Map<String, dynamic>;
-              if (data['type'] == 'report_status') {
-                final sId = data['sessionId']?.toString() ?? data['clientId'];
-                final stopped = data['isStopped'] == true;
-                if (stopped) {
-                  onSessionUpdate?.call(sId, null);
-                } else {
-                  final rawProg = data['progress'];
-                  final progress = (rawProg is num ? rawProg.toDouble() : 0.0).clamp(0.0, 1.0);
-                  final snapshot = data['snapshot']?.toString();
-                  final vibeColors = (data['vibeColors'] as List?)?.map((e) => e.toString()).toList();
-                  final mediaId = data['mediaId']?.toString();
-                  final position = data['position'] as int?;
+                if (data['type'] == 'report_status') {
+                    final sId = data['sessionId']?.toString() ?? data['clientId'];
+                    final stopped = data['isStopped'] == true;
+                    if (stopped) {
+                      onSessionUpdate?.call(sId, null);
+                    } else {
+                      final rawProg = data['progress'];
+                      final progress = (rawProg is num ? rawProg.toDouble() : 0.0).clamp(0.0, 1.0);
+                      final snapshot = data['snapshot']?.toString();
+                      final vibeColors = (data['vibeColors'] as List?)?.map((e) => e.toString()).toList();
+                      final mediaId = data['mediaId']?.toString();
+                      final position = data['position'] as int?;
 
-                  // BROADCAST VIBE: If this session has colors, relay to all for Vibe-Sync
-                  if (vibeColors != null && vibeColors.isNotEmpty) {
+                      if (vibeColors != null && vibeColors.isNotEmpty) {
+                        broadcast(jsonEncode({
+                          'type': 'system',
+                          'action': 'vibe_sync',
+                          'value': vibeColors,
+                        }));
+                      }
+
+                      onSessionUpdate?.call(
+                        sId,
+                        StreamSession(
+                          sessionId: sId,
+                          clientId: data['clientId']?.toString() ?? sId,
+                          title: data['title']?.toString() ?? '',
+                          mediaId: mediaId,
+                          progress: progress,
+                          position: position,
+                          mediaType: data['mediaType']?.toString() ?? 'video',
+                          snapshot: snapshot,
+                          vibeColors: vibeColors,
+                          lastUpdated: DateTime.now(),
+                        ),
+                      );
+                    }
+                  } else if (data['type'] == 'queue') {
+                    final queueSvc = sl<QueueService>();
+                    if (data['action'] == 'add') {
+                      queueSvc.addItem(MediaItem.fromJson(data['value'] as Map<String, dynamic>), (data['senderId'] ?? 'Unknown').toString());
+                    } else if (data['action'] == 'vote') {
+                      final voteData = data['value'] as Map<String, dynamic>;
+                      queueSvc.voteItem(voteData['id'] as String, voteData['delta'] as int);
+                    } else if (data['action'] == 'lock' && data['senderId'] == 'SERVER') {
+                      queueSvc.setLocked(data['value'] == true);
+                    }
+                    
                     broadcast(jsonEncode({
-                      'type': 'system',
-                      'action': 'vibe_sync',
-                      'value': vibeColors,
+                      'type': 'queue',
+                      'action': 'update',
+                      'value': {
+                        'items': queueSvc.queue.map((e) => e.toJson()).toList(),
+                        'isLocked': queueSvc.isLocked,
+                      },
                     }));
+                  } else if (data['type'] == 'intercom') {
+                    broadcast(message.toString());
+                  } else if (data['targetId'] != null) {
+                    final targetId = data['targetId'].toString();
+                    final targetSocket = _clientSockets[targetId];
+                    
+                    if (targetSocket != null) {
+                      try {
+                        targetSocket.sink.add(message);
+                      } catch (e) {
+                        logger.w('Failed to send targeted message to $targetId', error: e);
+                        _clientSockets.remove(targetId);
+                      }
+                    } else {
+                      for (final s in List.of(_sockets)) {
+                        if (s != ws) {
+                          try {
+                            s.sink.add(message);
+                          } catch (_) {}
+                        }
+                      }
+                    }
+                  } else {
+                    for (final s in List.of(_sockets)) {
+                      if (s != ws) {
+                        try {
+                          s.sink.add(message);
+                        } catch (_) {}
+                      }
+                    }
                   }
-
-                  onSessionUpdate?.call(
-                    sId,
-                    StreamSession(
-                      sessionId: sId,
-                      clientId: data['clientId']?.toString() ?? sId,
-                      title: data['title']?.toString() ?? '',
-                      mediaId: mediaId,
-                      progress: progress,
-                      position: position,
-                      mediaType: data['mediaType']?.toString() ?? 'video',
-                      snapshot: snapshot,
-                      vibeColors: vibeColors,
-                      lastUpdated: DateTime.now(),
-                    ),
-                  );
-                }
-              } else if (data['type'] == 'queue') {
-                // Server processes queue commands and broadcasts results
-                final queueSvc = sl<QueueService>();
-                if (data['action'] == 'add') {
-                  queueSvc.addItem(MediaItem.fromJson(data['value']), data['senderId'] ?? 'Unknown');
-                } else if (data['action'] == 'vote') {
-                  queueSvc.voteItem(data['value']['id'], data['value']['delta'] as int);
-                } else if (data['action'] == 'lock' && data['senderId'] == 'SERVER') {
-                  queueSvc.setLocked(data['value'] == true);
-                }
-                
-                // Broadcast updated queue and lock state to everyone
-                broadcast(jsonEncode({
-                  'type': 'queue',
-                  'action': 'update',
-                  'value': {
-                    'items': queueSvc.queue.map((e) => e.toJson()).toList(),
-                    'isLocked': queueSvc.isLocked,
-                  },
-                }));
-              } else if (data['type'] == 'intercom') {
-                // Relay intercom alerts to all clients
-                broadcast(message);
-              } else if (data['targetId'] != null) {
-                // Targeted relay: only send to the node with matching clientId
-                for (final s in List.of(_sockets)) {
-                  // We don't have a direct map of socket -> clientId here yet, 
-                  // but we can broadcast and let clients filter, OR track it.
-                  // For now, broadcast but keep targetId in payload.
-                  if (s != ws) {
-                    try {
-                      s.sink.add(message);
-                    } catch (_) {}
+                } catch (_) {
+                  for (final s in List.of(_sockets)) {
+                    if (s != ws) {
+                      try {
+                        s.sink.add(message);
+                      } catch (_) {}
+                    }
                   }
                 }
-              } else {
-                // Relay command to all other connected sockets.
-                for (final s in List.of(_sockets)) {
-                  if (s != ws) {
-                    try {
-                      s.sink.add(message);
-                    } catch (_) {}
-                  }
-                }
-              }
-            } catch (_) {
-              // Non-JSON or malformed message — relay raw.
-              for (final s in List.of(_sockets)) {
-                if (s != ws) {
-                  try {
-                    s.sink.add(message);
-                  } catch (_) {}
-                }
-              }
-            }
-          },
-          onDone: () {
-            _sockets.remove(ws);
-            _addLog('WS_DISCONNECT: [ACTIVE: ${_sockets.length}]');
-            onSocketsChanged?.call();
-          },
-          onError: (_) {
-            _sockets.remove(ws);
-            _addLog('WS_ERROR: [ACTIVE: ${_sockets.length}]');
-            onSocketsChanged?.call();
-          },
-          cancelOnError: false,
+              },
+              onDone: () {
+                _sockets.remove(ws);
+                _clientSockets.removeWhere((_, socket) => socket == ws);
+                _addLog('WS_DISCONNECT: [ACTIVE: ${_sockets.length}]');
+                onSocketsChanged?.call();
+              },
+              onError: (_) {
+                _sockets.remove(ws);
+                _clientSockets.removeWhere((_, socket) => socket == ws);
+                _addLog('WS_ERROR: [ACTIVE: ${_sockets.length}]');
+                onSocketsChanged?.call();
+              },
+              cancelOnError: false,
+            );
+          }),
         );
-      }),
-    );
 
     // Middleware: CORS + connection tracking.
-    shelf.Handler withMiddleware(shelf.Handler inner) {
-      return (shelf.Request request) async {
+    shelf.Handler withMiddleware(shelf.Handler inner) => (shelf.Request request) async {
         if (request.method == 'OPTIONS') {
           return shelf.Response.ok('', headers: _corsHeaders);
         }
@@ -397,7 +403,6 @@ class HttpServerService {
         final response = await inner(request);
         return response.change(headers: _corsHeaders);
       };
-    }
 
     final handler = const shelf.Pipeline().addMiddleware(withMiddleware).addHandler(router.call);
 
@@ -415,6 +420,7 @@ class HttpServerService {
       } catch (_) {}
     }
     _sockets.clear();
+    _clientSockets.clear();
     onSocketsChanged?.call();
     logger.i('[HttpServer] Stopped');
   }
@@ -469,8 +475,8 @@ class HttpServerService {
   // ── Thumbnail Serving ──────────────────────────────────────────────────────
 
   Future<shelf.Response> _serveThumbnail(String id, List<String> sharedFolders) async {
-    String cacheKey = id;
-    File? file = _scanner.fileById(id);
+    var cacheKey = id;
+    final file = _scanner.fileById(id);
 
     // If it's a local file, incorporate the modification timestamp into the cache key.
     // This ensures that if a file is replaced, a new thumbnail is generated.

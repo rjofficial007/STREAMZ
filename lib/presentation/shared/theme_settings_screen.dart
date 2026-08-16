@@ -1,13 +1,14 @@
 // presentation/shared/theme_settings_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/streamz_theme.dart';
-import '../../core/theme/theme_service.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/streamz_theme.dart';
+import 'package:streamz/core/theme/theme_service.dart';
 
 class ThemeSettingsScreen extends StatelessWidget {
   const ThemeSettingsScreen({super.key});
@@ -45,7 +46,7 @@ class ThemeSettingsScreen extends StatelessWidget {
       titleSpacing: 0,
       leading: IconButton(
         icon: Icon(LucideIcons.chevronLeft, size: 20, color: tokens.textPrimary),
-        onPressed: () => Navigator.pop(context),
+        onPressed: () => context.pop(),
       ),
       title: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1200),
@@ -80,7 +81,7 @@ class ThemeSettingsScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildSectionHeader(context, 'OPERATIONAL IDENTITIES', LucideIcons.palette),
-              Container(
+              DecoratedBox(
                 decoration: BoxDecoration(
                   border: Border.symmetric(
                     horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15)),
@@ -92,7 +93,7 @@ class ThemeSettingsScreen extends StatelessWidget {
                   shrinkWrap: true,
                   padding: EdgeInsets.zero,
                   physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 1.0, crossAxisSpacing: 1, mainAxisSpacing: 1),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 1.0, crossAxisSpacing: 1, mainAxisSpacing: 1),
                   itemCount: StreamzTheme.all.length,
                   itemBuilder: (context, index) {
                     final theme = StreamzTheme.all[index];
@@ -137,7 +138,7 @@ class ThemeSettingsScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildSectionHeader(context, 'SYSTEM CONFIGURATION', LucideIcons.settings),
-              Container(
+              DecoratedBox(
                 decoration: BoxDecoration(
                   color: tokens.surface1,
                   border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
@@ -168,11 +169,11 @@ class ThemeSettingsScreen extends StatelessWidget {
 }
 
 class _ThemeActionCard extends StatefulWidget {
+
+  const _ThemeActionCard({required this.theme, required this.isSelected, required this.onTap});
   final StreamzTheme theme;
   final bool isSelected;
   final VoidCallback onTap;
-
-  const _ThemeActionCard({required this.theme, required this.isSelected, required this.onTap});
 
   @override
   State<_ThemeActionCard> createState() => _ThemeActionCardState();

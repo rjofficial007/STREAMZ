@@ -3,11 +3,11 @@ import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DeviceIdService {
+
+  DeviceIdService(this._prefs);
   static const _key = 'client_device_id';
   final SharedPreferences _prefs;
   String? _cachedId;
-
-  DeviceIdService(this._prefs);
 
   String get id {
     if (_cachedId != null) return _cachedId!;

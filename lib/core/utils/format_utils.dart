@@ -22,9 +22,7 @@ String formatBytes(int bytes) {
   return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
 }
 
-String formatGB(int bytes) {
-  return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-}
+String formatGB(int bytes) => '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
 
 String formatTimeAgo(DateTime time) {
   final diff = DateTime.now().difference(time);

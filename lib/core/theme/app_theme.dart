@@ -10,9 +10,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:media_kit/media_kit.dart';
 
-import 'design_tokens.dart';
-import 'streamz_theme.dart';
-import 'theme_tokens.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/core/theme/streamz_theme.dart';
+import 'package:streamz/core/theme/theme_tokens.dart';
 
 abstract final class AppTheme {
   static const double bpMobile = DS.bpMobile;
@@ -134,13 +134,13 @@ void handleTVFocusScroll(bool hasFocus, BuildContext context) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class AppScaffold extends StatelessWidget {
+
+  const AppScaffold({super.key, required this.body, this.appBar, this.floatingActionButton, this.floatingActionButtonLocation, this.bottomNavigationBar});
   final Widget body;
   final PreferredSizeWidget? appBar;
   final Widget? floatingActionButton;
   final FloatingActionButtonLocation? floatingActionButtonLocation;
   final Widget? bottomNavigationBar;
-
-  const AppScaffold({super.key, required this.body, this.appBar, this.floatingActionButton, this.floatingActionButtonLocation, this.bottomNavigationBar});
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -155,11 +155,11 @@ class AppScaffold extends StatelessWidget {
 }
 
 class AppCard extends StatefulWidget {
+
+  const AppCard({super.key, required this.child, this.onTap, this.onLongPress});
   final Widget child;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
-
-  const AppCard({super.key, required this.child, this.onTap, this.onLongPress});
 
   @override
   State<AppCard> createState() => _AppCardState();
@@ -212,12 +212,12 @@ class _AppCardState extends State<AppCard> {
 }
 
 class BrutalistBlock extends StatelessWidget {
+
+  const BrutalistBlock({super.key, required this.child, required this.padding, this.color, this.borderColor});
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color? color;
   final Color? borderColor;
-
-  const BrutalistBlock({super.key, required this.child, required this.padding, this.color, this.borderColor});
 
   @override
   Widget build(BuildContext context) => Container(
@@ -231,10 +231,10 @@ class BrutalistBlock extends StatelessWidget {
 }
 
 class BrutalistToggle extends StatelessWidget {
-  final bool value;
-  final bool isMobile;
 
   const BrutalistToggle({super.key, required this.value, required this.isMobile});
+  final bool value;
+  final bool isMobile;
 
   @override
   Widget build(BuildContext context) {
@@ -262,13 +262,13 @@ class BrutalistToggle extends StatelessWidget {
 }
 
 class BrutalistToggleTile extends StatelessWidget {
+
+  const BrutalistToggleTile({super.key, required this.label, required this.icon, required this.value, required this.isMobile, required this.onChanged});
   final String label;
   final IconData icon;
   final bool value;
   final bool isMobile;
   final Function(bool) onChanged;
-
-  const BrutalistToggleTile({super.key, required this.label, required this.icon, required this.value, required this.isMobile, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -293,14 +293,14 @@ class BrutalistToggleTile extends StatelessWidget {
 }
 
 class CompactBtn extends StatefulWidget {
+
+  const CompactBtn({super.key, required this.label, this.icon, required this.onTap, this.isPrimary = true, this.isLoading = false, this.height = 48});
   final String label;
   final IconData? icon;
   final VoidCallback onTap;
   final bool isPrimary;
   final bool isLoading;
   final double height;
-
-  const CompactBtn({super.key, required this.label, this.icon, required this.onTap, this.isPrimary = true, this.isLoading = false, this.height = 48});
 
   @override
   State<CompactBtn> createState() => _CompactBtnState();
@@ -363,14 +363,14 @@ class _CompactBtnState extends State<CompactBtn> {
 }
 
 class AppButton extends StatefulWidget {
+
+  const AppButton({super.key, required this.label, this.icon, required this.onTap, this.isPrimary = true, this.isLoading = false, this.height = 54});
   final String label;
   final IconData? icon;
   final VoidCallback onTap;
   final bool isPrimary;
   final bool isLoading;
   final double height;
-
-  const AppButton({super.key, required this.label, this.icon, required this.onTap, this.isPrimary = true, this.isLoading = false, this.height = 54});
 
   @override
   State<AppButton> createState() => _AppButtonState();
@@ -437,12 +437,12 @@ class _AppButtonState extends State<AppButton> {
 }
 
 class StatusBadge extends StatelessWidget {
+
+  const StatusBadge({super.key, required this.label, this.isActive = false, this.activeColor, this.activeFg});
   final String label;
   final bool isActive;
   final Color? activeColor;
   final Color? activeFg;
-
-  const StatusBadge({super.key, required this.label, this.isActive = false, this.activeColor, this.activeFg});
 
   @override
   Widget build(BuildContext context) {
@@ -459,10 +459,10 @@ class StatusBadge extends StatelessWidget {
 }
 
 class SkeletonBox extends StatelessWidget {
-  final double? width;
-  final double? height;
 
   const SkeletonBox({super.key, this.width, this.height});
+  final double? width;
+  final double? height;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -476,11 +476,11 @@ class SkeletonBox extends StatelessWidget {
 }
 
 class NetworkImageFade extends StatelessWidget {
+
+  const NetworkImageFade({super.key, required this.url, this.fit = BoxFit.cover, this.fallbackIcon = LucideIcons.film});
   final String url;
   final BoxFit fit;
   final IconData fallbackIcon;
-
-  const NetworkImageFade({super.key, required this.url, this.fit = BoxFit.cover, this.fallbackIcon = LucideIcons.film});
 
   @override
   Widget build(BuildContext context) => CachedNetworkImage(
@@ -503,14 +503,14 @@ class NetworkImageFade extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class BrutalistPlayerBtn extends StatefulWidget {
+
+  const BrutalistPlayerBtn({super.key, required this.icon, required this.size, this.onTap, this.focusNode, this.autoFocus = false, this.isPrimary = false});
   final IconData icon;
   final double size;
   final VoidCallback? onTap;
   final FocusNode? focusNode;
   final bool autoFocus;
   final bool isPrimary;
-
-  const BrutalistPlayerBtn({super.key, required this.icon, required this.size, this.onTap, this.focusNode, this.autoFocus = false, this.isPrimary = false});
 
   @override
   State<BrutalistPlayerBtn> createState() => _BrutalistPlayerBtnState();
@@ -567,11 +567,11 @@ class _BrutalistPlayerBtnState extends State<BrutalistPlayerBtn> {
 }
 
 class BrutalistProgressBar extends StatefulWidget {
+
+  const BrutalistProgressBar({super.key, required this.player, this.compact = false, this.isReadOnly = false});
   final Player player;
   final bool compact;
   final bool isReadOnly;
-
-  const BrutalistProgressBar({super.key, required this.player, this.compact = false, this.isReadOnly = false});
 
   @override
   State<BrutalistProgressBar> createState() => _BrutalistProgressBarState();

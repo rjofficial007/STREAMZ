@@ -3,12 +3,12 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ProgressStore {
-  final SharedPreferences _prefs;
-  final Map<String, int> _cache = {};
 
   ProgressStore(this._prefs) {
     _loadAll();
   }
+  final SharedPreferences _prefs;
+  final Map<String, int> _cache = {};
 
   void _loadAll() {
     for (final key in _prefs.getKeys()) {

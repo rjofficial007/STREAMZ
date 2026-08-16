@@ -1,12 +1,13 @@
 // data/local/thumbnail_cache.dart
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
-import '../../core/utils/logger.dart';
+import 'package:streamz/core/utils/logger.dart';
 
 class ThumbnailCache {
   static const _maxAgedays = 30;
@@ -23,7 +24,7 @@ class ThumbnailCache {
       await _cacheDir!.create(recursive: true);
       _initialized = true;
       // Clean up old entries in background
-      _cleanOldEntries();
+      unawaited(_cleanOldEntries());
     } catch (e) {
       logger.e('ThumbnailCache init error', error: e);
     }
@@ -76,7 +77,7 @@ class ThumbnailCache {
 
       // If still too large, delete oldest first
       final remaining = _cacheDir!.listSync().whereType<File>().toList();
-      int totalBytes = 0;
+      var totalBytes = 0;
       for (final f in remaining) {
         totalBytes += await f.length();
       }

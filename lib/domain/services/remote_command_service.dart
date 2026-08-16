@@ -22,9 +22,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:streamz/domain/models/remote_command.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-
-import '../../domain/models/remote_command.dart';
 
 class RemoteCommandService extends ChangeNotifier {
   WebSocketChannel? _channel;
@@ -163,7 +162,7 @@ class RemoteCommandService extends ChangeNotifier {
         'title': title,
         'mediaId': mediaId,
         'progress': progress,
-        if (position != null) 'position': position,
+        'position': position,
         'mediaType': mediaType,
         'isStopped': isStopped,
         'snapshot': snapshot,

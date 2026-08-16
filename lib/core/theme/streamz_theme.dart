@@ -1,24 +1,24 @@
-﻿// core/theme/streamz_theme.dart
+// core/theme/streamz_theme.dart
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'design_tokens.dart';
-import 'theme_tokens.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/core/theme/theme_tokens.dart';
 
 enum ThemeIdentity { pureBlack }
 
 class StreamzTheme {
-  final ThemeIdentity identity;
-  final String name;
-  final StreamzThemeExtension tokens;
 
   const StreamzTheme({
     required this.identity,
     required this.name,
     required this.tokens,
   });
+  final ThemeIdentity identity;
+  final String name;
+  final StreamzThemeExtension tokens;
 
-  static StreamzTheme get pureBlack => StreamzTheme(
+  static StreamzTheme get pureBlack => const StreamzTheme(
     identity: ThemeIdentity.pureBlack,
     name: 'Pure Black',
     tokens: StreamzThemeExtension(
@@ -48,9 +48,7 @@ class StreamzTheme {
 
   static List<StreamzTheme> get all => [pureBlack];
 
-  static StreamzTheme fromIdentity(ThemeIdentity identity) {
-    return pureBlack;
-  }
+  static StreamzTheme fromIdentity(ThemeIdentity identity) => pureBlack;
 
   // Compatibility with main.dart and legacy code
   static ThemeData get darkTheme => _buildTheme(Brightness.dark);

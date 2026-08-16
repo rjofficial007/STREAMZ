@@ -3,19 +3,18 @@
 // STREAMZ — Mobile Interface Selection Gateway (NOC Dashboard)
 // ============================================================================
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
-
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
-import '../shared/noc_decorations.dart';
-import '../client/client_viewmodel.dart';
-import '../player/player_screen.dart';
-import '../../domain/models/media_item.dart';
-import 'file_manager.dart';
-import 'modern_mobile_ui.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/domain/models/broadcast_station.dart';
+import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/shared/noc_decorations.dart';
 
 class MobileSelectionScreenTV extends StatefulWidget {
   const MobileSelectionScreenTV({super.key});
@@ -25,23 +24,15 @@ class MobileSelectionScreenTV extends StatefulWidget {
 }
 
 class _MobileSelectionScreenTVState extends State<MobileSelectionScreenTV> {
-  void _tuneIn(BuildContext context, ClientViewModel vm, Map<String, dynamic> station) async {
-    final res = await vm.joinStation(station['id']);
+  Future<void> _tuneIn(BuildContext context, ClientViewModel vm, BroadcastStation station) async {
+    final res = await vm.joinStation(station.id);
     if (res != null && context.mounted) {
-      final items = (res['playlist'] as List?)?.map((e) => MediaItem.fromJson(e)).toList() ?? [MediaItem.fromJson(res['item'])];
-      final startIndex = res['itemIndex'] as int? ?? 0;
-      final offsetMs = res['positionMs'] as int;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => PlayerScreen(
-            items: items,
-            startIndex: startIndex,
-            isPathBased: false,
-            startOffset: Duration(milliseconds: offsetMs),
-          ),
-        ),
-      );
+      unawaited(context.push('/player', extra: {
+        'items': res.playlist,
+        'startIndex': res.itemIndex,
+        'isPathBased': false,
+        'startOffset': res.position,
+      }));
     }
   }
 
@@ -80,12 +71,7 @@ class _MobileSelectionScreenTVState extends State<MobileSelectionScreenTV> {
                                 subLabel: 'TOUCH-FRIENDLY DASHBOARD',
                                 code: 'MOB-01',
                                 icon: LucideIcons.tv,
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ChangeNotifierProvider.value(value: vm, child: const ModernMobileUIScreen()),
-                                  ),
-                                ),
+                                onTap: () => context.push('/client/mobile/ui'),
                                 autofocus: true,
                               ),
                             ),
@@ -96,12 +82,7 @@ class _MobileSelectionScreenTVState extends State<MobileSelectionScreenTV> {
                                 subLabel: 'RAW ASSET NAVIGATION',
                                 code: 'MOB-02',
                                 icon: LucideIcons.folderOpen,
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ChangeNotifierProvider.value(value: vm, child: const SamsungFileManagerScreen()),
-                                  ),
-                                ),
+                                onTap: () => context.push('/client/mobile/files'),
                               ),
                             ),
                             const SizedBox(width: DS.s24),
@@ -186,7 +167,7 @@ class _MobileSelectionScreenTVState extends State<MobileSelectionScreenTV> {
               ],
             ),
           ),
-          _StatusModule(label: 'ACTIVE MODE', value: 'MOBILE MODE'),
+          const _StatusModule(label: 'ACTIVE MODE', value: 'MOBILE MODE'),
           const SizedBox(width: DS.s48),
           _StatusModule(label: 'HOST IP', value: vm.targetIp.toUpperCase()),
           const SizedBox(width: DS.s48),
@@ -238,9 +219,9 @@ class _MobileSelectionScreenTVState extends State<MobileSelectionScreenTV> {
 }
 
 class _StatusModule extends StatelessWidget {
+  const _StatusModule({required this.label, required this.value});
   final String label;
   final String value;
-  const _StatusModule({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -257,13 +238,6 @@ class _StatusModule extends StatelessWidget {
 }
 
 class _TVMobileModeCard extends StatefulWidget {
-  final String label;
-  final String subLabel;
-  final String code;
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool autofocus;
-  final bool isWarning;
 
   const _TVMobileModeCard({
     required this.label,
@@ -274,6 +248,13 @@ class _TVMobileModeCard extends StatefulWidget {
     this.autofocus = false,
     this.isWarning = false,
   });
+  final String label;
+  final String subLabel;
+  final String code;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool autofocus;
+  final bool isWarning;
 
   @override
   State<_TVMobileModeCard> createState() => _TVMobileModeCardState();
@@ -377,8 +358,7 @@ class _TVMobileModeCardState extends State<_TVMobileModeCard> {
     );
   }
 
-  Widget _buildCorner(BuildContext context, Alignment alignment, Color color) {
-    return Align(
+  Widget _buildCorner(BuildContext context, Alignment alignment, Color color) => Align(
       alignment: alignment,
       child: Container(
         width: 16,
@@ -394,14 +374,13 @@ class _TVMobileModeCardState extends State<_TVMobileModeCard> {
         ),
       ),
     );
-  }
 }
 
 class _StationTileTV extends StatefulWidget {
-  final Map<String, dynamic> station;
-  final VoidCallback onTap;
 
   const _StationTileTV({required this.station, required this.onTap});
+  final BroadcastStation station;
+  final VoidCallback onTap;
 
   @override
   State<_StationTileTV> createState() => _StationTileTVState();
@@ -413,9 +392,9 @@ class _StationTileTVState extends State<_StationTileTV> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final title = widget.station['name'].toString().toUpperCase();
-    final nowPlaying = widget.station['nowPlaying'];
-    final itemTitle = nowPlaying != null ? nowPlaying['item']['title'].toString().toUpperCase() : 'AWAITING SIGNAL';
+    final title = widget.station.name.toUpperCase();
+    final nowPlaying = widget.station.nowPlaying;
+    final itemTitle = nowPlaying != null ? nowPlaying.item.title.toUpperCase() : 'AWAITING SIGNAL';
 
     return Focus(
       onFocusChange: (v) {

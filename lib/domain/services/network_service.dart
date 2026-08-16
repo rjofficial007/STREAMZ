@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:network_info_plus/network_info_plus.dart';
-import '../../core/utils/logger.dart';
+import 'package:streamz/core/utils/logger.dart';
 
 class NetworkService extends ChangeNotifier {
   String _currentIp = 'Initializing...';

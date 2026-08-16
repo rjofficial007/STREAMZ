@@ -17,15 +17,16 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-import '../../domain/models/media_item.dart';
+import 'package:streamz/domain/models/broadcast_station.dart';
+import 'package:streamz/domain/models/media_item.dart';
 
 class MediaApiClient {
+
+  MediaApiClient(String ip) : _baseUrl = 'http://$ip:8080';
   final String _baseUrl;
 
   // Single timeout constant used by all network calls.
   static const _timeout = Duration(seconds: 15);
-
-  MediaApiClient(String ip) : _baseUrl = 'http://$ip:8080';
 
   Uri _uri(String path, [Map<String, String>? params]) => Uri.parse('$_baseUrl$path').replace(queryParameters: params);
 
@@ -51,20 +52,19 @@ class MediaApiClient {
     return compute(_parseBrowseItems, res.body);
   }
 
-  static List<Map<String, dynamic>> _parseBrowseItems(String body) {
-    return (jsonDecode(body) as List).cast<Map<String, dynamic>>();
-  }
+  static List<Map<String, dynamic>> _parseBrowseItems(String body) => (jsonDecode(body) as List).cast<Map<String, dynamic>>();
 
-  Future<List<Map<String, dynamic>>> fetchStations() async {
+  Future<List<BroadcastStation>> fetchStations() async {
     final res = await http.get(_uri('/api/stations')).timeout(_timeout);
     if (res.statusCode != 200) return [];
-    return (jsonDecode(res.body) as List).cast<Map<String, dynamic>>();
+    final raw = jsonDecode(res.body) as List;
+    return raw.map((e) => BroadcastStation.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  Future<Map<String, dynamic>?> joinStation(String id) async {
+  Future<StationJoinResponse?> joinStation(String id) async {
     final res = await http.get(_uri('/api/stations/join/$id')).timeout(_timeout);
     if (res.statusCode != 200) return null;
-    return jsonDecode(res.body) as Map<String, dynamic>;
+    return StationJoinResponse.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
   Future<bool> ping() async {

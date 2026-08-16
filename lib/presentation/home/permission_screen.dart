@@ -3,18 +3,20 @@
 // STREAMZ — Permission Setup Screen (Samsung-Style)
 // ============================================================================
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background/flutter_background.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
-import '../server/server_dashboard.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
 
 /// True when this platform needs no runtime permissions.
 bool get _isAutoGrantPlatform =>
@@ -162,12 +164,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
 
     if (!mounted) return;
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const ServerDashboard(),
-      ),
-    );
+    context.pushReplacement('/server');
   }
 
   @override
@@ -208,16 +205,16 @@ class _PermissionScreenState extends State<PermissionScreen> {
         actions: {
           ActivateIntent: CallbackAction<ActivateIntent>(
             onInvoke: (_) {
-              Navigator.pop(context);
+              context.pop();
               return null;
             },
           ),
         },
         child: Focus(
-          onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => Navigator.pop(context)),
+          onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => context.pop()),
           child: IconButton(
             icon: Icon(LucideIcons.chevronLeft, size: 20, color: tokens.textPrimary),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => context.pop(),
           ),
         ),
       ),
@@ -243,7 +240,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
       delegate: SliverChildListDelegate([
         _AuthAnalysisCard(isMobile: isMobile, photos: _photos, audio: _audio, background: _background),
         
-        Container(
+        DecoratedBox(
           decoration: BoxDecoration(
             border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))), 
             color: tokens.border.withValues(alpha: 0.15)
@@ -279,22 +276,22 @@ class _PermissionScreenState extends State<PermissionScreen> {
         ),
 
         Padding(
-          padding: const EdgeInsets.all(0),
+          padding: EdgeInsets.zero,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-               _ArchitectureTile(
+               const _ArchitectureTile(
                 title: 'STORAGE PERMISSION',
                 subtitle: 'REQUIRED FOR MEDIA INDEXING',
                 icon: LucideIcons.database,
                 isFirst: true,
               ),
-              _ArchitectureTile(
+              const _ArchitectureTile(
                 title: 'AUDIO ENGINE',
                 subtitle: 'REQUIRED FOR MUSIC STREAMING',
                 icon: LucideIcons.activity,
               ),
-              _ArchitectureTile(
+              const _ArchitectureTile(
                 title: 'BACKGROUND MODULE',
                 subtitle: 'KEEP BROADCAST ENGINE ACTIVE',
                 icon: LucideIcons.cpu,
@@ -335,17 +332,17 @@ class _PermissionScreenState extends State<PermissionScreen> {
 }
 
 class _AuthAnalysisCard extends StatelessWidget {
+  
+  const _AuthAnalysisCard({required this.isMobile, required this.photos, required this.audio, required this.background});
   final bool isMobile;
   final bool photos;
   final bool audio;
   final bool background;
-  
-  const _AuthAnalysisCard({required this.isMobile, required this.photos, required this.audio, required this.background});
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    int granted = 0;
+    var granted = 0;
     if (photos) granted++;
     if (audio) granted++;
     if (background) granted++;
@@ -429,12 +426,12 @@ class _AuthAnalysisCard extends StatelessWidget {
 }
 
 class _QuickActionCard extends StatefulWidget {
+
+  const _QuickActionCard({required this.label, required this.icon, required this.onTap, this.isActive = false});
   final String label;
   final IconData icon;
   final VoidCallback onTap;
   final bool isActive;
-
-  const _QuickActionCard({required this.label, required this.icon, required this.onTap, this.isActive = false});
 
   @override
   State<_QuickActionCard> createState() => _QuickActionCardState();
@@ -492,12 +489,12 @@ class _QuickActionCardState extends State<_QuickActionCard> {
 }
 
 class _ArchitectureTile extends StatefulWidget {
+
+  const _ArchitectureTile({required this.title, required this.subtitle, required this.icon, this.isFirst = false});
   final String title;
   final String subtitle;
   final IconData icon;
   final bool isFirst;
-
-  const _ArchitectureTile({required this.title, required this.subtitle, required this.icon, this.isFirst = false});
 
   @override
   State<_ArchitectureTile> createState() => _ArchitectureTileState();
@@ -554,8 +551,8 @@ class _ArchitectureTileState extends State<_ArchitectureTile> {
 }
 
 class _BlinkingDot extends StatefulWidget {
-  final bool isOnline;
   const _BlinkingDot({required this.isOnline});
+  final bool isOnline;
 
   @override
   State<_BlinkingDot> createState() => _BlinkingDotState();

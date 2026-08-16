@@ -3,19 +3,19 @@
 // STREAMZ — Role Selection (NOC Dashboard)
 // ============================================================================
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import '../../core/theme/app_theme.dart';
-import '../../core/theme/design_tokens.dart';
-import '../client/client_connect_screen.dart';
-import '../server/server_dashboard.dart';
-import '../shared/theme_settings_screen.dart';
-import 'permission_screen.dart';
-import 'role_selection_screen_tv.dart';
+import 'package:streamz/core/di/service_locator.dart';
+import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/domain/services/platform_service.dart';
+import 'package:streamz/presentation/home/role_selection_screen_tv.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
@@ -33,9 +33,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final isAutoGrantPlatform = kIsWeb || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.linux;
+      final platformSvc = sl<PlatformService>();
 
-      if (isAutoGrantPlatform) {
+      if (!platformSvc.requiresPermissionScreen()) {
         await prefs.setBool('permissions_granted', true);
       }
 
@@ -43,9 +43,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       if (!mounted) return;
 
       if (granted) {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const ServerDashboard()));
+        unawaited(context.push('/server'));
       } else {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const PermissionScreen()));
+        unawaited(context.push('/server/permissions'));
       }
     } finally {
       if (mounted) setState(() => _navigating = false);
@@ -55,12 +55,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
   void _handleClientTap() {
     if (_navigating) return;
     setState(() => _navigating = true);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const ClientConnectScreen(),
-      ),
-    ).whenComplete(() {
+    context.push('/client/connect').whenComplete(() {
       if (mounted) setState(() => _navigating = false);
     });
   }
@@ -107,8 +102,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 ),
               ),
               IconButton(
+                tooltip: 'SETTINGS',
                 icon: Icon(LucideIcons.settings, color: tokens.textPrimary),
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ThemeSettingsScreen())),
+                onPressed: () => context.push('/settings'),
               ),
             ],
           ),
@@ -126,7 +122,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
     return SliverList(
       delegate: SliverChildListDelegate([
         const _SystemStatusCard(),
-        Container(
+        DecoratedBox(
           decoration: BoxDecoration(
             border: Border.symmetric(horizontal: BorderSide(color: tokens.textPrimary)),
           ),
@@ -252,13 +248,13 @@ class _SystemStatusCard extends StatelessWidget {
 }
 
 class _QuickActionCard extends StatefulWidget {
+
+  const _QuickActionCard({required this.label, required this.subLabel, required this.code, required this.icon, required this.onTap});
   final String label;
   final String subLabel;
   final String code;
   final IconData icon;
   final VoidCallback onTap;
-
-  const _QuickActionCard({required this.label, required this.subLabel, required this.code, required this.icon, required this.onTap});
 
   @override
   State<_QuickActionCard> createState() => _QuickActionCardState();
@@ -344,8 +340,8 @@ class _QuickActionCardState extends State<_QuickActionCard> {
 }
 
 class _BlinkingDot extends StatefulWidget {
-  final bool isOnline;
   const _BlinkingDot({required this.isOnline});
+  final bool isOnline;
 
   @override
   State<_BlinkingDot> createState() => _BlinkingDotState();
