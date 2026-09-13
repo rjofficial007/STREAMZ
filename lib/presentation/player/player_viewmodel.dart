@@ -23,6 +23,7 @@ import 'package:streamz/domain/models/media_item.dart';
 import 'package:streamz/domain/models/remote_command.dart';
 import 'package:streamz/domain/services/player_service.dart';
 import 'package:streamz/domain/services/remote_command_service.dart';
+import 'package:streamz/presentation/client/client_viewmodel.dart';
 
 class PlayerViewModel extends ChangeNotifier {
 
@@ -74,6 +75,10 @@ class PlayerViewModel extends ChangeNotifier {
   bool _isLocked = false;
   String? _intercomMessage;
   double _preIntercomVolume = 100.0;
+  // [FIX D2] Duck state — re-capturing the volume on an overlapping intercom
+  // used to ratchet the restored level down (20% of 20% of 100% ...).
+  bool _intercomDucking = false;
+  Timer? _intercomRestoreTimer;
   bool _isLowFiMode = false;
 
   Timer? _hideTimer;
@@ -110,12 +115,21 @@ class PlayerViewModel extends ChangeNotifier {
 
   void _handleIntercom(String msg) {
     _intercomMessage = msg;
-    _preIntercomVolume = player.state.volume;
+    // [FIX D2] Capture the pre-duck volume only once per duck episode;
+    // overlapping intercoms extend the restore timer instead of re-ducking
+    // from the already-ducked level.
+    if (!_intercomDucking) {
+      _intercomDucking = true;
+      _preIntercomVolume = player.state.volume;
+    }
     player.setVolume(_preIntercomVolume * 0.2); // Duck to 20%
     notifyListeners();
 
-    // Auto-clear after 10 seconds
-    Timer(const Duration(seconds: 10), () {
+    // Auto-clear after 10 seconds (one restore timer at a time).
+    _intercomRestoreTimer?.cancel();
+    _intercomRestoreTimer = Timer(const Duration(seconds: 10), () {
+      _intercomRestoreTimer = null;
+      _intercomDucking = false;
       if (!_isDisposed) {
         _intercomMessage = null;
         player.setVolume(_preIntercomVolume);
@@ -126,7 +140,16 @@ class PlayerViewModel extends ChangeNotifier {
 
   Future<void> load({required List<MediaItem> items, required int startIndex, bool isPathBased = false, Duration? startOffset, bool autoPlay = true}) async {
     await _playerService.load(items: items, startIndex: startIndex, isPathBased: isPathBased, startOffset: startOffset, autoPlay: autoPlay);
-    
+
+    // [A3] Apply the sync role the server elected for a station join.
+    // Done here (not in the screens) so every load path — initial open,
+    // station switching mid-playback, remote play — gets it. A pending role
+    // is consumed and dropped when a non-station playlist loads.
+    final role = sl<ClientViewModel>().takeStationSyncRole();
+    if (role != null && role.isNotEmpty && items.any((m) => m.isBroadcast)) {
+      _playerService.setSyncMode(role);
+    }
+
     // Log to local history if we successfully loaded an item
     if (_playerService.current != null) {
       unawaited(sl<MediaRepository>().addToHistory(_playerService.current!));
@@ -311,6 +334,7 @@ class PlayerViewModel extends ChangeNotifier {
   void dispose() {
     _isDisposed = true;
     _hideTimer?.cancel();
+    _intercomRestoreTimer?.cancel();
     _remoteSub?.cancel();
     _bufferSub?.cancel();
     _playerService.dispose();

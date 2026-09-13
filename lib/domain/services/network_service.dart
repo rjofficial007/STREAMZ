@@ -8,6 +8,12 @@ class NetworkService extends ChangeNotifier {
   String _currentIp = 'Initializing...';
   String get currentIp => _currentIp;
 
+  /// [FIX C10] Single source of truth for "is this a private LAN IPv4".
+  /// Shared by IP detection and the lifecycle watchdog (which previously
+  /// used a narrower check that missed 172.x addresses entirely).
+  static bool isLanIp(String addr) =>
+      addr.startsWith('192.168.') || addr.startsWith('10.') || addr.startsWith('172.');
+
   Future<void> updateIp() async {
     _currentIp = await detectIp();
     notifyListeners();
@@ -21,7 +27,11 @@ class NetworkService extends ChangeNotifier {
       for (final iface in interfaces) {
         for (final addr in iface.addresses) {
           if (addr.isLoopback) continue;
-          if (addr.address.startsWith('192.168.') || addr.address.startsWith('10.') || addr.address.startsWith('172.')) {
+          // [FIX C10] Shared LAN-IP predicate — NetworkService and the
+          // ServerLifecycleService watchdog used to disagree (the watchdog
+          // missed 172.x entirely, so IP changes on those networks were
+          // never noticed). One helper, one definition.
+          if (isLanIp(addr.address)) {
             return addr.address;
           }
           best ??= addr.address;

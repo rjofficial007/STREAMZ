@@ -16,6 +16,7 @@ class ServerRepository {
   static const _logsKey = 'access_logs';
   static const _stationsKey = 'broadcast_stations';
   static const _historyKey = 'media_view_history';
+  static const _settingsKey = 'server_settings';
 
   final SharedPreferences _prefs;
   final List<ConnectionRecord> _history = [];
@@ -56,6 +57,25 @@ class ServerRepository {
     await _prefs.setStringList(_stationsKey, list);
   }
 
+  // ── Settings ──────────────────────────────────────────────────────────────
+
+  /// [E1] Persisted server settings as one JSON blob (mounted folders,
+  /// share filters, web-UI toggle, no-trace mode). Restored on app start so
+  /// a restart doesn't wipe the user's mounted directories.
+  Map<String, dynamic> loadSettings() {
+    try {
+      final raw = _prefs.getString(_settingsKey);
+      if (raw == null) return {};
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> saveSettings(Map<String, dynamic> settings) async {
+    await _prefs.setString(_settingsKey, jsonEncode(settings));
+  }
+
   // ── Load / Save ──────────────────────────────────────────────────────────
 
   void _loadHistory() {
@@ -94,6 +114,10 @@ class ServerRepository {
       _history.insert(0, ConnectionRecord(ip: ip, network: 'WLAN NODE', time: now, transferGB: 0.0, isOnline: true));
     }
 
+    // [FIX C3] Cap the list (most-recent-first by construction) so the
+    // in-memory list and the persisted blob can't grow unbounded.
+    if (_history.length > 200) _history.length = 200;
+
     await _save();
     return true;
   }
@@ -111,11 +135,4 @@ class ServerRepository {
     await _save();
   }
 
-  Future<void> updateTransferGB(String ip, double addGB) async {
-    final idx = _history.indexWhere((c) => c.ip == ip);
-    if (idx < 0) return;
-    final old = _history[idx];
-    _history[idx] = old.copyWith(transferGB: old.transferGB + addGB);
-    await _save();
-  }
 }

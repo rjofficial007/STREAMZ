@@ -20,32 +20,7 @@ class MediaScanner {
   final Map<String, File> winFiles = {};
   List<SongModel> localSongs = [];
   
-  final Set<String> _stealthPaths = {};
-  bool _stealthRevealed = false;
-  String _stealthPin = '';
-
   final _audioQuery = OnAudioQuery();
-
-  // ── Stealth Media Logic ───────────────────────────────────────────────────
-
-  void setStealthConfig(List<String> paths, String pin) {
-    _stealthPaths
-      ..clear()
-      ..addAll(paths);
-    _stealthPin = pin;
-  }
-
-  bool revealStealth(String pin) {
-    if (pin == _stealthPin) {
-      _stealthRevealed = true;
-      return true;
-    }
-    return false;
-  }
-
-  void hideStealth() {
-    _stealthRevealed = false;
-  }
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
@@ -119,7 +94,6 @@ class MediaScanner {
       'includeVideos': includeVideos,
       'includeAudio': includeAudio,
       'includeImages': includeImages,
-      'stealthPaths': _stealthRevealed ? [] : _stealthPaths.toList(),
     });
 
     if (result.isNotEmpty) {
@@ -139,7 +113,6 @@ class MediaScanner {
     final includeVideos = args['includeVideos'] as bool;
     final includeAudio = args['includeAudio'] as bool;
     final includeImages = args['includeImages'] as bool;
-    final stealthPaths = (args['stealthPaths'] as List?)?.cast<String>() ?? [];
 
     final foundPaths = <String>[];
     final dir = Directory(rootPath);
@@ -149,15 +122,6 @@ class MediaScanner {
       final entities = dir.listSync(recursive: true, followLinks: false);
       for (final entity in entities) {
         if (entity is File) {
-          var isStealth = false;
-          for (final sp in stealthPaths) {
-            if (entity.path.startsWith(sp)) {
-              isStealth = true;
-              break;
-            }
-          }
-          if (isStealth) continue;
-
           final type = FileTypeUtils.fromFilename(entity.path);
           final isTarget = (type == MediaFileType.video && includeVideos) || (type == MediaFileType.audio && includeAudio) || (type == MediaFileType.image && includeImages);
 
@@ -170,6 +134,10 @@ class MediaScanner {
     return foundPaths;
   }
 
+  /// Clears directory-scan results. Called before a fresh server scan so
+  /// deleted files don't linger in the library.
+  void clearScannedFiles() => winFiles.clear();
+
   // ── MediaItem conversion ──────────────────────────────────────────────────
 
   List<MediaItem> buildMediaItems({
@@ -181,7 +149,11 @@ class MediaScanner {
   }) {
     final items = <MediaItem>[];
 
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+    // Directory-scanned (mounted folder) files — every non-web platform.
+    // [FIX A2]: previously this branch ran only on Windows, so on
+    // Android/iOS/macOS/Linux the mounted folders were scanned (winFiles)
+    // but never surfaced in the library.
+    if (!kIsWeb) {
       winFiles.forEach((id, file) {
         final type = FileTypeUtils.fromFilename(file.path);
         if (type == MediaFileType.video && !shareVideos) return;
@@ -194,7 +166,12 @@ class MediaScanner {
 
         items.add(MediaItem(id: id, title: title, duration: 0, type: typeStr, folder: folder, lastPosition: getProgress(id), lastPlayedTimestamp: getTimestamp(id)));
       });
-    } else {
+    }
+
+    // Photo library + audio library — non-Windows platforms.
+    // (scanPhotoManager populates on android/iOS/macOS, scanAudio on
+    // android/iOS; on Windows both lists are empty, so skip them there.)
+    if (defaultTargetPlatform != TargetPlatform.windows) {
       for (final e in localAssets) {
         final isVideo = e.type == AssetType.video;
         if (isVideo && !shareVideos) continue;

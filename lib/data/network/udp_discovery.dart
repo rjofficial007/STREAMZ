@@ -15,14 +15,20 @@ class UdpBroadcaster {
   RawDatagramSocket? _socket;
   Timer? _timer;
 
-  Future<void> start(String ip) async {
+  Future<void> start(String ip, [String? token]) async {
     if (kIsWeb) return;
+    // [FIX C4] Idempotency guard — a double start used to leak the previous
+    // socket and periodic timer (callers are careful; this makes them safe).
+    if (_timer != null || _socket != null) return;
     try {
       _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
       _socket!.broadcastEnabled = true;
 
       final subnetBroadcast = _subnetBroadcast(ip);
-      final data = utf8.encode('$_kPrefix$ip');
+      // [SECURITY B1] The pairing token rides along so discovered nodes can
+      // authenticate to the WS control plane without extra steps.
+      final payload = (token == null || token.isEmpty) ? '$_kPrefix$ip' : '$_kPrefix$ip:$token';
+      final data = utf8.encode(payload);
 
       _timer = Timer.periodic(const Duration(seconds: 2), (_) {
         _send(data, '255.255.255.255');
@@ -62,7 +68,17 @@ class UdpDiscovery {
 
   bool get isActive => _active;
 
-  Future<void> start(void Function(String ip) onFound) async {
+  /// Parses a `STREAMZ_HOST:<ip>[:<token>]` announcement.
+  /// Returns null for datagrams that are not STREAMZ announcements.
+  static (String ip, String? token)? parseAnnouncement(String msg) {
+    if (!msg.startsWith(_kPrefix)) return null;
+    final parts = msg.substring(_kPrefix.length).trim().split(':');
+    if (parts.isEmpty || parts[0].isEmpty) return null;
+    final token = parts.length > 1 && parts[1].isNotEmpty ? parts[1] : null;
+    return (parts[0], token);
+  }
+
+  Future<void> start(void Function(String ip, String? token) onFound) async {
     if (kIsWeb || _active) return;
     _active = true;
     try {
@@ -77,11 +93,16 @@ class UdpDiscovery {
         if (event != RawSocketEvent.read) return;
         final datagram = _socket?.receive();
         if (datagram == null) return;
-        final msg = utf8.decode(datagram.data);
-        if (msg.startsWith(_kPrefix)) {
-          final ip = msg.substring(_kPrefix.length).trim();
+        String msg;
+        try {
+          msg = utf8.decode(datagram.data);
+        } catch (_) {
+          return;
+        }
+        final parsed = parseAnnouncement(msg);
+        if (parsed != null) {
           stop();
-          onFound(ip);
+          onFound(parsed.$1, parsed.$2);
         }
       });
     } catch (e) {

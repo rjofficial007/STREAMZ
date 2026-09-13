@@ -75,7 +75,9 @@ class ClientViewModel extends ChangeNotifier {
               for (var char in text.runes) {
                 final key = String.fromCharCode(char);
                 // Simulate a key event for each character using the modern HardwareKeyboard API.
-                // Note: Full simulation is complex, this targets basic text field entry.
+                // Note: targets basic text field entry only — LogicalKeyboardKey is built from the
+                // rune, so only printable-ASCII runes map to real keys. Non-ASCII text is not
+                // advertised as supported (documented limitation, C12).
                 HardwareKeyboard.instance.handleKeyEvent(
                   KeyDownEvent(
                     logicalKey: LogicalKeyboardKey(char),
@@ -97,13 +99,22 @@ class ClientViewModel extends ChangeNotifier {
         }
       }
 
-      if (cmd.type == 'media') {
-        if (cmd.action == 'play' && cmd.value is String) {
+      if (cmd.type == 'media' && cmd.action == 'play') {
+        // FIX: ServerViewModel.playOnClient() / NOC "play on client" send the
+        // full item payload (Map); the dashboard CLI /play sends a title query
+        // (String). Both were previously needed but only the String path worked.
+        MediaItem? match;
+        if (cmd.value is Map<String, dynamic>) {
+          match = MediaItem.fromJson(cmd.value as Map<String, dynamic>);
+        } else if (cmd.value is String && _remoteMedia.isNotEmpty) {
           final query = (cmd.value as String).toLowerCase();
-          final match = _remoteMedia.firstWhere((m) => m.title.toLowerCase().contains(query), orElse: () => _remoteMedia.first);
+          match = _remoteMedia.firstWhere((m) => m.title.toLowerCase().contains(query), orElse: () => _remoteMedia.first);
+        }
+        if (match != null) {
+          final item = match; // capture promoted value for the closure below
           final focus = FocusManager.instance.primaryFocus;
           if (focus?.context != null) {
-            Navigator.push(focus!.context!, MaterialPageRoute(builder: (_) => PlayerScreen(items: [match], startIndex: 0)));
+            Navigator.push(focus!.context!, MaterialPageRoute(builder: (_) => PlayerScreen(items: [item], startIndex: 0)));
           }
         }
       }
@@ -137,6 +148,9 @@ class ClientViewModel extends ChangeNotifier {
   final DeviceIdService _deviceId = sl<DeviceIdService>();
 
   String _targetIp = '';
+  // [SECURITY B1] Last pairing token used — reused on reconnects/re-taps of
+  // recent nodes so the code doesn't have to be re-entered every time.
+  String _lastPairingToken = '';
   bool _isLoading = false;
   bool _isDiscovering = false;
   String? _connectionError;
@@ -162,6 +176,9 @@ class ClientViewModel extends ChangeNotifier {
   List<String> get ipHistory => List.unmodifiable(_ipHistory);
   bool get isConnected => _targetIp.isNotEmpty;
 
+  /// [SECURITY B1] Non-null when the server rejected the pairing token.
+  String? get wsAuthError => remote.authError;
+
   List<MediaItem> get continueWatching => _mediaRepo.continueWatching(_remoteMedia);
 
   List<MediaItem> get videos => _remoteMedia.where((m) => m.isVideo).toList();
@@ -170,15 +187,15 @@ class ClientViewModel extends ChangeNotifier {
 
   // ── Discovery ─────────────────────────────────────────────────────────────
 
-  void startDiscovery(void Function(String ip) onFound) {
+  void startDiscovery(void Function(String ip, String? token) onFound) {
     if (_isDiscovering) return;
     _isDiscovering = true;
     notifyListeners();
 
-    _discovery.start((ip) {
+    _discovery.start((ip, token) {
       _isDiscovering = false;
       notifyListeners();
-      onFound(ip);
+      onFound(ip, token);
     });
   }
 
@@ -190,7 +207,7 @@ class ClientViewModel extends ChangeNotifier {
 
   // ── Connection ────────────────────────────────────────────────────────────
 
-  Future<bool> connect(String ip) async {
+  Future<bool> connect(String ip, {String? pairingToken}) async {
     if (_isLoading) return false; // [FIX]: Prevent parallel connections on rapid taps
 
     if (ip.trim().isEmpty) {
@@ -214,7 +231,12 @@ class ClientViewModel extends ChangeNotifier {
       _remoteMedia = await _mediaRepo.fetchRemoteMedia();
       _stations = await _mediaRepo.fetchStations();
 
-      remote.connect(ip.trim());
+      // [SECURITY B1] Present the pairing token on the WS upgrade. An empty
+      // token still connects the HTTP plane (media) — the WS control plane
+      // will fail with 1008 and surface wsAuthError.
+      final token = (pairingToken ?? _lastPairingToken).trim();
+      _lastPairingToken = token;
+      remote.connect(ip.trim(), token: token);
       await _serverRepo.logAccess(ip.trim());
 
       _refreshTimer?.cancel();
@@ -246,7 +268,22 @@ class ClientViewModel extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<StationJoinResponse?> joinStation(String id) => _mediaRepo.joinStation(id);
+  // [A3] Sync role elected by the server for the most recent station join.
+  // Consumed exactly once by the player screen that opens afterwards.
+  String? _pendingSyncRole;
+
+  String? takeStationSyncRole() {
+    final role = _pendingSyncRole;
+    _pendingSyncRole = null;
+    return role;
+  }
+
+  Future<StationJoinResponse?> joinStation(String id) async {
+    final res = await _mediaRepo.joinStation(id);
+    final role = res?.syncRole ?? '';
+    _pendingSyncRole = role.isNotEmpty ? role : null;
+    return res;
+  }
 
   // ── History ──────────────────────────────────────────────────────────────
 
@@ -273,12 +310,6 @@ class ClientViewModel extends ChangeNotifier {
   }
 
   /// Preview mode — uses local server as if it were remote
-  void preparePreview() {
-    _targetIp = '127.0.0.1';
-    _mediaRepo.client = MediaApiClient('127.0.0.1');
-    notifyListeners();
-  }
-
   // ── Remote Browse & Download ──────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> browseRemote(String path) async {

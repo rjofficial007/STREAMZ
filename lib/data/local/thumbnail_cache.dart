@@ -47,7 +47,7 @@ class ThumbnailCache {
         await file.delete();
         return null;
       }
-      return file.readAsBytes();
+      return await file.readAsBytes();
     } catch (e) {
       return null;
     }

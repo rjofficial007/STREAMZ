@@ -24,6 +24,8 @@ class ClientConnectScreenTV extends StatefulWidget {
 
 class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
   final _ctrl = TextEditingController();
+  // [SECURITY B1] Optional pairing-code field (manual handshake).
+  final _codeCtrl = TextEditingController();
   final _focusNode = FocusNode();
   bool _showManualInput = false;
 
@@ -31,10 +33,10 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ClientViewModel>().startDiscovery((ip) {
+      context.read<ClientViewModel>().startDiscovery((ip, token) {
         if (mounted && _ctrl.text.isEmpty) {
           _ctrl.text = ip;
-          _connect(ip);
+          _connect(ip, token);
         }
       });
     });
@@ -44,18 +46,24 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
   void dispose() {
     context.read<ClientViewModel>().stopDiscovery();
     _ctrl.dispose();
+    _codeCtrl.dispose();
     _focusNode.dispose();
     super.dispose();
   }
 
-  Future<void> _connect([String? manualIp]) async {
-    final ip = manualIp ?? _ctrl.text;
-    if (ip.trim().isEmpty) return;
-    
+  Future<void> _connect([String? manualIp, String? pairingToken]) async {
+    final ip = (manualIp ?? _ctrl.text).trim();
+    if (ip.isEmpty) return;
+    // Explicit token (QR/discovery) wins; otherwise fall back to the field.
+    final code = (pairingToken ?? _codeCtrl.text).trim();
+
     // Stop discovery before connecting
     context.read<ClientViewModel>().stopDiscovery();
 
-    final ok = await context.read<ClientViewModel>().connect(ip.trim());
+    final ok = await context.read<ClientViewModel>().connect(
+      ip,
+      pairingToken: code.isEmpty ? null : code,
+    );
     if (!mounted) return;
 
     if (ok) {
@@ -104,6 +112,10 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
                         
                         if (vm.connectionError != null)
                           _buildErrorBanner(context, vm.connectionError!),
+                        // [SECURITY B1] WS control plane rejected the pairing
+                        // token — media may still load over HTTP.
+                        if (vm.wsAuthError != null)
+                          _buildErrorBanner(context, vm.wsAuthError!),
 
                         SizedBox(height: (size.height * 0.05).clamp(24.0, 48.0)),
                         Text(
@@ -223,6 +235,26 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
               ),
             ],
           ),
+          SizedBox(height: (size.height * 0.015).clamp(8.0, 14.0)),
+          // [SECURITY B1] Optional pairing code for the WS control plane
+          // (shown on the server's QR sheet).
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: tokens.borderStrong),
+              color: tokens.surface2,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              controller: _codeCtrl,
+              style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: (size.width * 0.012).clamp(14.0, 18.0)),
+              decoration: InputDecoration(
+                hintText: 'PAIRING CODE (OPTIONAL)...',
+                hintStyle: TextStyle(color: tokens.textMuted),
+                border: InputBorder.none,
+              ),
+              onSubmitted: (_) => _connect(),
+            ),
+          ),
         ],
       ),
     );
@@ -250,7 +282,7 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
             subLabel: 'AUTOMATIC NODE SEARCH',
             code: 'UDP-02',
             icon: vm.isDiscovering ? LucideIcons.searchX : LucideIcons.search,
-            onTap: () => vm.isDiscovering ? vm.stopDiscovery() : vm.startDiscovery((_) {}),
+            onTap: () => vm.isDiscovering ? vm.stopDiscovery() : vm.startDiscovery((ip, token) {}),
           ),
         ),
       ],

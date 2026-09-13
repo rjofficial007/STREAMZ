@@ -61,8 +61,12 @@ class MediaApiClient {
     return raw.map((e) => BroadcastStation.fromJson(e as Map<String, dynamic>)).toList();
   }
 
-  Future<StationJoinResponse?> joinStation(String id) async {
-    final res = await http.get(_uri('/api/stations/join/$id')).timeout(_timeout);
+  Future<StationJoinResponse?> joinStation(String id, {String? clientId}) async {
+    final res = await http
+        .get(_uri('/api/stations/join/$id', <String, String>{
+          if (clientId != null && clientId.isNotEmpty) 'clientId': clientId,
+        }))
+        .timeout(_timeout);
     if (res.statusCode != 200) return null;
     return StationJoinResponse.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }

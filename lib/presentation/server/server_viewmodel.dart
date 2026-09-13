@@ -5,9 +5,12 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:streamz/core/di/service_locator.dart';
 import 'package:streamz/core/util/lifecycle_broadcaster.dart';
 import 'package:streamz/core/utils/logger.dart';
@@ -23,6 +26,7 @@ import 'package:streamz/domain/models/stream_session.dart';
 import 'package:streamz/domain/services/network_service.dart';
 import 'package:streamz/domain/services/platform_service.dart';
 import 'package:streamz/domain/services/server_lifecycle_service.dart';
+import 'package:streamz/domain/services/video_thumbnail_service.dart';
 
 class ServerViewModel extends ChangeNotifier {
 
@@ -31,8 +35,11 @@ class ServerViewModel extends ChangeNotifier {
   ServerViewModel() {
     // Load default folders based on platform logic in PlatformService.
     _sharedFolders = sl<PlatformService>().getDefaultSharedFolders();
+    // [E1] Restore persisted settings (overrides defaults if present).
+    _loadSettings();
     _loadStations();
     _wireCallbacks();
+    _ensurePairingToken();
     _httpServer.useModernWebUI = _useModernWebUI;
 
     // Subscribe to app lifecycle events from the root observer.
@@ -40,15 +47,21 @@ class ServerViewModel extends ChangeNotifier {
 
     // Wire up ServerLifecycleService callbacks
     _lifecycleService.onNetworkChange = (newIp) async {
-      if (isRunning) {
-        logger.i('[ServerVM] IP changed to $newIp, restarting server');
-        _serverIp = newIp;
-        await _httpServer.stop();
-        _broadcaster.stop();
-        await _httpServer.start(ip: _serverIp, sharedFolders: _sharedFolders, getMediaItems: _getMediaItems);
-        await _broadcaster.start(_serverIp);
-        notifyListeners();
-      }
+      if (!isRunning) return;
+      // [FIX C9] Generation token: if a newer change (or stopServer)
+      // supersedes this restart mid-flight, abandon it instead of
+      // interleaving.
+      final gen = ++_restartGeneration;
+      logger.i('[ServerVM] IP changed to $newIp, restarting server');
+      _serverIp = newIp;
+      await _httpServer.stop();
+      _broadcaster.stop();
+      if (gen != _restartGeneration) return; // superseded
+      _httpServer.pairingToken = _pairingToken;
+      await _httpServer.start(ip: _serverIp, sharedFolders: _sharedFolders, getMediaItems: _getMediaItems);
+      if (gen != _restartGeneration) return; // superseded
+      await _broadcaster.start(_serverIp, _pairingToken);
+      notifyListeners();
     };
   }
   final HttpServerService _httpServer = sl<HttpServerService>();
@@ -62,6 +75,12 @@ class ServerViewModel extends ChangeNotifier {
 
   // ── State ─────────────────────────────────────────────────────────────────
   bool _isInitializing = false;
+  // [FIX C2] One-shot retry flag for port-in-use recovery.
+  bool _startRetried = false;
+  // [FIX C9] Restart generation token — rapid successive network changes
+  // must not interleave stop/start pairs (a stale restart could resurrect a
+  // server a newer change or a manual stop already tore down).
+  int _restartGeneration = 0;
   String _serverIp = 'Initializing...';
 
   bool _useModernWebUI = true;
@@ -152,6 +171,7 @@ class ServerViewModel extends ChangeNotifier {
       await _scanner.scanAudio();
 
       // Scan manually shared directories.
+      _scanner.clearScannedFiles();
       for (final folder in _sharedFolders) {
         await _scanner.scanDirectory(
           folder, 
@@ -162,14 +182,27 @@ class ServerViewModel extends ChangeNotifier {
         );
       }
 
+      _httpServer.pairingToken = _pairingToken;
       await _httpServer.start(ip: _serverIp, sharedFolders: _sharedFolders, getMediaItems: _getMediaItems);
 
-      await _broadcaster.start(_serverIp);
+      await _broadcaster.start(_serverIp, _pairingToken);
       _startUITimers();
+      _startRetried = false; // success — re-arm the one-shot retry
     } catch (e) {
-      _serverIp = 'Error: $e';
       logger.e('[ServerVM] Start error', error: e);
       await _lifecycleService.release();
+      // [FIX C2] A lingering socket from a previous run can briefly hold
+      // port 8080. Retry once after a pause; if that also fails, surface a
+      // readable first line instead of the raw multi-line exception.
+      if (!_startRetried) {
+        _startRetried = true;
+        _serverIp = 'Retrying...';
+        notifyListeners();
+        await Future.delayed(const Duration(milliseconds: 500));
+        unawaited(startServer());
+        return;
+      }
+      _serverIp = 'Error: ${e.toString().split('\n').first}';
     } finally {
       _isInitializing = false;
       notifyListeners();
@@ -178,6 +211,7 @@ class ServerViewModel extends ChangeNotifier {
 
   Future<void> stopServer() async {
     logger.i('[ServerVM] Stopping server...');
+    _restartGeneration++; // [FIX C9] invalidate any in-flight restart
     _speedTimer?.cancel();
     _sessionPruneTimer?.cancel();
 
@@ -255,43 +289,103 @@ class ServerViewModel extends ChangeNotifier {
     );
   }
 
+  // ── Pairing (WS control-plane auth) ───────────────────────────────────────
+
+  /// [SECURITY B1] Pairing token for the WS control plane. Stable per device
+  /// (persisted) — it's the LAN access code. Shown on the QR sheet and
+  /// encoded in the QR / UDP announcements.
+  String _pairingToken = '';
+  String get pairingToken => _pairingToken;
+
+  /// QR payload: a web client opened at this URL carries the token in its
+  /// location and presents it on the WS upgrade.
+  String get pairingUrl => 'http://$_serverIp:8080/?token=$_pairingToken';
+
+  void _ensurePairingToken() {
+    final prefs = sl<SharedPreferences>();
+    final existing = prefs.getString('pairing_token');
+    if (existing != null && existing.isNotEmpty) {
+      _pairingToken = existing;
+      return;
+    }
+    // Unambiguous alphabet (no 0/O/1/I/L); 8 chars ≈ 2^40 — plenty for a
+    // LAN pairing code, short enough to type by hand.
+    const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    final rnd = Random.secure();
+    _pairingToken = List.generate(8, (_) => alphabet[rnd.nextInt(alphabet.length)]).join();
+    prefs.setString('pairing_token', _pairingToken);
+  }
+
   // ── Settings ──────────────────────────────────────────────────────────────
+
+  /// [E1] Restore server settings so a restart doesn't wipe mounted
+  /// folders, filters, the web-UI toggle, or no-trace mode.
+  void _loadSettings() {
+    final s = _serverRepo.loadSettings();
+    final folders = s['sharedFolders'];
+    if (folders is List) {
+      _sharedFolders = folders.whereType<String>().toList();
+    }
+    _useModernWebUI = s['useModernWebUI'] as bool? ?? _useModernWebUI;
+    _shareVideos = s['shareVideos'] as bool? ?? _shareVideos;
+    _shareImages = s['shareImages'] as bool? ?? _shareImages;
+    _shareMusic = s['shareMusic'] as bool? ?? _shareMusic;
+    _zeroTrace = s['zeroTrace'] as bool? ?? _zeroTrace;
+  }
+
+  void _saveSettings() {
+    unawaited(_serverRepo.saveSettings({
+      'sharedFolders': _sharedFolders,
+      'useModernWebUI': _useModernWebUI,
+      'shareVideos': _shareVideos,
+      'shareImages': _shareImages,
+      'shareMusic': _shareMusic,
+      'zeroTrace': _zeroTrace,
+    }));
+  }
 
   void setUseModernWebUI(bool v) {
     _useModernWebUI = v;
     _httpServer.useModernWebUI = v;
+    _saveSettings();
     notifyListeners();
   }
 
   void setShareVideos(bool v) {
     _shareVideos = v;
+    _saveSettings();
     notifyListeners();
   }
 
   void setShareImages(bool v) {
     _shareImages = v;
+    _saveSettings();
     notifyListeners();
   }
 
   void setShareMusic(bool v) {
     _shareMusic = v;
+    _saveSettings();
     notifyListeners();
   }
 
   void setZeroTrace(bool v) {
     _zeroTrace = v;
+    _saveSettings();
     notifyListeners();
   }
 
   void addSharedFolder(String path) {
     if (!_sharedFolders.contains(path)) {
       _sharedFolders.add(path);
+      _saveSettings();
       notifyListeners();
     }
   }
 
   void removeSharedFolder(String path) {
     _sharedFolders.remove(path);
+    _saveSettings();
     notifyListeners();
   }
 
@@ -302,24 +396,40 @@ class ServerViewModel extends ChangeNotifier {
 
   // ── Station Management ──────────────────────────────────────────────────
 
-  void createStation(String name, List<MediaItem> items) {
+  /// [FIX A3]: resolves real durations for directory-scanned items
+  /// (duration == 0) so the station clock computes correct offsets.
+  /// Without this, any station containing scanned media has a zero (or
+  /// wrong) totalDuration and /api/stations/join returns 404 or drifts.
+  Future<void> createStation(String name, List<MediaItem> items) async {
     if (items.isEmpty) return;
+    // ponytail: probes are serialized through the single headless MPV player
+    // (~150-300 ms per item) — fine for an explicit user action.
+    // Upgrade path: parallel native probing / persist probed durations to prefs.
+    final resolved = <MediaItem>[];
+    for (final it in items) {
+      if (it.duration == 0 && !it.isImage) {
+        final d = await _probeDuration(it);
+        resolved.add(d > 0 ? it.copyWith(duration: d) : it);
+      } else {
+        resolved.add(it);
+      }
+    }
     final station = BroadcastStation(
       id: 'STN_${DateTime.now().millisecondsSinceEpoch}',
       name: name,
-      playlist: items,
+      playlist: resolved,
       startTime: DateTime.now(),
       isActive: true,
       isPaused: false,
     );
     _stations.add(station);
     _httpServer.stations = _stations;
-    _saveStations();
+    await _saveStations();
     broadcastCommand('system', 'refresh_data');
     notifyListeners();
   }
 
-  void toggleStationPlayback(String stationId) {
+  Future<void> toggleStationPlayback(String stationId) async {
     final idx = _stations.indexWhere((s) => s.id == stationId);
     if (idx < 0) return;
 
@@ -339,12 +449,12 @@ class ServerViewModel extends ChangeNotifier {
     }
 
     _httpServer.stations = _stations;
-    _saveStations();
+    await _saveStations();
     broadcastCommand('system', 'refresh_data');
     notifyListeners();
   }
 
-  void toggleStationActive(String stationId) {
+  Future<void> toggleStationActive(String stationId) async {
     final idx = _stations.indexWhere((s) => s.id == stationId);
     if (idx < 0) return;
 
@@ -358,21 +468,24 @@ class ServerViewModel extends ChangeNotifier {
       _stations[idx] = station.copyWith(isActive: true, isPaused: false, pausedAt: null, startTime: DateTime.now());
     }
 
+    // Re-run sync-master election on next join.
+    _httpServer.clearStationMaster(stationId);
     _httpServer.stations = _stations;
-    _saveStations();
+    await _saveStations();
     broadcastCommand('system', 'refresh_data');
     notifyListeners();
   }
 
-  void removeStation(String id) {
+  Future<void> removeStation(String id) async {
     _stations.removeWhere((s) => s.id == id);
+    _httpServer.clearStationMaster(id);
     _httpServer.stations = _stations;
-    _saveStations();
+    await _saveStations();
     broadcastCommand('system', 'refresh_data');
     notifyListeners();
   }
 
-  void curateStation(String vibe) {
+  Future<void> curateStation(String vibe) async {
     final all = _mediaRepo.getLocalMediaItems(shareVideos: true, shareMusic: true, shareImages: false);
     var filtered = <MediaItem>[];
     if (vibe == 'video') {
@@ -384,7 +497,19 @@ class ServerViewModel extends ChangeNotifier {
     }
     if (filtered.isEmpty) return;
     filtered.shuffle();
-    createStation('AUTO_${vibe.toUpperCase()}', filtered.take(15).toList());
+    await createStation('AUTO_${vibe.toUpperCase()}', filtered.take(15).toList());
+  }
+
+  Future<int> _probeDuration(MediaItem item) async {
+    if (kIsWeb) return 0;
+    final file = _scanner.fileById(item.id);
+    if (file != null && file.existsSync()) {
+      return sl<VideoThumbnailService>().probeDuration(file.path);
+    }
+    // Path-based items (id IS the file path).
+    final raw = File(item.id);
+    if (raw.existsSync()) return sl<VideoThumbnailService>().probeDuration(item.id);
+    return 0;
   }
 
   // ── UI Timers (widget-lifetime only) ─────────────────────────────────────

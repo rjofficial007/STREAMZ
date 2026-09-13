@@ -25,15 +25,17 @@ class ClientConnectScreen extends StatefulWidget {
 
 class _ClientConnectScreenState extends State<ClientConnectScreen> {
   final _ctrl = TextEditingController();
+  // [SECURITY B1] Optional pairing-code field (manual handshake).
+  final _codeCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ClientViewModel>().startDiscovery((ip) {
+      context.read<ClientViewModel>().startDiscovery((ip, token) {
         if (mounted && _ctrl.text.isEmpty) {
           _ctrl.text = ip;
-          _connect();
+          unawaited(_connect(ip, token));
         }
       });
     });
@@ -43,17 +45,23 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
   void dispose() {
     context.read<ClientViewModel>().stopDiscovery();
     _ctrl.dispose();
+    _codeCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _connect([String? manualIp]) async {
-    final ip = manualIp ?? _ctrl.text;
+  Future<void> _connect([String? manualIp, String? pairingToken]) async {
+    final ip = (manualIp ?? _ctrl.text).trim();
     if (ip.isEmpty) return;
-    
+    // Explicit token (QR/discovery) wins; otherwise fall back to the field.
+    final code = (pairingToken ?? _codeCtrl.text).trim();
+
     FocusScope.of(context).unfocus();
     context.read<ClientViewModel>().stopDiscovery();
 
-    final ok = await context.read<ClientViewModel>().connect(ip);
+    final ok = await context.read<ClientViewModel>().connect(
+      ip,
+      pairingToken: code.isEmpty ? null : code,
+    );
     if (!mounted) return;
 
     if (ok) {
@@ -158,7 +166,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
               _QuickActionCard(
                 label: vm.isDiscovering ? 'STOP SCAN' : 'DISCOVER',
                 icon: vm.isDiscovering ? LucideIcons.searchX : LucideIcons.search,
-                onTap: () => vm.isDiscovering ? vm.stopDiscovery() : vm.startDiscovery((_) {}),
+                onTap: () => vm.isDiscovering ? vm.stopDiscovery() : vm.startDiscovery((ip, token) {}),
               ),
             ],
           ),
@@ -166,6 +174,11 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
 
         if (vm.connectionError != null)
           _ErrorBanner(error: vm.connectionError!),
+
+        // [SECURITY B1] Media may still load over HTTP — the banner explains
+        // why live control (WS) is unavailable.
+        if (vm.wsAuthError != null)
+          _ErrorBanner(error: vm.wsAuthError!),
 
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
@@ -197,10 +210,17 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
       );
       return;
     }
-    final ip = await context.push<String>('/qr-scanner');
-    if (ip != null && mounted) {
-      _ctrl.text = ip;
-      unawaited(_connect());
+    final raw = await context.push<String>('/qr-scanner');
+    if (raw == null || !mounted) return;
+    // [SECURITY B1] New QRs encode http://<ip>:8080/?token=<code>;
+    // legacy QRs are a bare IP (control plane will prompt for the code).
+    final uri = Uri.tryParse(raw.trim());
+    if (uri != null && uri.host.isNotEmpty) {
+      _ctrl.text = uri.host;
+      unawaited(_connect(uri.host, uri.queryParameters['token']));
+    } else {
+      _ctrl.text = raw.trim();
+      unawaited(_connect(raw.trim()));
     }
   }
 
@@ -235,6 +255,26 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
                     border: InputBorder.none,
                   ),
                   keyboardType: TextInputType.number,
+                  onSubmitted: (_) {
+                    context.pop();
+                    _connect();
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              // [SECURITY B1] Optional pairing code for the WS control plane
+              // (shown on the server's QR sheet).
+              Container(
+                decoration: BoxDecoration(border: Border.all(color: tokens.border.withValues(alpha: 0.15))),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _codeCtrl,
+                  style: GoogleFonts.dmMono(color: tokens.textPrimary),
+                  decoration: InputDecoration(
+                    hintText: 'PAIRING CODE (OPTIONAL)...',
+                    hintStyle: TextStyle(color: tokens.textMuted),
+                    border: InputBorder.none,
+                  ),
                   onSubmitted: (_) {
                     context.pop();
                     _connect();

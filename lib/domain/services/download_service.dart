@@ -53,9 +53,39 @@ class DownloadService extends ChangeNotifier {
     // FIX: Create a single client so we can close it on every exit path.
     final client = http.Client();
 
+    // [FIX C7] Cancel is armed BEFORE the initial request resolves —
+    // cancelTask used to be assigned only after client.send() returned, so
+    // an early cancel was a silent no-op and the download continued anyway.
+    var cancelled = false;
+    StreamSubscription? sub;
+    IOSink? sink;
+    File? file;
+    final remote = sl<RemoteCommandService>();
+    final sessionId = 'DL_${task.id}_${DateTime.now().millisecondsSinceEpoch}';
+
+    Future<void> cancelNow() async {
+      if (cancelled) return;
+      cancelled = true;
+      await sub?.cancel();
+      try {
+        await sink?.close();
+      } catch (_) {}
+      client.close(); // FIX: always close client
+      if (await file?.exists() == true) await file?.delete();
+      task.status = DownloadStatus.cancelled;
+      _tasks.remove(task);
+      remote.reportStatus(clientId: _deviceId.id, sessionId: sessionId, title: task.title, mediaId: task.id, progress: 0.0, mediaType: 'download', isStopped: true);
+      notifyListeners();
+    }
+
+    // FIX: cancelTask closure now holds a direct reference to `task` and
+    // `client`, not a stale copy pulled from the list by index.
+    task.cancelTask = cancelNow;
+
     try {
       final request = http.Request('GET', Uri.parse(url));
       final response = await client.send(request);
+      if (cancelled) return; // cancelNow already cleaned up
 
       // Update total bytes directly on the task object we already have.
       task
@@ -64,32 +94,16 @@ class DownloadService extends ChangeNotifier {
       notifyListeners();
 
       final savePath = await _savePath(item.title, item.type);
-      final file = File(savePath);
-      final sink = file.openWrite();
+      if (cancelled) return; // _savePath awaits path_provider — cancel may win
+      file = File(savePath);
+      sink = file.openWrite();
       var downloaded = 0;
       var lastUiUpdate = DateTime.now();
-      StreamSubscription? sub;
-
-      final remote = sl<RemoteCommandService>();
-      final sessionId = 'DL_${task.id}_${DateTime.now().millisecondsSinceEpoch}';
-
-      // FIX: cancelTask closure now holds a direct reference to `task` and
-      // `client`, not a stale copy pulled from the list by index.
-      task.cancelTask = () async {
-        await sub?.cancel();
-        await sink.close();
-        client.close(); // FIX: always close client
-        if (await file.exists()) await file.delete();
-        task.status = DownloadStatus.cancelled;
-        _tasks.remove(task);
-        remote.reportStatus(clientId: _deviceId.id, sessionId: sessionId, title: task.title, mediaId: task.id, progress: 0.0, mediaType: 'download', isStopped: true);
-        notifyListeners();
-      };
 
       sub = response.stream.listen(
         (chunk) {
           downloaded += chunk.length;
-          sink.add(chunk);
+          sink?.add(chunk);
 
           final now = DateTime.now();
           final shouldUpdate = now.difference(lastUiUpdate).inMilliseconds > 200 || downloaded == task.totalBytes;
@@ -103,7 +117,7 @@ class DownloadService extends ChangeNotifier {
           }
         },
         onDone: () async {
-          await sink.close();
+          await sink?.close();
           client.close(); // FIX: close on completion
           task.downloadedBytes = task.totalBytes > 0 ? task.totalBytes : downloaded;
           task.progressNotifier.value = 1.0;
@@ -112,7 +126,7 @@ class DownloadService extends ChangeNotifier {
           notifyListeners();
         },
         onError: (Object e) async {
-          await sink.close();
+          await sink?.close();
           client.close(); // FIX: close on error
           debugPrint('[DownloadService] Stream error: $e');
           task.status = DownloadStatus.failed;
@@ -157,9 +171,21 @@ class DownloadService extends ChangeNotifier {
 
   // ── Save Path ─────────────────────────────────────────────────────────────
 
+  /// [SECURITY B3] Titles come from the network (untrusted). Strip path
+  /// separators, control chars, and platform-illegal characters before use
+  /// as a filename — previously a crafted title could escape the Downloads
+  /// directory or crash the write.
+  static String sanitizeFilename(String name) {
+    var safe = name.replaceAll(RegExp(r'[\r\n/\\:*?"<>|\x00-\x1f]'), '_').trim();
+    if (safe.isEmpty || safe == '.') safe = 'streamz_download';
+    if (safe.length > 150) safe = safe.substring(0, 150);
+    return safe;
+  }
+
   /// FIX: Platform-aware save path using path_provider.
   /// Previously hardcoded Android path for all non-Windows platforms.
   Future<String> _savePath(String filename, String type) async {
+    filename = sanitizeFilename(filename);
     if (kIsWeb) return filename; // Web: not applicable
 
     try {

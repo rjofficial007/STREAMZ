@@ -28,7 +28,10 @@ import 'package:streamz/domain/services/remote_command_service.dart';
 
 class PlayerService extends ChangeNotifier {
 
-  PlayerService({required MediaRepository repo, required RemoteCommandService remote}) : player = Player(), _repo = repo, _remote = remote;
+  PlayerService({required MediaRepository repo, required RemoteCommandService remote}) : player = Player(), _repo = repo, _remote = remote {
+    // [A3] Auto-advance for station (broadcast) playlists — see _onCompleted.
+    _completedSub = player.stream.completed.listen(_onCompleted);
+  }
   final Player player;
   final MediaRepository _repo;
   final RemoteCommandService _remote;
@@ -48,6 +51,10 @@ class PlayerService extends ChangeNotifier {
   Timer? _statusTimer;
   Timer? _syncTimer;
   StreamSubscription<RemoteCommand>? _cmdSub;
+  StreamSubscription<bool>? _completedSub;
+  bool _opening = false;
+  bool _disposed = false;
+  int _statusTickCount = 0;
 
   Future<String?> Function()? snapshotCallback;
 
@@ -107,6 +114,12 @@ class PlayerService extends ChangeNotifier {
     _currentIndex = items.isEmpty ? 0 : startIndex.clamp(0, items.length - 1);
     _isPathBased = isPathBased;
     _isStopped = false;
+    // [A3] Leaving a station playlist exits sync mode — master/slave is
+    // station-scoped (the CLI /sync command can re-establish ad-hoc sync).
+    if (!items.any((m) => m.isBroadcast)) {
+      isSyncMaster = false;
+      isSyncSlave = false;
+    }
     _sessionId = 'SESSION_${DateTime.now().millisecondsSinceEpoch}';
 
     await _openCurrent(startOffset: startOffset, version: currentV, autoPlay: autoPlay);
@@ -120,6 +133,18 @@ class PlayerService extends ChangeNotifier {
   }
 
   Future<void> _openCurrent({Duration? startOffset, int? version, bool autoPlay = true}) async {
+    // Re-entrancy guard: a sync jump and an auto-advance (or two rapid
+    // next() taps) must not stack two open() calls on the same player.
+    if (_opening) return;
+    _opening = true;
+    try {
+      await _openCurrentImpl(startOffset: startOffset, version: version, autoPlay: autoPlay);
+    } finally {
+      _opening = false;
+    }
+  }
+
+  Future<void> _openCurrentImpl({Duration? startOffset, int? version, bool autoPlay = true}) async {
     final item = current;
     if (item == null) return;
     
@@ -192,6 +217,27 @@ class PlayerService extends ChangeNotifier {
     await player.seek(target);
   }
 
+  // ── Sync Mode (station master/slave, CLI /sync) ─────────────────────────
+
+  /// 'master' | 'slave' | anything else clears both flags.
+  void setSyncMode(String mode) {
+    isSyncMaster = mode == 'master';
+    isSyncSlave = mode == 'slave';
+    notifyListeners();
+  }
+
+  /// [A3] Station playlists auto-advance (and loop) when an item finishes.
+  /// Manual next()/prev() stay blocked for broadcast items — progression is
+  /// owned by the station clock / sync master, and slaves are dragged along
+  /// by sync_state track switches.
+  void _onCompleted(bool completed) {
+    if (!completed || _isStopped || _playlist.isEmpty) return;
+    if (current?.isBroadcast != true) return;
+    _saveCurrentProgress();
+    _currentIndex = hasNext ? _currentIndex + 1 : 0;
+    unawaited(_openCurrent());
+  }
+
   // ── Track & Rate Control (VLC Parity) ────────────────────────────────────
 
   Future<void> setRate(double rate) async {
@@ -227,10 +273,14 @@ class PlayerService extends ChangeNotifier {
 
     _syncTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (isSyncMaster && !_isStopped && player.state.playing) {
+        // [A3] itemIndex/mediaId let slaves follow the master across track
+        // boundaries, not just within one track.
         _remote.send(RemoteCommand('media', 'sync_state', {
           'pos': player.state.position.inMilliseconds,
           'ts': DateTime.now().millisecondsSinceEpoch,
           'rate': player.state.rate,
+          'itemIndex': _currentIndex,
+          'mediaId': current?.id,
         }));
       }
     });
@@ -245,18 +295,29 @@ class PlayerService extends ChangeNotifier {
           case 'sync_state':
             if (isSyncSlave && cmd.value is Map) {
               final data = cmd.value as Map;
-              final targetMs = data['pos'] as int;
-              final senderTs = data['ts'] as int;
+              final targetMs = (data['pos'] as num?)?.toInt() ?? 0;
+              final senderTs = (data['ts'] as num?)?.toInt() ?? 0;
               final now = DateTime.now().millisecondsSinceEpoch;
               final latency = (now - senderTs).clamp(0, 1000);
-              
+
               final adjustedTarget = targetMs + latency;
-              final currentMs = player.state.position.inMilliseconds;
-              
-              if ((adjustedTarget - currentMs).abs() > 200) {
-                player.seek(Duration(milliseconds: adjustedTarget));
+
+              // [A3] Master advanced to a different track — jump there.
+              final targetIndex = (data['itemIndex'] as num?)?.toInt();
+              if (targetIndex != null &&
+                  targetIndex != _currentIndex &&
+                  targetIndex >= 0 &&
+                  targetIndex < _playlist.length) {
+                _saveCurrentProgress();
+                _currentIndex = targetIndex;
+                unawaited(_openCurrent(startOffset: Duration(milliseconds: adjustedTarget)));
+              } else {
+                final currentMs = player.state.position.inMilliseconds;
+                if ((adjustedTarget - currentMs).abs() > 200) {
+                  player.seek(Duration(milliseconds: adjustedTarget));
+                }
               }
-              
+
               final targetRate = (data['rate'] as num?)?.toDouble() ?? 1.0;
               if (player.state.rate != targetRate) {
                 player.setRate(targetRate);
@@ -293,28 +354,26 @@ class PlayerService extends ChangeNotifier {
             if (cmd.value is Map<String, dynamic>) {
               final data = cmd.value as Map<String, dynamic>;
               final id = data['mediaId']?.toString();
-              final pos = data['progress'] as num?;
+              // FIX: ServerViewModel.teleport() sends the key 'position' (seconds);
+              // 'progress' is still accepted for legacy payloads.
+              final pos = (data['position'] ?? data['progress']) as num?;
               if (id != null) {
                 // We need to fetch the full MediaItem or just try to open the URL
                 // For simplicity, let's assume we can construct a MediaItem or use a simplified open.
                 // In a real app, we'd query the library for the full item.
-                final item = MediaItem(id: id, title: 'TELEPORTED', duration: 0, type: 'video', folder: 'SYS');
+                final item = MediaItem(
+                  id: id,
+                  title: 'TELEPORTED',
+                  duration: 0,
+                  type: data['mediaType']?.toString() ?? 'video',
+                  folder: 'SYS',
+                );
                 load(items: [item], startIndex: 0, startOffset: pos != null ? Duration(seconds: pos.toInt()) : null);
               }
             }
             break;
           case 'set_sync_mode':
-            if (cmd.value == 'master') {
-              isSyncMaster = true;
-              isSyncSlave = false;
-            } else if (cmd.value == 'slave') {
-              isSyncMaster = false;
-              isSyncSlave = true;
-            } else {
-              isSyncMaster = false;
-              isSyncSlave = false;
-            }
-            notifyListeners();
+            setSyncMode(cmd.value?.toString() ?? '');
             break;
         }
       }
@@ -356,8 +415,12 @@ class PlayerService extends ChangeNotifier {
     final prog = dur > 0 ? (pos / dur).clamp(0.0, 1.0) : 0.0;
 
     String? snapshot;
-    // Only capture snapshot occasionally to save bandwidth/CPU
-    if (DateTime.now().second % 10 == 0 && snapshotCallback != null) {
+    // [FIX C13] ~10s snapshot cadence via a tick counter (the status timer
+    // ticks every 2s). The old wall-clock check (`DateTime.now().second %
+    // 10 == 0`) depended on the timer's wall-clock phase and could
+    // silently never fire for a given timer alignment.
+    _statusTickCount = (_statusTickCount + 1) % 5;
+    if (_statusTickCount == 0 && snapshotCallback != null) {
       snapshot = await snapshotCallback!();
     }
 
@@ -405,12 +468,25 @@ class PlayerService extends ChangeNotifier {
     if (item != null) {
       _remote.reportStatus(clientId: _deviceId.id, sessionId: _sessionId, title: item.title, mediaId: item.id, progress: 0, mediaType: item.type, isStopped: true);
     }
-    await player.stop();
+    // [FIX D1] Never await a native stop() after the player is disposed —
+    // dispose() must not block on an in-flight async teardown.
+    if (!_disposed) {
+      try {
+        await player.stop();
+      } catch (_) {}
+    }
   }
 
   @override
   void dispose() {
+    // [FIX D1] _disposed makes stop() skip its awaited player.stop() —
+    // otherwise stop()'s async native teardown and the player.dispose()
+    // below raced (flaky native errors / crash-on-exit). stop()'s
+    // synchronous prefix still runs: progress save, timer/subscription
+    // cleanup, and the stopped-report.
+    _disposed = true;
     _loadVersion++; // Abort any active load
+    _completedSub?.cancel();
     stop();
     player.dispose();
     super.dispose();

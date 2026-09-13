@@ -11,6 +11,7 @@ import 'package:streamz/data/network/media_api_client.dart';
 import 'package:streamz/domain/models/broadcast_station.dart';
 import 'package:streamz/domain/models/history_item.dart';
 import 'package:streamz/domain/models/media_item.dart';
+import 'package:streamz/domain/services/device_id_service.dart';
 
 class MediaRepository {
 
@@ -86,7 +87,8 @@ class MediaRepository {
 
   Future<StationJoinResponse?> joinStation(String id) async {
     if (_client == null) return null;
-    return _client!.joinStation(id);
+    // [A3] Identify ourselves so the server can elect the sync master.
+    return _client!.joinStation(id, clientId: sl<DeviceIdService>().id);
   }
 
   // ── Local ─────────────────────────────────────────────────────────────────

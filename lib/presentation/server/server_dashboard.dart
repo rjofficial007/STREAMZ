@@ -552,12 +552,21 @@ class _ServerDashboardState extends State<ServerDashboard> {
               child: Container(
                 color: Colors.white,
                 padding: const EdgeInsets.all(8),
-                child: QrImageView(data: state.serverIp, version: QrVersions.auto, backgroundColor: Colors.white),
+                // [SECURITY B1] QR carries the pairing URL (token included) so
+                // both the web UI and Flutter clients can authenticate to the
+                // WS control plane after scanning.
+                child: QrImageView(data: state.pairingUrl, version: QrVersions.auto, backgroundColor: Colors.white),
               ),
             ),
             const SizedBox(height: 24),
             Text(
-              'SCAN TO CONNECT NODE',
+              'PAIRING CODE: ${state.pairingToken}',
+              style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 6),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'SCAN TO CONNECT NODE // OR TYPE IP + CODE',
               style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2),
               textAlign: TextAlign.center,
             ),
@@ -613,7 +622,10 @@ class _ServerDashboardState extends State<ServerDashboard> {
       barrierDismissible: false,
       builder: (_) => Center(child: CircularProgressIndicator(color: tokens.accent)),
     ));
-    final vm = ClientViewModel();
+    // FIX: Use the DI singleton — every client screen watches this same instance.
+    // The previous local ClientViewModel() connected an instance nobody else saw,
+    // so preview always showed an empty library (and leaked its refresh timer).
+    final vm = context.read<ClientViewModel>();
     try {
       final ok = await vm.connect(state.serverIp);
       if (context.mounted) Navigator.pop(context);

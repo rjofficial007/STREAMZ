@@ -14,10 +14,41 @@ import 'package:media_kit/media_kit.dart';
 
 class VideoThumbnailService {
   // Headless player used for frame extraction on platforms without robust native support (Windows).
+  // ponytail (C8): created once (lazy singleton) and lives for the app's
+  // lifetime — dispose() exists but has no caller, since there's no
+  // app-exit hook to wire it to. Cost is bounded (one native player); a
+  // half-wired teardown risks breaking thumbnail generation, so this is a
+  // documented limitation rather than a speculative lifecycle change.
   final _player = Player(configuration: const PlayerConfiguration(logLevel: MPVLogLevel.error));
 
   // Semaphore to ensure only one video is being decoded by the generator at a time.
   final _lock = _SimpleLock();
+
+  /// Returns the media duration in seconds, or 0 if unknown/failed.
+  /// Shares the headless player and the serialization lock with thumbnail
+  /// generation (one MPV instance, one decode at a time).
+  Future<int> probeDuration(String path) async {
+    if (!File(path).existsSync()) return 0;
+    return _lock.synchronized(() async {
+      try {
+        await _player.open(Media(path), play: false);
+        var waited = 0;
+        while (_player.state.duration == Duration.zero && waited < 8) {
+          await Future.delayed(const Duration(milliseconds: 250));
+          waited++;
+        }
+        final duration = _player.state.duration;
+        await _player.stop();
+        return duration.inSeconds;
+      } catch (e) {
+        debugPrint('[ThumbService] Duration probe failed for $path: $e');
+        try {
+          await _player.stop();
+        } catch (_) {}
+        return 0;
+      }
+    });
+  }
 
   /// Extracts a meaningful frame from the video at [path].
   /// [quality] ranges from 0-100. [maxWidth] defines the output width.
@@ -30,9 +61,9 @@ class VideoThumbnailService {
     return _lock.synchronized(() async {
       try {
         if (defaultTargetPlatform == TargetPlatform.windows) {
-          return _extractMpv(path);
+          return await _extractMpv(path);
         } else {
-          return _extractNative(path, quality: quality, maxWidth: maxWidth);
+          return await _extractNative(path, quality: quality, maxWidth: maxWidth);
         }
       } catch (e) {
         debugPrint('[ThumbService] Unhandled error during generation for $path: $e');

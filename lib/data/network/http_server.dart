@@ -63,6 +63,24 @@ class HttpServerService {
 
   List<BroadcastStation> stations = [];
 
+  // [A3] station id -> elected sync-master client id (first Flutter joiner
+  // since the station was (re)activated). Web joiners don't participate.
+  final Map<String, String> _stationMasters = {};
+
+  // [SECURITY B1] Pairing token for the WS control plane. Set by the
+  // ServerViewModel before start(). The HTTP media plane stays open —
+  // sharing is the point of the app; only control requires the token.
+  String pairingToken = '';
+
+  static bool _constantTimeEquals(String a, String b) {
+    if (a.length != b.length) return false;
+    var diff = 0;
+    for (var i = 0; i < a.length; i++) {
+      diff |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+    }
+    return diff == 0;
+  }
+
   // FIX: Typed list instead of List<dynamic>.
   final List<WebSocketChannel> _sockets = [];
   final Map<String, WebSocketChannel> _clientSockets = {};
@@ -158,9 +176,30 @@ class HttpServerService {
         final state = svc.getPlaybackState(station);
         if (state == null) return shelf.Response.notFound('No active content');
 
+        // [A3] Master election: first Flutter client to join an active station
+        // becomes the sync master (emits sync_state), later joiners slaves.
+        // Web clients (no clientId) don't participate.
+        // ponytail: master is sticky for the station run — if the master node
+        // disconnects the station runs unsynced until the next (re)start.
+        // Upgrade path: re-elect on WS disconnect.
+        var syncRole = '';
+        if (station.isActive) {
+          final clientId = r.url.queryParameters['clientId'];
+          if (clientId != null && clientId.isNotEmpty) {
+            final master = _stationMasters[id];
+            if (master == null || master == clientId) {
+              _stationMasters[id] = clientId;
+              syncRole = 'master';
+            } else {
+              syncRole = 'slave';
+            }
+          }
+        }
+
         final response = <String, dynamic>{
           ...state.toJson(),
           'isPaused': station.isPaused,
+          'syncRole': syncRole,
           'playlist': station.playlist.map((e) => e.copyWith(isBroadcast: true).toJson()).toList(),
         };
 
@@ -259,7 +298,19 @@ class HttpServerService {
       })
       ..get(
         '/ws',
-        webSocketHandler((WebSocketChannel ws, _) {
+        // [SECURITY B1] Control-plane gate: clients present the pairing token
+        // as the WS subprotocol (Sec-WebSocket-Protocol); the server only
+        // negotiates that exact protocol. Wrong/missing token => subprotocol
+        // is null => rejected with 1008 so clients stop retrying and surface
+        // a "pairing required" error instead of reconnecting forever.
+        webSocketHandler((WebSocketChannel ws, String? subprotocol) {
+          if (pairingToken.isEmpty || !_constantTimeEquals(subprotocol ?? '', pairingToken)) {
+            try {
+              ws.sink.close(1008, 'pairing required');
+            } catch (_) {}
+            return;
+          }
+
           _sockets.add(ws);
           _addLog('WS_CONNECT: [ACTIVE: ${_sockets.length}]');
           onSocketsChanged?.call();
@@ -268,13 +319,27 @@ class HttpServerService {
             (message) {
               try {
                 final data = jsonDecode(message as String) as Map<String, dynamic>;
+                // [SECURITY B1] Server-originated commands never arrive over a
+                // client socket (the server's own broadcasts are in-process).
+                // Any frame claiming senderId 'SERVER' is a forgery — it could
+                // lock the queue or trigger SERVER-only actions. Kill the socket.
+                if (data['senderId'] == 'SERVER') {
+                  try {
+                    ws.sink.close(1008, 'impersonation');
+                  } catch (_) {}
+                  return;
+                }
                 final senderId = data['clientId']?.toString() ?? data['senderId']?.toString();
                 if (senderId != null) {
                   _clientSockets[senderId] = ws;
                 }
 
                 if (data['type'] == 'report_status') {
-                    final sId = data['sessionId']?.toString() ?? data['clientId'];
+                    // [FIX C5] A report with no identity at all used to put a
+                    // null key into _activeSessions (TypeError in the WS
+                    // listener). Drop unidentifiable frames.
+                    final sId = data['sessionId']?.toString() ?? data['clientId']?.toString();
+                    if (sId == null) return;
                     final stopped = data['isStopped'] == true;
                     if (stopped) {
                       onSessionUpdate?.call(sId, null);
@@ -317,9 +382,12 @@ class HttpServerService {
                     } else if (data['action'] == 'vote') {
                       final voteData = data['value'] as Map<String, dynamic>;
                       queueSvc.voteItem(voteData['id'] as String, voteData['delta'] as int);
-                    } else if (data['action'] == 'lock' && data['senderId'] == 'SERVER') {
-                      queueSvc.setLocked(data['value'] == true);
                     }
+                    // NOTE: the old 'lock' action required senderId 'SERVER'
+                    // over the wire — i.e. it was only reachable by
+                    // impersonation. The impersonation guard above kills that
+                    // path, so the branch was removed (server-side locking
+                    // should be an in-process API if ever needed).
                     
                     broadcast(jsonEncode({
                       'type': 'queue',
@@ -384,7 +452,7 @@ class HttpServerService {
               },
               cancelOnError: false,
             );
-          }),
+          }, protocols: pairingToken.isNotEmpty ? {pairingToken} : <String>{}),
         );
 
     // Middleware: CORS + connection tracking.
@@ -433,7 +501,25 @@ class HttpServerService {
     }
   }
 
+  /// Called when a station is (re)activated or removed so the next joiner
+  /// can be re-elected as sync master.
+  void clearStationMaster(String stationId) => _stationMasters.remove(stationId);
+
   // ── File Serving ──────────────────────────────────────────────────────────
+
+  /// [FIX C1] Parse + clamp a `Range: bytes=a-b` header against [fileSize].
+  /// Returns (start, end) for a 206, or null when unsatisfiable (416) —
+  /// including the empty-file case, where clamp(0, fileSize - 1) used to
+  /// throw RangeError(0, -1) and 500 the request.
+  static (int, int)? parseRange(String header, int fileSize) {
+    if (fileSize == 0) return null;
+    final parts = header.replaceFirst('bytes=', '').split('-');
+    final start = (int.tryParse(parts[0]) ?? 0).clamp(0, fileSize - 1);
+    // FIX: clamp end to fileSize - 1 to prevent out-of-range reads.
+    final end = (parts.length > 1 && parts[1].isNotEmpty) ? (int.tryParse(parts[1]) ?? (fileSize - 1)).clamp(start, fileSize - 1) : fileSize - 1;
+    if (end - start + 1 <= 0) return null;
+    return (start, end);
+  }
 
   Future<shelf.Response> _serveFile(shelf.Request r, File file) async {
     if (!await file.exists()) return shelf.Response.notFound('Not found');
@@ -443,15 +529,12 @@ class HttpServerService {
     final rangeHeader = r.headers['range'];
 
     if (rangeHeader != null) {
-      final parts = rangeHeader.replaceFirst('bytes=', '').split('-');
-      final start = (int.tryParse(parts[0]) ?? 0).clamp(0, fileSize - 1);
-      // FIX: clamp end to fileSize - 1 to prevent out-of-range reads.
-      final end = (parts.length > 1 && parts[1].isNotEmpty) ? (int.tryParse(parts[1]) ?? (fileSize - 1)).clamp(start, fileSize - 1) : fileSize - 1;
-      final length = end - start + 1;
-
-      if (length <= 0) {
-        return shelf.Response(416, headers: {'Content-Range': 'bytes */$fileSize'});
+      final bounds = parseRange(rangeHeader, fileSize);
+      if (bounds == null) {
+        return shelf.Response(416, headers: {'Content-Range': 'bytes */$fileSize', 'Content-Type': ct});
       }
+      final (start, end) = bounds;
+      final length = end - start + 1;
 
       return shelf.Response(
         206,

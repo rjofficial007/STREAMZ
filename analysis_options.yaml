@@ -63,6 +63,13 @@ analyzer:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
     - "lib/generated_plugin_registrant.dart"
+    - build/**
+    - android/**
+    - web/**
+    - windows/**
+    - ios/**
+    - macos/**
+    - linux/**
   errors:
     invalid_annotation_target: ignore
     missing_required_param: error

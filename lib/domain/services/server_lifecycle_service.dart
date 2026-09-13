@@ -13,6 +13,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_background/flutter_background.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:streamz/core/utils/logger.dart';
+import 'package:streamz/domain/services/network_service.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 /// Owned by GetIt as a singleton. Handles background execution,
@@ -157,7 +158,10 @@ class ServerLifecycleService extends ChangeNotifier {
       for (final iface in interfaces) {
         for (final addr in iface.addresses) {
           if (addr.isLoopback) continue;
-          if (addr.address.startsWith('192.168.') || addr.address.startsWith('10.')) {
+          // [FIX C10] Share NetworkService's LAN-IP predicate — this watchdog
+          // used to only match 192.168.x/10.x, so an IP change onto a 172.x
+          // network was never detected and the server kept the stale IP.
+          if (NetworkService.isLanIp(addr.address)) {
             currentIp = addr.address;
             break;
           }

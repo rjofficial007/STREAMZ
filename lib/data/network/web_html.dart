@@ -422,6 +422,12 @@ const String kWebInterfaceHtml = r"""
   let ws;
   const webClientId = localStorage.getItem('streamz_web_id') || ('WEB_' + Math.floor(Math.random() * 99999));
   localStorage.setItem('streamz_web_id', webClientId);
+  // [SECURITY B2] HTML-escape untrusted media names/titles before they are
+  // interpolated into innerHTML — a crafted filename must not inject markup.
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  // [SECURITY B1] The pairing token arrives in the page URL (QR / link);
+  // it is presented on the WS upgrade. No token => read-only (WS refused).
+  const pairingToken = new URLSearchParams(window.location.search).get('token') || '';
   let currentSessionId = '';
   let currentMediaTitle = '';
   let currentMediaType = '';
@@ -444,7 +450,8 @@ const String kWebInterfaceHtml = r"""
   function connectWS() {
     const host  = window.location.hostname || '127.0.0.1';
     const wsUrl = `ws://${host}:8080/ws`;
-    ws = new WebSocket(wsUrl);
+    // [SECURITY B1] Pairing token is presented as the WS subprotocol.
+    ws = new WebSocket(wsUrl, pairingToken ? [pairingToken] : []);
     ws.onmessage = (e) => {
       try {
         const cmd = JSON.parse(e.data);
@@ -574,11 +581,11 @@ const String kWebInterfaceHtml = r"""
       const fallback = fallbacks[item.type] || fallbacks.video;
       card.innerHTML = `
         <div class="card-poster-wrap">
-          <img class="card-poster" src="${thumb}" onerror="this.src='${fallback}';this.onerror=null;">
+          <img class="card-poster" src="${esc(thumb)}" onerror="this.src='${fallback}';this.onerror=null;">
         </div>
         <div class="card-info">
-          <div class="card-title" title="${item.title}">${item.title}</div>
-          <a href="/stream/${item.id}" download="${item.title}" class="action-btn" tabindex="-1" onclick="event.stopPropagation()">DOWNLOAD</a>
+          <div class="card-title" title="${esc(item.title)}">${esc(item.title)}</div>
+          <a href="/stream/${encodeURIComponent(item.id)}" download="${esc(item.title)}" class="action-btn" tabindex="-1" onclick="event.stopPropagation()">DOWNLOAD</a>
         </div>`;
       card.onclick = () => openPlayer(item);
       container.appendChild(card);
@@ -620,7 +627,7 @@ const String kWebInterfaceHtml = r"""
         row.className = 'list-item';
         row.setAttribute('tabindex', '0');
         if (item.isDirectory) {
-          row.innerHTML = `<div class="list-index">[NODE]</div><div class="list-title">${item.name}</div>`;
+          row.innerHTML = `<div class="list-index">[NODE]</div><div class="list-title">${esc(item.name)}</div>`;
           row.onclick   = () => { currentBrowsePath = item.path; buildFolderView(); };
         } else {
           const ext      = (item.name.split('.').pop() || '').toLowerCase();
@@ -632,10 +639,10 @@ const String kWebInterfaceHtml = r"""
           const fallback = fallbacks[typeKey] || fallbacks.file;
           row.innerHTML = `
             <div class="list-index">[${typeKey.substring(0,3).toUpperCase()}]</div>
-            <img class="list-art" src="${thumb}" onerror="this.src='${fallback}';this.onerror=null;">
-            <div class="list-title" title="${item.name}">${item.name}</div>
+            <img class="list-art" src="${esc(thumb)}" onerror="this.src='${fallback}';this.onerror=null;">
+            <div class="list-title" title="${esc(item.name)}">${esc(item.name)}</div>
             <div class="list-meta">${(item.size/1024/1024).toFixed(1)} MB</div>
-            <a href="/api/file?path=${encodeURIComponent(item.path)}" class="list-download-icon" download="${item.name}" onclick="event.stopPropagation()">GET</a>`;
+            <a href="/api/file?path=${encodeURIComponent(item.path)}" class="list-download-icon" download="${esc(item.name)}" onclick="event.stopPropagation()">GET</a>`;
           row.onclick = () => {
             if (typeKey !== 'file') openPlayer({ id: item.path, type: typeKey, title: item.name }, true);
             else window.open('/api/file?path=' + encodeURIComponent(item.path), '_blank');

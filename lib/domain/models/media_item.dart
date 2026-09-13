@@ -25,8 +25,20 @@ class MediaItem {
         type: json['type']?.toString() ?? 'video',
         folder: json['folder']?.toString() ?? 'Unknown',
         isBroadcast: json['isBroadcast'] ?? false,
-        metadata: Map<String, String>.from(json['metadata'] ?? {}),
+        metadata: _parseMetadata(json['metadata']),
       );
+
+  // [FIX C6] A non-string metadata value (or a non-map payload) must not
+  // throw and take down the parse of the whole media list — stringify
+  // values, skip nulls.
+  static Map<String, String> _parseMetadata(dynamic raw) {
+    if (raw is! Map) return {};
+    return Map.fromEntries(
+      raw.entries
+          .where((e) => e.value != null)
+          .map((e) => MapEntry(e.key.toString(), e.value.toString())),
+    );
+  }
   final String id;
   final String title;
   final String? artist;
@@ -63,6 +75,7 @@ class MediaItem {
     String? title,
     String? artist,
     String? album,
+    int? duration,
     int? lastPosition,
     int? lastPlayedTimestamp,
     bool? isBroadcast,
@@ -73,7 +86,7 @@ class MediaItem {
         title: title ?? this.title,
         artist: artist ?? this.artist,
         album: album ?? this.album,
-        duration: duration,
+        duration: duration ?? this.duration,
         type: type,
         folder: folder,
         lastPosition: lastPosition ?? this.lastPosition,
