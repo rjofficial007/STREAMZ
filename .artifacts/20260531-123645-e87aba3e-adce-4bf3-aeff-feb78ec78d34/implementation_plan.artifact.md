@@ -1,5 +1,7 @@
 # Redesign TVFileManagerScreen to match Modern Web Interface
 
+> Historical planning artifact from May 2026. It records a proposal from that task and is not a statement of current implementation status. Use the [current architecture](../../docs/ARCHITECTURE.md), [UI component guide](../../docs/UI_COMPONENTS.md), and [README](../../README.md) as the source of truth.
+
 The goal is to overhaul `TVFileManagerScreen` to exactly match the look and feel of `kModernWebInterfaceHtml`. This involves moving navigation to the top, adding a persistent player console at the bottom, and making the grid responsive.
 
 ## Proposed Changes

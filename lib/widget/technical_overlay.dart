@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
 
-/// A Brutalist-style technical overlay for monitoring playback and system stats.
+/// A compact playback diagnostics overlay for monitoring playback and system stats.
 class TechnicalOverlay extends StatelessWidget {
 
   const TechnicalOverlay({
@@ -58,7 +58,7 @@ class TechnicalOverlay extends StatelessWidget {
                         value ?? 'N/A',
                         style: DS.labelMd.copyWith(
                           color: DS.accent,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),

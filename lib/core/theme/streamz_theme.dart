@@ -1,14 +1,13 @@
 // core/theme/streamz_theme.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/core/theme/theme_tokens.dart';
 
 enum ThemeIdentity { pureBlack }
 
 class StreamzTheme {
-
   const StreamzTheme({
     required this.identity,
     required this.name,
@@ -43,6 +42,7 @@ class StreamzTheme {
       textDisabled: DS.textDisabled,
       focusColor: DS.focusColor,
       focusShadow: DS.focusShadowColor,
+      scaffoldTopColor: DS.scaffoldGlowColor,
     ),
   );
 
@@ -52,30 +52,31 @@ class StreamzTheme {
 
   // Compatibility with main.dart and legacy code
   static ThemeData get darkTheme => _buildTheme(Brightness.dark);
-  
+
   // Even "light" requests return the black aesthetic for strict B&W enforcement
   static ThemeData get lightTheme => _buildTheme(Brightness.dark);
 
   static ThemeData _buildTheme(Brightness brightness) {
     final themeBase = pureBlack;
-    
+
     return ThemeData(
       brightness: Brightness.dark,
+      fontFamily: AppTextStyles.style().fontFamily,
       primaryColor: themeBase.tokens.primary,
-      scaffoldBackgroundColor: themeBase.tokens.background,
+      scaffoldBackgroundColor: Colors.transparent,
       canvasColor: themeBase.tokens.surface1,
       appBarTheme: AppBarTheme(
-        backgroundColor: themeBase.tokens.background,
+        backgroundColor: Colors.transparent,
         foregroundColor: themeBase.tokens.textPrimary,
         elevation: 0,
       ),
       textTheme: TextTheme(
-        displayLarge: GoogleFonts.barlowCondensed(
+        displayLarge: AppTextStyles.style(
           fontSize: 48,
-          fontWeight: FontWeight.bold,
+          fontWeight: AppTextStyles.titleFontWeight,
           color: themeBase.tokens.textPrimary,
         ),
-        labelLarge: GoogleFonts.dmMono(
+        labelLarge: AppTextStyles.style(
           fontSize: 14,
           fontWeight: FontWeight.w500,
           color: themeBase.tokens.textPrimary,

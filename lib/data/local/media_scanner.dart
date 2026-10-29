@@ -3,9 +3,11 @@
 // and raw Directory scanning (Windows/Linux/macOS).
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:convert/convert.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -17,16 +19,23 @@ import 'package:streamz/domain/models/media_item.dart';
 class MediaScanner {
   final List<AssetEntity> localAssets = [];
   final Map<String, String> assetFolders = {};
-  final Map<String, File> winFiles = {};
+  final Map<String, File> scannedFiles = {};
   List<SongModel> localSongs = [];
-  
+
   final _audioQuery = OnAudioQuery();
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
-  Future<void> scanPhotoManager({required bool includeVideos, required bool includeImages}) async {
+  Future<void> scanPhotoManager({
+    required bool includeVideos,
+    required bool includeImages,
+  }) async {
     if (kIsWeb) return;
-    if (defaultTargetPlatform != TargetPlatform.android && defaultTargetPlatform != TargetPlatform.iOS && defaultTargetPlatform != TargetPlatform.macOS) return;
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.iOS &&
+        defaultTargetPlatform != TargetPlatform.macOS) {
+      return;
+    }
 
     logger.i('Scanning PhotoManager assets...');
     final ps = await PhotoManager.requestPermissionExtend();
@@ -63,11 +72,18 @@ class MediaScanner {
 
   Future<void> scanAudio() async {
     if (kIsWeb) return;
-    if (defaultTargetPlatform != TargetPlatform.android && defaultTargetPlatform != TargetPlatform.iOS) return;
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.iOS) {
+      return;
+    }
     logger.i('Scanning audio library...');
     try {
       if (await _audioQuery.checkAndRequest(retryRequest: true)) {
-        localSongs = await _audioQuery.querySongs(sortType: SongSortType.TITLE, uriType: UriType.EXTERNAL, ignoreCase: true);
+        localSongs = await _audioQuery.querySongs(
+          sortType: SongSortType.TITLE,
+          uriType: UriType.EXTERNAL,
+          ignoreCase: true,
+        );
         logger.i('Audio scan complete: ${localSongs.length} songs found.');
       }
     } catch (e) {
@@ -86,7 +102,7 @@ class MediaScanner {
     if (kIsWeb) return;
 
     logger.i('Starting background scan for: $rootPath');
-    
+
     // We pass the paths to the isolate, then rebuild Files on the main thread
     // because File objects don't survive isolate transfer well if they are complex.
     final result = await compute(_scanDirectoryIsolate, {
@@ -100,11 +116,21 @@ class MediaScanner {
       final batch = <MapEntry<String, String>>[];
       for (final path in result) {
         final id = _pathToId(path);
-        winFiles[id] = File(path);
+        final existing = scannedFiles[id];
+        if (existing != null && existing.path != path) {
+          // Keep the legacy ID for the last path in a collision group, as the
+          // old map overwrite did, so its saved progress/history still works.
+          scannedFiles
+            ..remove(id)
+            ..[_uniquePathId(existing.path)] = existing;
+        }
+        scannedFiles[id] = File(path);
         batch.add(MapEntry(id, path));
       }
       onBatch(batch);
-      logger.i('Directory scan complete for $rootPath: ${result.length} files found.');
+      logger.i(
+        'Directory scan complete for $rootPath: ${result.length} files found.',
+      );
     }
   }
 
@@ -123,7 +149,10 @@ class MediaScanner {
       for (final entity in entities) {
         if (entity is File) {
           final type = FileTypeUtils.fromFilename(entity.path);
-          final isTarget = (type == MediaFileType.video && includeVideos) || (type == MediaFileType.audio && includeAudio) || (type == MediaFileType.image && includeImages);
+          final isTarget =
+              (type == MediaFileType.video && includeVideos) ||
+              (type == MediaFileType.audio && includeAudio) ||
+              (type == MediaFileType.image && includeImages);
 
           if (isTarget) {
             foundPaths.add(entity.path);
@@ -136,7 +165,7 @@ class MediaScanner {
 
   /// Clears directory-scan results. Called before a fresh server scan so
   /// deleted files don't linger in the library.
-  void clearScannedFiles() => winFiles.clear();
+  void clearScannedFiles() => scannedFiles.clear();
 
   // ── MediaItem conversion ──────────────────────────────────────────────────
 
@@ -151,10 +180,10 @@ class MediaScanner {
 
     // Directory-scanned (mounted folder) files — every non-web platform.
     // [FIX A2]: previously this branch ran only on Windows, so on
-    // Android/iOS/macOS/Linux the mounted folders were scanned (winFiles)
+    // Android/iOS/macOS/Linux the mounted folders were scanned
     // but never surfaced in the library.
     if (!kIsWeb) {
-      winFiles.forEach((id, file) {
+      scannedFiles.forEach((id, file) {
         final type = FileTypeUtils.fromFilename(file.path);
         if (type == MediaFileType.video && !shareVideos) return;
         if (type == MediaFileType.audio && !shareMusic) return;
@@ -164,7 +193,17 @@ class MediaScanner {
         final title = file.uri.pathSegments.last;
         final folder = _parentFolderName(file);
 
-        items.add(MediaItem(id: id, title: title, duration: 0, type: typeStr, folder: folder, lastPosition: getProgress(id), lastPlayedTimestamp: getTimestamp(id)));
+        items.add(
+          MediaItem(
+            id: id,
+            title: title,
+            duration: 0,
+            type: typeStr,
+            folder: folder,
+            lastPosition: getProgress(id),
+            lastPlayedTimestamp: getTimestamp(id),
+          ),
+        );
       });
     }
 
@@ -194,7 +233,17 @@ class MediaScanner {
         for (final s in localSongs) {
           final id = s.id.toString();
           final folder = _songFolder(s.data);
-          items.add(MediaItem(id: id, title: s.title, duration: (s.duration ?? 0) ~/ 1000, type: 'audio', folder: folder, lastPosition: getProgress(id), lastPlayedTimestamp: getTimestamp(id)));
+          items.add(
+            MediaItem(
+              id: id,
+              title: s.title,
+              duration: (s.duration ?? 0) ~/ 1000,
+              type: 'audio',
+              folder: folder,
+              lastPosition: getProgress(id),
+              lastPlayedTimestamp: getTimestamp(id),
+            ),
+          );
         }
       }
     }
@@ -230,14 +279,22 @@ class MediaScanner {
     }
   }
 
-  File? fileById(String id) => winFiles[id];
+  File? fileById(String id) => scannedFiles[id];
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  static String _pathToId(String path) => hex.encode(path.codeUnits).substring(0, 32);
+  static String _pathToId(String path) {
+    final encoded = hex.encode(path.codeUnits);
+    return encoded.length > 32 ? encoded.substring(0, 32) : encoded;
+  }
+
+  static String _uniquePathId(String path) =>
+      sha256.convert(utf8.encode(path)).toString();
 
   static String _parentFolderName(File file) {
-    final segments = file.parent.uri.pathSegments.where((s) => s.isNotEmpty).toList();
+    final segments = file.parent.uri.pathSegments
+        .where((s) => s.isNotEmpty)
+        .toList();
     return segments.isNotEmpty ? segments.last : 'Unknown';
   }
 

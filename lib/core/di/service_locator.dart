@@ -55,12 +55,28 @@ Future<void> setupServiceLocator() async {
     ..registerLazySingleton<PlatformService>(PlatformService.new)
     ..registerLazySingleton<NetworkService>(NetworkService.new)
     ..registerLazySingleton<ServerLifecycleService>(ServerLifecycleService.new)
-    ..registerLazySingleton<HttpServerService>(() => HttpServerService(scanner: sl<MediaScanner>(), thumbCache: sl<ThumbnailCache>(), thumbGenerator: sl<VideoThumbnailService>()))
+    ..registerLazySingleton<HttpServerService>(
+      () => HttpServerService(
+        scanner: sl<MediaScanner>(),
+        thumbCache: sl<ThumbnailCache>(),
+        thumbGenerator: sl<VideoThumbnailService>(),
+        stationService: sl<StationService>(),
+        queueService: sl<QueueService>(),
+        serverRepository: sl<ServerRepository>(),
+      ),
+    )
     ..registerLazySingleton<UdpBroadcaster>(UdpBroadcaster.new)
     ..registerLazySingleton<UdpDiscovery>(UdpDiscovery.new)
 
     // ── Repositories ──────────────────────────────────────────────────────────
-    ..registerLazySingleton<MediaRepository>(() => MediaRepository(scanner: sl<MediaScanner>(), progress: sl<ProgressStore>()))
+    ..registerLazySingleton<MediaRepository>(
+      () => MediaRepository(
+        scanner: sl<MediaScanner>(),
+        progress: sl<ProgressStore>(),
+        preferences: sl<SharedPreferences>(),
+        deviceId: sl<DeviceIdService>(),
+      ),
+    )
     ..registerLazySingleton<ServerRepository>(() => ServerRepository(sl<SharedPreferences>()))
 
     // ── Domain services ───────────────────────────────────────────────────────

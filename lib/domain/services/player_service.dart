@@ -42,6 +42,7 @@ class PlayerService extends ChangeNotifier {
   bool _isPathBased = false;
   String _sessionId = '';
   bool _isStopped = false;
+  bool _shouldBePlaying = false;
   List<String>? _remoteVibeColors;
 
   bool isSyncMaster = false;
@@ -70,6 +71,7 @@ class PlayerService extends ChangeNotifier {
   int get currentIndex => _currentIndex;
   bool get isPathBased => _isPathBased;
   bool get isStopped => _isStopped;
+  bool get shouldBePlaying => _shouldBePlaying;
   bool get hasNext => _currentIndex < _playlist.length - 1;
 
   // FIX: hasPrev must also check playlist is non-empty.
@@ -114,6 +116,7 @@ class PlayerService extends ChangeNotifier {
     _currentIndex = items.isEmpty ? 0 : startIndex.clamp(0, items.length - 1);
     _isPathBased = isPathBased;
     _isStopped = false;
+    _shouldBePlaying = autoPlay;
     // [A3] Leaving a station playlist exits sync mode — master/slave is
     // station-scoped (the CLI /sync command can re-establish ad-hoc sync).
     if (!items.any((m) => m.isBroadcast)) {
@@ -165,7 +168,9 @@ class PlayerService extends ChangeNotifier {
       } else if (!_isPathBased) {
         // Restore saved position for non-path-based items.
         final saved = _repo.getProgress(item.id);
-        if (saved > 5) {
+        final canResume = saved > 5 &&
+            (item.duration <= 0 || saved < item.duration * 0.95);
+        if (canResume) {
           await Future.delayed(const Duration(milliseconds: 500));
           if (targetV != _loadVersion) return;
           await player.seek(Duration(seconds: saved));
@@ -174,6 +179,7 @@ class PlayerService extends ChangeNotifier {
       
       if (targetV != _loadVersion) return;
       if (autoPlay) {
+        _shouldBePlaying = true;
         await player.play();
       }
     } else {
@@ -255,6 +261,54 @@ class PlayerService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> play() async {
+    _shouldBePlaying = true;
+    await player.play();
+  }
+
+  Future<void> pause() async {
+    _shouldBePlaying = false;
+    await player.pause();
+  }
+
+  Future<void> togglePlayback() async {
+    if (player.state.playing) {
+      await pause();
+    } else {
+      await play();
+    }
+  }
+
+  /// Reopens the current stream without replacing the playlist/session.
+  /// The caller supplies a position captured before the failed source resets.
+  Future<void> retryCurrent(
+    Duration position, {
+    bool resumePlayback = false,
+  }) async {
+    if (_disposed || _isStopped || current == null) return;
+
+    if (resumePlayback) _shouldBePlaying = true;
+    final version = ++_loadVersion;
+    for (var wait = 0; _opening && wait < 30; wait++) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      if (_disposed || version != _loadVersion) return;
+    }
+    if (_opening || _disposed || version != _loadVersion) return;
+
+    final item = current!;
+    final resumePosition =
+        item.duration > 0 && position.inSeconds >= item.duration
+        ? Duration(seconds: item.duration - 1)
+        : position;
+    await _openCurrent(
+      startOffset: resumePosition > Duration.zero ? resumePosition : null,
+      version: version,
+      autoPlay: _shouldBePlaying,
+    );
+  }
+
+  void saveCurrentProgress() => _saveCurrentProgress();
+
   Future<void> setVideoTrack(VideoTrack track) async {
     await player.setVideoTrack(track);
     notifyListeners();
@@ -326,14 +380,14 @@ class PlayerService extends ChangeNotifier {
             break;
           case 'play':
           case 'station_resume':
-            player.play();
+            unawaited(play());
             break;
           case 'pause':
           case 'station_pause':
-            player.pause();
+            unawaited(pause());
             break;
           case 'toggle_play':
-            player.playOrPause();
+            unawaited(togglePlayback());
             break;
           case 'stop':
           case 'station_stop':
@@ -439,7 +493,7 @@ class PlayerService extends ChangeNotifier {
   }
 
   List<String> _getVibeColors(MediaItem item) {
-    // Enhanced Brutalist Vibe Palette with more variation
+    // Playback visualization palette with varied accents
     final palettes = [
       ['#FF0000', '#000000', '#FFFFFF'], // Red/Black/White
       ['#00FF00', '#000000', '#FFFFFF'], // Green/Black/White
@@ -458,6 +512,7 @@ class PlayerService extends ChangeNotifier {
   Future<void> stop() async {
     if (_isStopped) return; // Idempotent.
     _isStopped = true;
+    _shouldBePlaying = false;
     _saveCurrentProgress();
     _saveTimer?.cancel();
     _statusTimer?.cancel();

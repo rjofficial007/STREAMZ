@@ -1,73 +1,73 @@
-# STREAMZ — BROADCAST ENGINE v2.0
+# STREAMZ
 
-![Aesthetic](https://img.shields.io/badge/AESTHETIC-STRICT_BRUTALIST-white?style=flat-square)
-![Architecture](https://img.shields.io/badge/ARCH-MVVM_SINGLETON-white?style=flat-square)
-![Status](https://img.shields.io/badge/STATUS-UPLINK_READY-white?style=flat-square)
+STREAMZ is a local-network media library and playback app. A native Android or Windows device can host a media library over HTTP, while Flutter clients and ordinary browsers connect over the LAN. Android TV uses the Android app with a Leanback launcher entry and remote-friendly screens.
 
-**STREAMZ** is a local-network media architecture for the modern curator. One device runs the broadcast host (HTTP + WebSocket server, UDP discovery); every other device — Flutter mobile/TV/desktop or a plain web browser — discovers it, streams the library, and can be controlled remotely through a professional brutalist interface.
+## Supported targets
 
----
+| Target | Current implementation | Important limits |
+| --- | --- | --- |
+| Android phones and tablets | Flutter app; can host or connect as a client; scans configured/shared media sources | Android permissions, device codecs, storage access, and background-service policies affect behavior. |
+| Android TV | Android app declares the Leanback launcher feature; TV detection, D-pad/Select shortcuts, focus-aware screens, and a TV banner are present | It is the Android build, not a separate TV binary. Validate navigation and playback on actual TV hardware. |
+| Windows | Flutter desktop app; can host or connect as a client; scans configured folders | Media support depends on the bundled MediaKit backend and available system resources. Build and verify on Windows. |
+| Flutter Web | Flutter browser build intended for client use | Browser codecs determine playback support. Web media scanning is disabled; local hosting and native UDP discovery are not supported by the current flow. |
+| Browser client | The native host serves one of two HTML/JavaScript clients at `http://<host-ip>:8080/`, selected by host settings | This is separate from the Flutter Web build. Both variants share the premium visual direction; playback uses the browser's media element and codec support. |
 
-## ⚡ CORE CAPABILITIES
+The repository has Android, Windows, and Web Flutter targets. That alone does not establish feature parity on every device. See [Architecture and platform notes](docs/ARCHITECTURE.md) for the implemented data flows, known limits, and a verification matrix.
 
-### 🛰️ NOC COMMAND CENTER
-A high-density Command Center on the host: monitor every connected node, control playback remotely over the WebSocket relay, view live sessions, and manage the library and stations from a single dashboard (with a built-in CLI).
+## What the app does
 
-### 🌈 VIBE-SYNC
-Ambient color feedback across nodes: the active item's palette (keyed per item) plus periodic low-resolution screen snapshots from the playing node are relayed to the other devices' dashboards. It's a fixed palette + snapshot pipeline — not per-frame color analysis of the media.
+- Scans configured local media on native host platforms and exposes media metadata, thumbnails, files, and byte-range streams over HTTP.
+- Discovers native hosts on the LAN with UDP, or lets a client connect using the host IP and pairing link/code.
+- Uses WebSockets for playback commands, session status, station/queue updates, and remote control.
+- Supports host-managed broadcast stations and synchronized playback flows.
+- Saves client playback progress locally, surfaces Continue Watching, and retries interrupted remote streams while retaining the last useful playback position.
+- Uses MediaKit for Flutter playback. Browser playback uses browser-provided media support; supported codecs vary by browser and device.
 
-### 🚀 LAN STREAMING
-Source-bitrate streaming over plain HTTP range requests (no transcode, no DRM, no server-side codec work) — a gigabit LAN is recommended for high-bitrate video. There is no adaptive bitrate and no frame-pacing guarantee; playback quality is a function of your network.
+Streaming sends the original media bytes without server-side transcoding. Playback smoothness and maximum resolution depend on the source file, client decoder, network throughput, and device performance. The app cannot guarantee 4K playback merely because a TV panel is 4K.
 
-### 📡 STATION ENGINE
-Host-managed virtual broadcast stations: a curated playlist that auto-advances and loops. Nodes that join are kept in lockstep by a master/slave drift-correction loop (500 ms position sync, ~200 ms correction threshold) — the first node to join becomes the sync master, later joiners follow, including across track boundaries.
+## Architecture
 
----
+The app is organized into presentation/ViewModels, domain models and services, data repositories, and platform/network infrastructure. GetIt registers shared services and the main client/server ViewModels; Provider exposes them to Flutter screens. The host's HTTP/WebSocket service, UDP discovery, local scanning, MediaKit playback, and the browser client are described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## 🏗️ ARCHITECTURAL STACK
+Shared typography, the blue-glow scaffold, transparent/scroll-blurred app bars, responsive grids, focus handling, and accessible UI primitives are documented in [docs/UI_COMPONENTS.md](docs/UI_COMPONENTS.md). `ThemeService` persists font family, title weight, scaffold glow color, and shared corner radius on the device. The route inventory, UI review, and latest validation record are in [docs/UX_REVIEW.md](docs/UX_REVIEW.md).
 
-*   **Frontend**: Flutter (strict black & white theme; TV-optimized variants)
-*   **State Management**: Provider with singleton ViewModels (MVVM) + GetIt service locator
-*   **Networking**: UDP auto-discovery (port 8888) & WebSocket command relay (port 8080)
-*   **Media Engine**: Media Kit (MPV) for decoding; shelf for HTTP
-*   **Lifecycle**: Persistent server lifecycle manager (wakelock + background keep-alive)
+## Development
 
----
+Install Flutter/Dart compatible with the SDK constraint in `pubspec.yaml`, then run:
 
-## 🔧 INSTALLATION & SETUP
+```sh
+flutter pub get
+flutter analyze
+flutter test
+```
 
-1.  **HOST CLONE**:
-    ```bash
-    git clone https://github.com/rjofficial007/STREAMZ.git
-    cd STREAMZ
-    ```
+Run or build on a supported target:
 
-2.  **DEPENDENCY UPLINK**:
-    ```bash
-    flutter pub get
-    ```
+```sh
+flutter run -d <android-device>
+flutter run -d windows
+flutter run -d chrome
 
-3.  **EXECUTE (HOST)**:
-    ```bash
-    flutter run -d <host-device>
-    ```
-    Start the server from the dashboard. The host shows a QR code and an 8-character pairing code.
+flutter build apk
+flutter build windows
+flutter build web
+```
 
-4.  **EXECUTE (CLIENTS)**:
-    Run the app on any other device and either scan the host's QR or enter the host IP + pairing code. Browsers can open the host's URL directly (the pairing code travels in the link).
+Windows builds require a Windows development environment. Android TV uses the Android APK; validate on a TV or equivalent D-pad device. The browser-served client is provided by a running native host and is not launched by `flutter run -d chrome`.
 
----
+Latest UI review validation (29 October 2026): the previous UI pass passed all 47 Flutter tests; those results predate the playback-recovery and TV home follow-up. Both embedded host-browser scripts pass `node --check`. Flutter analysis/tests could not be rerun: the Flutter wrapper could not write its protected SDK cache, and the direct Dart binary crashed in its macOS CPU-info startup path. Windows and physical device/TV verification remain to be run on matching hardware/toolchains. See [docs/UX_REVIEW.md](docs/UX_REVIEW.md) for details.
 
-## 📋 SYSTEM SPECIFICATIONS
+## LAN and security notes
 
-*   **Protocol**: UDP discovery on port 8888 (multicast `239.1.2.3` + LAN broadcast; announcements carry the pairing code). HTTP + WebSocket on port 8080.
-*   **Pairing**: an 8-character pairing code (stable per host) gates the WebSocket **control plane** — presented as the WS subprotocol; wrong or missing code means media-only (read-only) access. There is **no encryption**: everything is plaintext on your LAN by design. Do not expose ports 8080/8888 beyond your own network.
-*   **Interface**: Brutalist UI (zero radius, high contrast).
-*   **Relay**: Intercom alerts with automatic volume ducking and visual feedback on all nodes.
-*   **NO_TRACE mode**: disables the host's connection logging when enabled in the dashboard.
+- The native host listens on TCP port `8080`; UDP discovery uses port `8888` and multicast/broadcast. Firewalls, guest Wi-Fi isolation, and router multicast settings can prevent discovery or streaming.
+- The pairing token is required for the WebSocket control connection. HTTP metadata, file, thumbnail, and stream routes are not protected by that WebSocket pairing check.
+- LAN traffic is plain HTTP/WebSocket without TLS. Run STREAMZ only on a network you trust; do not expose these ports directly to the public internet.
+- Streaming is source-bitrate. A high-bitrate file needs sufficient LAN throughput; there is no adaptive bitrate or transcoding fallback.
 
----
+## TV and responsive behavior
 
-## ⚖️ LICENSE
+Layouts use Flutter logical viewport dimensions and TV-device detection. The source includes responsive breakpoints and focus/D-pad handling, but physical diagonal size (for example, 32 or 65 inches) is not a layout guarantee. Resolution, density, overscan, viewing distance, remote behavior, and decoder capability vary by device. Validate at HD/1080p and 4K output sizes, with remote-only navigation, before claiming TV-wide compatibility.
 
-© 2026 BROADCAST ARCHITECTURE. All rights reserved.
+## Current player choice
+
+MediaKit remains the app's Flutter playback engine because the player flow relies on its controls, track selection, and thumbnail/screenshot behavior. Replacing it with `video_player` plus another backend would require a parity review, especially for thumbnails, audio/subtitle tracks, TV remote navigation, and the browser path. A prior Android build attempt timed out while fetching a MediaKit native artifact; treat that as a dependency-download/build-environment issue until a runtime playback problem is reproduced.

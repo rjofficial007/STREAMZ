@@ -1,6 +1,6 @@
 // presentation/server/server_dashboard.dart
 // ============================================================================
-// STREAMZ — Server NOC Dashboard (Brutalist Pro Suite)
+// STREAMZ — Server Dashboard
 // ============================================================================
 
 import 'dart:async';
@@ -10,11 +10,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/di/service_locator.dart';
 import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
@@ -27,11 +27,13 @@ import 'package:streamz/domain/services/station_service.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
 import 'package:streamz/presentation/server/server_viewmodel.dart';
 import 'package:streamz/presentation/server/widgets/server_engine_card.dart';
-import 'package:streamz/presentation/server/widgets/server_quick_action_grid.dart';
 import 'package:streamz/presentation/server/widgets/server_telemetry_tile.dart';
-import 'package:streamz/presentation/shared/atmospheric_background.dart';
+import 'package:streamz/presentation/shared/app_back_button.dart';
+import 'package:streamz/presentation/shared/app_bottom_sheet.dart';
+import 'package:streamz/presentation/shared/app_brand_icon.dart';
+import 'package:streamz/presentation/shared/app_list_tile_card.dart';
+import 'package:streamz/presentation/shared/app_state_view.dart';
 import 'package:streamz/presentation/shared/remote_input_relay_screen.dart';
-import 'package:streamz/presentation/shared/theme_settings_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ServerDashboard extends StatefulWidget {
@@ -69,28 +71,20 @@ class _ServerDashboardState extends State<ServerDashboard> {
   }
 
   String get _title {
-    if (_currentPath == null) return 'SERVER';
-    if (_currentPath == 'web_theme') return 'WEB UI THEME';
-    if (_currentPath == 'filters') return 'BROADCAST FILTERS';
-    if (_currentPath == 'directories') return 'MOUNTED DIRECTORIES';
-    if (_currentPath == 'stations') return 'BROADCAST STATIONS';
-    if (_currentPath == 'history') return 'VIEW LOGS';
-    return _currentPath!.toUpperCase();
+    if (_currentPath == null) return 'Your server';
+    if (_currentPath == 'filters') return 'Sharing options';
+    if (_currentPath == 'directories') return 'Shared folders';
+    if (_currentPath == 'stations') return 'Broadcasts';
+    if (_currentPath == 'history') return 'Viewing history';
+    if (_currentPath == 'traffic') return 'Network traffic';
+    if (_currentPath == 'live_logs') return 'Live logs';
+    return _currentPath!;
   }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<ServerViewModel>();
     final isMobile = DS.isMobile(context);
-    final tokens = context.tokens;
-
-    List<Color>? vibeColors;
-    if (state.activeSessions.isNotEmpty) {
-      final vibeHex = state.activeSessions.first.vibeColors;
-      if (vibeHex != null) {
-        vibeColors = vibeHex.map((h) => Color(int.parse(h.replaceFirst('#', 'FF'), radix: 16))).toList();
-      }
-    }
 
     return PopScope(
       canPop: false,
@@ -99,33 +93,29 @@ class _ServerDashboardState extends State<ServerDashboard> {
           if (!_goBack()) Navigator.pop(context);
         }
       },
-      child: Scaffold(
-        backgroundColor: tokens.background,
-        body: AtmosphericBackground(
-          colors: vibeColors,
-          child: SafeArea(
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                _buildSliverAppBar(isMobile),
-                ..._buildBodySlivers(isMobile, state),
-              ],
-            ),
+      child: AppScaffold(
+        body: SafeArea(
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              _buildAppSliverAppBar(isMobile),
+              ..._buildBodySlivers(isMobile, state),
+            ],
           ),
         ),
-        bottomNavigationBar: _currentPath == null ? const _DashboardCLI() : null,
+        bottomNavigationBar: _currentPath == null
+            ? const _DashboardCLI()
+            : null,
       ),
     );
   }
 
-  Widget _buildSliverAppBar(bool isMobile) {
+  Widget _buildAppSliverAppBar(bool isMobile) {
     final showNav = _currentPath != null;
     final tokens = context.tokens;
 
-    return SliverAppBar(
-      backgroundColor: tokens.surface1.withValues(alpha: 0.8),
+    return AppSliverAppBar(
       floating: true,
-      elevation: 0,
       pinned: true,
       centerTitle: true,
       titleSpacing: 0,
@@ -141,52 +131,54 @@ class _ServerDashboardState extends State<ServerDashboard> {
               },
               child: Focus(
                 onKeyEvent: (_, ev) => handleTVSelectKey(ev, _goBack),
-                child: IconButton(
-                  tooltip: 'BACK',
-                  icon: Icon(LucideIcons.chevronLeft, size: 20, color: tokens.textPrimary),
-                  onPressed: _goBack,
-                ),
+                child: AppBackButton(onPressed: _goBack),
               ),
             )
           : null,
       automaticallyImplyLeading: false,
       title: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 800),
+        constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
         child: Padding(
           padding: EdgeInsets.only(left: showNav ? 0 : 16.0),
           child: Row(
             children: [
+              if (!showNav) ...[
+                AppBrandIcon(size: isMobile ? 28 : 36),
+                const SizedBox(width: DS.s12),
+              ],
               Expanded(
                 child: Text(
                   _title,
-                  style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: isMobile ? 20 : 24, fontWeight: FontWeight.w900, letterSpacing: 4),
+                  style: AppTextStyles.style(
+                    color: tokens.textPrimary,
+                    fontSize: isMobile ? 20 : 24,
+                    fontWeight: AppTextStyles.titleFontWeight,
+                    letterSpacing: -0.2,
+                  ),
                 ),
               ),
-              if (_currentPath == null)
-                IconButton(
-                  tooltip: 'SETTINGS',
-                  icon: Icon(LucideIcons.settings, color: tokens.textPrimary, size: 20),
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ThemeSettingsScreen())),
-                ),
             ],
           ),
         ),
       ),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(color: tokens.border.withValues(alpha: 0.15), height: 1),
-      ),
+      actions: [
+        IconButton(
+          tooltip: 'Appearance settings',
+          onPressed: () => context.push('/settings'),
+          icon: const Icon(LucideIcons.settings2),
+        ),
+        const SizedBox(width: DS.s8),
+      ],
     );
   }
 
   List<Widget> _buildBodySlivers(bool isMobile, ServerViewModel state) {
-    final tokens = context.tokens;
     if (_currentPath == null) {
       return [
         SliverToBoxAdapter(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 800),
+              constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
               child: ServerEngineCard(state: state, isMobile: isMobile),
             ),
           ),
@@ -196,77 +188,116 @@ class _ServerDashboardState extends State<ServerDashboard> {
         SliverToBoxAdapter(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 800),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-                  color: tokens.border.withValues(alpha: 0.15),
-                ),
-                child: GridView.count(
-                  crossAxisCount: 3,
-                  shrinkWrap: true,
-                  padding: EdgeInsets.zero,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 1,
-                  crossAxisSpacing: 1,
-                  children: [
-                    ServerQuickActionCard(
-                      label: 'TRAFFIC',
-                      icon: LucideIcons.barChart,
-                      onTap: () => _navigateTo('traffic'),
-                    ),
-                    ServerQuickActionCard(
-                      label: 'LIVE LOGS',
-                      icon: LucideIcons.terminal,
-                      onTap: () => _navigateTo('live_logs'),
-                    ),
-                    ServerQuickActionCard(
-                      label: 'HISTORY',
-                      icon: LucideIcons.history,
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const _ConnectionHistoryScreen())),
-                    ),
-                    ServerQuickActionCard(
-                      label: 'RELAY',
-                      icon: LucideIcons.smartphoneNfc,
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RemoteInputRelayScreen(isServerMode: true))),
-                    ),
-                    ServerQuickActionCard(
-                      label: 'REMOTE',
-                      icon: LucideIcons.gamepad2,
-                      onTap: () => showModalBottomSheet(
-                        context: context,
-                        backgroundColor: tokens.background,
-                        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                        isScrollControlled: true,
-                        builder: (_) => const UniversalRemoteSheet(),
+              constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
+              child: AppActionGrid(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  AppActionCard(
+                    label: 'Traffic',
+                    icon: LucideIcons.barChart,
+                    onTap: () => _navigateTo('traffic'),
+                  ),
+                  AppActionCard(
+                    label: 'Live logs',
+                    icon: LucideIcons.terminal,
+                    onTap: () => _navigateTo('live_logs'),
+                  ),
+                  AppActionCard(
+                    label: 'History',
+                    icon: LucideIcons.history,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const _ConnectionHistoryScreen(),
                       ),
                     ),
-                    ServerQuickActionCard(label: 'QR CODE', icon: LucideIcons.qrCode, onTap: () => _showQRSheet(context, state)),
-                    ServerQuickActionCard(label: 'PREVIEW', icon: LucideIcons.monitor, onTap: () => _showPreviewSheet(context, state)),
-                    ServerQuickActionCard(label: 'WEB UI', icon: LucideIcons.globe, onTap: () => launchUrl(Uri.parse('http://${state.serverIp}:8080'))),
-                    ServerQuickActionCard(label: 'STATIONS', icon: LucideIcons.radio, onTap: () => _navigateTo('stations')),
-                    ServerQuickActionCard(
-                      label: 'THEME',
-                      icon: LucideIcons.layout,
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ThemeSettingsScreen())),
+                  ),
+                  AppActionCard(
+                    label: 'Remote relay',
+                    icon: LucideIcons.smartphoneNfc,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const RemoteInputRelayScreen(isServerMode: true),
+                      ),
                     ),
-                    ServerQuickActionCard(label: 'FILTERS', icon: LucideIcons.slidersHorizontal, onTap: () => _navigateTo('filters')),
-                    ServerQuickActionCard(label: 'DIRECTORIES', icon: LucideIcons.folderOpen, onTap: () => _navigateTo('directories')),
-                    ServerQuickActionCard(
-                      label: 'REMOTE MEDIA',
-                      icon: LucideIcons.playCircle,
-                      onTap: () => _showRemoteMediaSheet(context, state),
+                  ),
+                  AppActionCard(
+                    label: 'Remote control',
+                    icon: LucideIcons.gamepad2,
+                    onTap: () => showAppBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (_) => const UniversalRemoteSheet(),
                     ),
-                    ServerQuickActionCard(label: 'CURATE', icon: LucideIcons.wand2, onTap: () => state.curateStation('all')),
-                    ServerQuickActionCard(label: 'SYNC ALL', icon: LucideIcons.refreshCw, onTap: () {
+                  ),
+                  AppActionCard(
+                    label: 'Pair with QR',
+                    icon: LucideIcons.qrCode,
+                    onTap: () => _showQRSheet(context, state),
+                  ),
+                  AppActionCard(
+                    label: 'Preview',
+                    icon: LucideIcons.monitor,
+                    onTap: () => _showPreviewSheet(context, state),
+                  ),
+                  AppActionCard(
+                    label: 'Open web app',
+                    icon: LucideIcons.globe,
+                    onTap: () =>
+                        launchUrl(Uri.parse('http://${state.serverIp}:8080')),
+                  ),
+                  AppActionCard(
+                    label: 'Stations',
+                    icon: LucideIcons.radio,
+                    onTap: () => _navigateTo('stations'),
+                  ),
+                  AppActionCard(
+                    label: 'Sharing options',
+                    icon: LucideIcons.slidersHorizontal,
+                    onTap: () => _navigateTo('filters'),
+                  ),
+                  AppActionCard(
+                    label: 'Shared folders',
+                    icon: LucideIcons.folderOpen,
+                    onTap: () => _navigateTo('directories'),
+                  ),
+                  AppActionCard(
+                    label: 'Media library',
+                    icon: LucideIcons.playCircle,
+                    onTap: () => _showRemoteMediaSheet(context, state),
+                  ),
+                  AppActionCard(
+                    label: 'Create station',
+                    icon: LucideIcons.wand2,
+                    onTap: () => state.curateStation('all'),
+                  ),
+                  AppActionCard(
+                    label: 'Sync clients',
+                    icon: LucideIcons.refreshCw,
+                    onTap: () {
                       if (state.activeSessions.isNotEmpty) {
                         final masterId = state.activeSessions.first.clientId;
-                        sl<HttpServerService>().broadcast(jsonEncode({'type': 'media', 'action': 'set_sync_mode', 'value': 'master', 'targetId': masterId}));
-                        sl<HttpServerService>().broadcast(jsonEncode({'type': 'media', 'action': 'set_sync_mode', 'value': 'slave'}));
+                        sl<HttpServerService>().broadcast(
+                          jsonEncode({
+                            'type': 'media',
+                            'action': 'set_sync_mode',
+                            'value': 'master',
+                            'targetId': masterId,
+                          }),
+                        );
+                        sl<HttpServerService>().broadcast(
+                          jsonEncode({
+                            'type': 'media',
+                            'action': 'set_sync_mode',
+                            'value': 'slave',
+                          }),
+                        );
                       }
-                    }),
-                  ],
-                ),
+                    },
+                  ),
+                ],
               ),
             ),
           ),
@@ -282,43 +313,46 @@ class _ServerDashboardState extends State<ServerDashboard> {
         SliverToBoxAdapter(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 800),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
-                  color: tokens.surface1.withValues(alpha: 0.4),
-                ),
+              constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: DS.s16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(LucideIcons.folderOpen, color: tokens.textPrimary, size: 16),
-                              const SizedBox(width: 12),
-                              Text('MOUNTED DIRECTORIES', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 11, letterSpacing: 1)),
-                            ],
-                          ),
-                          if (!kIsWeb) _MountButton(onMounted: (path) => state.addSharedFolder(path)),
-                        ],
-                      ),
+                    const AppSheetHeader(
+                      title: 'Choose folders to share',
+                      subtitle: 'Connected devices can browse media in these folders.',
+                      icon: LucideIcons.folderOpen,
                     ),
-                    if (state.sharedFolders.isEmpty)
+                    if (!kIsWeb)
                       Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Center(
-                          child: Text('NO DIRECTORIES MOUNTED', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: DS.s24,
                         ),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: SizedBox(
+                            width: 180,
+                            child: _MountButton(
+                              onMounted: state.addSharedFolder,
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (state.sharedFolders.isEmpty)
+                      const AppStateView(
+                        title: 'No shared folders yet',
+                        description: 'Add a folder to make its media available to connected devices.',
+                        icon: LucideIcons.folderOpen,
                       )
                     else
-                      ...state.sharedFolders.asMap().entries.map((e) => _DirRow(path: e.value, isLast: e.key == state.sharedFolders.length - 1, onRemove: () => state.removeSharedFolder(e.value))),
+                      ...state.sharedFolders.map(
+                        (path) => _DirRow(
+                          key: ValueKey(path),
+                          path: path,
+                          onRemove: () => state.removeSharedFolder(path),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -333,7 +367,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
         SliverToBoxAdapter(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 800),
+              constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
               child: _TrafficMonitor(state: state),
             ),
           ),
@@ -346,7 +380,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
         SliverToBoxAdapter(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 800),
+              constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
               child: _LiveLogViewer(state: state),
             ),
           ),
@@ -359,20 +393,45 @@ class _ServerDashboardState extends State<ServerDashboard> {
         SliverToBoxAdapter(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 800),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
-                  color: tokens.surface1.withValues(alpha: 0.4),
-                ),
+              constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: DS.s16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const _TerminalHeader(title: 'BROADCAST FILTERS', icon: LucideIcons.slidersHorizontal),
-                    _ToggleRow(label: 'VIDEO PAYLOADS', icon: LucideIcons.video, value: state.shareVideos, isMobile: isMobile, onChanged: state.setShareVideos),
-                    _ToggleRow(label: 'AUDIO PAYLOADS', icon: LucideIcons.music, value: state.shareMusic, isMobile: isMobile, onChanged: state.setShareMusic),
-                    _ToggleRow(label: 'IMAGE PAYLOADS', icon: LucideIcons.image, value: state.shareImages, isMobile: isMobile, onChanged: state.setShareImages),
-                    _ToggleRow(label: 'ZERO-TRACE MODE', icon: LucideIcons.ghost, value: state.zeroTrace, isMobile: isMobile, onChanged: state.setZeroTrace, isLast: true),
+                    const AppSheetHeader(
+                      title: 'Content and privacy',
+                      subtitle: 'Control the media and activity shared with connected devices.',
+                      icon: LucideIcons.slidersHorizontal,
+                    ),
+                    _ToggleRow(
+                      label: 'Share videos',
+                      icon: LucideIcons.video,
+                      value: state.shareVideos,
+                      isMobile: isMobile,
+                      onChanged: state.setShareVideos,
+                    ),
+                    _ToggleRow(
+                      label: 'Share music',
+                      icon: LucideIcons.music,
+                      value: state.shareMusic,
+                      isMobile: isMobile,
+                      onChanged: state.setShareMusic,
+                    ),
+                    _ToggleRow(
+                      label: 'Share images',
+                      icon: LucideIcons.image,
+                      value: state.shareImages,
+                      isMobile: isMobile,
+                      onChanged: state.setShareImages,
+                    ),
+                    _ToggleRow(
+                      label: 'Private mode',
+                      icon: LucideIcons.ghost,
+                      value: state.zeroTrace,
+                      isMobile: isMobile,
+                      onChanged: state.setZeroTrace,
+                    ),
                   ],
                 ),
               ),
@@ -385,144 +444,141 @@ class _ServerDashboardState extends State<ServerDashboard> {
     if (_currentPath == 'stations') {
       return [
         SliverToBoxAdapter(
-          child: _StationsTab(state: state, pad: 16, isMobile: isMobile),
+          child: _StationsTab(state: state, isMobile: isMobile),
         ),
       ];
     }
 
     if (_currentPath == 'history') {
-      return [
-        _buildHistorySliver(state),
-      ];
+      return [_buildHistorySliver()];
     }
 
     return [const SliverToBoxAdapter(child: Center(child: Text('ERROR')))];
   }
 
-  Widget _buildHistorySliver(ServerViewModel state) {
+  Widget _buildHistorySliver() {
     final history = sl<ServerRepository>().viewHistory;
     final tokens = context.tokens;
 
     if (history.isEmpty) {
-      return SliverFillRemaining(
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(LucideIcons.history, size: 64, color: tokens.textMuted),
-              const SizedBox(height: 24),
-              Text('NO VIEW HISTORY RECORDED', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 14, letterSpacing: 2)),
-            ],
-          ),
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: AppStateView(
+          title: 'No viewing history',
+          description: 'Playback history from connected devices will appear here.',
+          icon: LucideIcons.history,
         ),
       );
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: DS.s16, vertical: DS.s8),
       sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (ctx, i) {
-            final item = history[i];
-            final time = '${item.timestamp.hour.toString().padLeft(2, '0')}:${item.timestamp.minute.toString().padLeft(2, '0')}';
-            return Container(
-              margin: const EdgeInsets.only(bottom: 1),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: tokens.surface1,
-                border: Border.all(color: tokens.border.withValues(alpha: 0.1)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    color: tokens.surface2,
-                    child: Icon(item.media.isVideo ? LucideIcons.video : LucideIcons.music, size: 20, color: tokens.textSecondary),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(item.media.title.toUpperCase(), style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 4),
-                        Text('CLIENT: ${item.clientIp} // $time', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10)),
-                      ],
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final item = history[index];
+          final time =
+              '${item.timestamp.hour.toString().padLeft(2, '0')}:${item.timestamp.minute.toString().padLeft(2, '0')}';
+          return Padding(
+            padding: const EdgeInsets.only(bottom: DS.s12),
+            child: AppCard(
+              child: Padding(
+                padding: const EdgeInsets.all(DS.s16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: tokens.surface2,
+                        borderRadius: BorderRadius.circular(DS.radiusMd),
+                      ),
+                      child: Icon(
+                        item.media.isVideo
+                            ? LucideIcons.video
+                            : LucideIcons.music,
+                        size: 20,
+                        color: tokens.textSecondary,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: DS.s16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.media.title,
+                            style: AppTextStyles.bodyLarge.copyWith(
+                              color: tokens.textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: DS.s4),
+                          Text(
+                            '${item.clientIp} · $time',
+                            style: AppTextStyles.supporting.copyWith(
+                              color: tokens.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            );
-          },
-          childCount: history.length,
-        ),
+            ),
+          );
+        }, childCount: history.length),
       ),
     );
   }
 
   Widget _buildTelemetrySlivers(bool isMobile, ServerViewModel state) {
     final sessions = state.activeSessions;
-    final tokens = context.tokens;
     if (sessions.isEmpty) {
-      return SliverToBoxAdapter(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
-            child: Container(
-              padding: const EdgeInsets.all(40),
-              decoration: BoxDecoration(
-                border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-              ),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(LucideIcons.wifiHigh, size: 40, color: tokens.textMuted),
-                    const SizedBox(height: 12),
-                    Text('NO SIGNAL DETECTED', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 4)),
-                  ],
-                ),
-              ),
-            ),
-          ),
+      return const SliverToBoxAdapter(
+        child: AppStateView(
+          title: 'No connected devices',
+          description: 'Connect a device to see its live playback status here.',
+          icon: LucideIcons.wifi,
         ),
       );
     }
 
     return SliverPadding(
-      padding: EdgeInsets.symmetric(horizontal: DS.isDesktop(context) ? (MediaQuery.sizeOf(context).width - 800) / 2 : 0),
+      padding: EdgeInsets.symmetric(
+        horizontal: DS.isDesktop(context)
+            ? (MediaQuery.sizeOf(context).width - 800) / 2
+            : 0,
+      ),
       sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final session = sessions[index];
-            return DragTarget<String>(
-              onAcceptWithDetails: (details) {
-                final fromId = details.data;
-                final targetId = session.clientId;
-                if (fromId == targetId) return;
-                
-                state.teleport(fromId, targetId);
-              },
-              builder: (context, candidateData, rejectedData) => ServerTelemetryTile(
-                  session: session, 
-                  isMobile: isMobile, 
-                  isFirst: index == 0, 
-                  isTarget: candidateData.isNotEmpty
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final session = sessions[index];
+          return DragTarget<String>(
+            onAcceptWithDetails: (details) {
+              final fromId = details.data;
+              final targetId = session.clientId;
+              if (fromId == targetId) return;
+
+              state.teleport(fromId, targetId);
+            },
+            builder: (context, candidateData, rejectedData) =>
+                ServerTelemetryTile(
+                  session: session,
+                  isMobile: isMobile,
+                  isFirst: index == 0,
+                  isTarget: candidateData.isNotEmpty,
                 ),
-            );
-          },
-          childCount: sessions.length,
-        ),
+          );
+        }, childCount: sessions.length),
       ),
     );
   }
 
   void _showRemoteMediaSheet(BuildContext context, ServerViewModel state) {
-    final tokens = context.tokens;
-    showModalBottomSheet(
+    showAppBottomSheet(
       context: context,
-      backgroundColor: tokens.background,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       isScrollControlled: true,
       builder: (_) => _RemoteMediaView(state: state),
     );
@@ -530,47 +586,76 @@ class _ServerDashboardState extends State<ServerDashboard> {
 
   void _showQRSheet(BuildContext context, ServerViewModel state) {
     final tokens = context.tokens;
-    showModalBottomSheet(
+    showAppBottomSheet(
       context: context,
-      backgroundColor: tokens.background,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      builder: (_) => Container(
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-        ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(DS.s24, 0, DS.s24, DS.s24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('QUICK PAIRING', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 4)),
-            const SizedBox(height: 24),
+            const AppSheetHeader(
+              title: 'Pair a device',
+              subtitle: 'Scan this code to connect to your server securely.',
+              icon: LucideIcons.qrCode,
+            ),
+            const SizedBox(height: DS.s8),
             Container(
-              width: 200,
-              height: 200,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(border: Border.all(color: tokens.textPrimary, width: 1)),
-              child: Container(
+              width: 224,
+              height: 224,
+              padding: const EdgeInsets.all(DS.s12),
+              decoration: BoxDecoration(
                 color: Colors.white,
-                padding: const EdgeInsets.all(8),
+                borderRadius: BorderRadius.circular(DS.radiusLg),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(DS.radiusMd),
                 // [SECURITY B1] QR carries the pairing URL (token included) so
                 // both the web UI and Flutter clients can authenticate to the
                 // WS control plane after scanning.
-                child: QrImageView(data: state.pairingUrl, version: QrVersions.auto, backgroundColor: Colors.white),
+                child: QrImageView(
+                  data: state.pairingUrl,
+                  version: QrVersions.auto,
+                  backgroundColor: Colors.white,
+                ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: DS.s20),
+            Container(
+              constraints: const BoxConstraints(maxWidth: 420),
+              width: double.infinity,
+              padding: const EdgeInsets.all(DS.s16),
+              decoration: BoxDecoration(
+                color: tokens.surface2,
+                borderRadius: BorderRadius.circular(DS.radiusMd),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Pairing code',
+                    style: AppTextStyles.supporting.copyWith(
+                      color: tokens.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: DS.s4),
+                  SelectableText(
+                    state.pairingToken,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.heading(
+                      20,
+                      spacing: 1,
+                      color: tokens.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: DS.s8),
             Text(
-              'PAIRING CODE: ${state.pairingToken}',
-              style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 6),
+              'You can also enter the server address and this code manually.',
+              style: AppTextStyles.supporting.copyWith(color: tokens.textMuted),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'SCAN TO CONNECT NODE // OR TYPE IP + CODE',
-              style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: DS.s16),
           ],
         ),
       ),
@@ -578,32 +663,31 @@ class _ServerDashboardState extends State<ServerDashboard> {
   }
 
   void _showPreviewSheet(BuildContext context, ServerViewModel state) {
-    final tokens = context.tokens;
-    showModalBottomSheet(
+    showAppBottomSheet(
       context: context,
-      backgroundColor: tokens.background,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-      builder: (_) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 32),
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-        ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.only(bottom: DS.s16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('UI PREVIEW MODE', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 4)),
-            const SizedBox(height: 24),
-            ListTile(
-              leading: Icon(LucideIcons.smartphone, color: tokens.textPrimary),
-              title: Text('MOBILE INTERFACE', style: GoogleFonts.dmMono(color: tokens.textPrimary)),
+            const AppSheetHeader(
+              title: 'Choose an interface',
+              subtitle: 'Preview the layout for each device type.',
+              icon: LucideIcons.monitor,
+            ),
+            AppSheetOption(
+              title: 'Mobile interface',
+              subtitle: 'Touch-first layout for phones and tablets',
+              icon: LucideIcons.smartphone,
               onTap: () {
                 Navigator.pop(context);
                 _safePreview(context, false, state);
               },
             ),
-            ListTile(
-              leading: Icon(LucideIcons.tv, color: tokens.textPrimary),
-              title: Text('TV INTERFACE', style: GoogleFonts.dmMono(color: tokens.textPrimary)),
+            AppSheetOption(
+              title: 'TV interface',
+              subtitle: 'Remote-friendly layout with D-pad focus',
+              icon: LucideIcons.tv,
               onTap: () {
                 Navigator.pop(context);
                 _safePreview(context, true, state);
@@ -615,13 +699,20 @@ class _ServerDashboardState extends State<ServerDashboard> {
     );
   }
 
-  Future<void> _safePreview(BuildContext context, bool isTV, ServerViewModel state) async {
+  Future<void> _safePreview(
+    BuildContext context,
+    bool isTV,
+    ServerViewModel state,
+  ) async {
     final tokens = context.tokens;
-    unawaited(showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => Center(child: CircularProgressIndicator(color: tokens.accent)),
-    ));
+    unawaited(
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) =>
+            Center(child: CircularProgressIndicator(color: tokens.accent)),
+      ),
+    );
     // FIX: Use the DI singleton — every client screen watches this same instance.
     // The previous local ClientViewModel() connected an instance nobody else saw,
     // so preview always showed an empty library (and leaked its refresh timer).
@@ -635,7 +726,10 @@ class _ServerDashboardState extends State<ServerDashboard> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: tokens.error,
-            content: Text('PREVIEW CONNECTION FAILED: ${vm.connectionError ?? "UNKNOWN"}', style: GoogleFonts.dmMono(color: tokens.background)),
+            content: Text(
+              'PREVIEW CONNECTION FAILED: ${vm.connectionError ?? "UNKNOWN"}',
+              style: AppTextStyles.style(color: tokens.background),
+            ),
           ),
         );
       }
@@ -645,7 +739,10 @@ class _ServerDashboardState extends State<ServerDashboard> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: tokens.error,
-            content: Text('PREVIEW ERROR: $e', style: GoogleFonts.dmMono(color: tokens.background)),
+            content: Text(
+              'PREVIEW ERROR: $e',
+              style: AppTextStyles.style(color: tokens.background),
+            ),
           ),
         );
       }
@@ -666,25 +763,45 @@ class _RemoteMediaView extends StatefulWidget {
 }
 
 class _RemoteMediaViewState extends State<_RemoteMediaView> {
+  late List<MediaItem> _items;
   String _query = '';
   String? _targetId;
 
+  @override
+  void initState() {
+    super.initState();
+    _items = widget.state.getLocalMediaItems();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RemoteMediaView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.state != widget.state) {
+      _items = widget.state.getLocalMediaItems();
+    }
+  }
+
   void _play(MediaItem item) {
-    sl<HttpServerService>().broadcast(jsonEncode({
-      'type': 'media',
-      'action': 'play',
-      'value': item.toJson(),
-      if (_targetId != null) 'targetId': _targetId,
-    }));
+    sl<HttpServerService>().broadcast(
+      jsonEncode({
+        'type': 'media',
+        'action': 'play',
+        'value': item.toJson(),
+        if (_targetId != null) 'targetId': _targetId,
+      }),
+    );
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           'BROADCASTING: ${item.title.toUpperCase()}${_targetId != null ? " TO $_targetId" : ""}',
-          style: GoogleFonts.dmMono(color: context.tokens.background, fontWeight: FontWeight.bold),
+          style: AppTextStyles.style(
+            color: context.tokens.background,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         backgroundColor: context.tokens.accent,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DS.radius(12))),
       ),
     );
   }
@@ -692,80 +809,99 @@ class _RemoteMediaViewState extends State<_RemoteMediaView> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final items = widget.state.getLocalMediaItems();
-    final filtered = _query.isEmpty ? items : items.where((i) => i.title.toLowerCase().contains(_query.toLowerCase())).toList();
+    final query = _query.toLowerCase();
+    final filtered = query.isEmpty
+        ? _items
+        : _items
+              .where((item) => item.title.toLowerCase().contains(query))
+              .toList();
 
     return Container(
       height: MediaQuery.sizeOf(context).height * 0.85,
-      decoration: BoxDecoration(
-        color: tokens.background,
-        border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-      ),
+      color: tokens.surface1,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-            child: Row(
-              children: [
-                Icon(LucideIcons.playCircle, color: tokens.textPrimary, size: 20),
-                const SizedBox(width: 16),
-                Text('REMOTE MEDIA SELECT', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                const Spacer(),
-                IconButton(icon: const Icon(LucideIcons.x), onPressed: () => Navigator.pop(context)),
-              ],
+          AppSheetHeader(
+            title: 'Choose media',
+            subtitle: 'Select content to play on a connected device.',
+            icon: LucideIcons.playCircle,
+            trailing: IconButton(
+              tooltip: 'Close media selector',
+              icon: const Icon(LucideIcons.x),
+              onPressed: () => Navigator.pop(context),
             ),
           ),
 
           // Target Selector
           if (widget.state.activeSessions.isNotEmpty)
-            Container(
+            SizedBox(
               height: 60,
-              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
                   ChoiceChip(
-                    label: Text('ALL NODES', style: GoogleFonts.dmMono(fontSize: 10)),
+                    label: Text(
+                      'ALL NODES',
+                      style: AppTextStyles.caption.copyWith(),
+                    ),
                     selected: _targetId == null,
                     onSelected: (v) => setState(() => _targetId = null),
                     backgroundColor: tokens.surface1,
                     selectedColor: tokens.textPrimary,
-                    labelStyle: TextStyle(color: _targetId == null ? tokens.background : tokens.textPrimary),
-                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                    labelStyle: TextStyle(
+                      color: _targetId == null
+                          ? tokens.background
+                          : tokens.textPrimary,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(DS.radius(12)),
+                    ),
                   ),
                   const SizedBox(width: 8),
-                  ...widget.state.activeSessions.map((s) => Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(s.clientId.toUpperCase(), style: GoogleFonts.dmMono(fontSize: 10)),
-                          selected: _targetId == s.clientId,
-                          onSelected: (v) => setState(() => _targetId = v ? s.clientId : null),
-                          backgroundColor: tokens.surface1,
-                          selectedColor: tokens.textPrimary,
-                          labelStyle: TextStyle(color: _targetId == s.clientId ? tokens.background : tokens.textPrimary),
-                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+                  ...widget.state.activeSessions.map(
+                    (s) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(
+                          s.clientId.toUpperCase(),
+                          style: AppTextStyles.caption.copyWith(),
                         ),
-                      )),
+                        selected: _targetId == s.clientId,
+                        onSelected: (v) =>
+                            setState(() => _targetId = v ? s.clientId : null),
+                        backgroundColor: tokens.surface1,
+                        selectedColor: tokens.textPrimary,
+                        labelStyle: TextStyle(
+                          color: _targetId == s.clientId
+                              ? tokens.background
+                              : tokens.textPrimary,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(DS.radius(12)),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
 
           // Search
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(DS.s16, DS.s8, DS.s16, DS.s16),
             child: TextField(
               onChanged: (v) => setState(() => _query = v),
-              style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14),
+              style: AppTextStyles.body.copyWith(color: tokens.textPrimary),
               decoration: InputDecoration(
                 hintText: 'SEARCH MEDIA...',
-                hintStyle: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 14),
-                prefixIcon: Icon(LucideIcons.search, color: tokens.textMuted, size: 18),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: tokens.border.withValues(alpha: 0.15)), borderRadius: BorderRadius.zero),
-                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: tokens.textPrimary), borderRadius: BorderRadius.zero),
+                hintStyle: AppTextStyles.body.copyWith(color: tokens.textMuted),
+                prefixIcon: Icon(
+                  LucideIcons.search,
+                  color: tokens.textMuted,
+                  size: 18,
+                ),
               ),
             ),
           ),
@@ -773,20 +909,26 @@ class _RemoteMediaViewState extends State<_RemoteMediaView> {
           // List
           Expanded(
             child: filtered.isEmpty
-                ? Center(child: Text('NO MEDIA MATCHES SIGNAL', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 2)))
+                ? Center(
+                    child: Text(
+                      'NO MEDIA MATCHES SIGNAL',
+                      style: AppTextStyles.caption.copyWith(
+                        color: tokens.textMuted,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  )
                 : ListView.builder(
+                    padding: const EdgeInsets.only(bottom: DS.s24),
                     itemCount: filtered.length,
                     itemBuilder: (_, i) {
                       final item = filtered[i];
-                      return Material(
-                        color: Colors.transparent,
-                        child: ListTile(
-                          dense: true,
-                          leading: Icon(item.isVideo ? LucideIcons.video : LucideIcons.music, color: tokens.textPrimary, size: 18),
-                          title: Text(item.title.toUpperCase(), style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          onTap: () => _play(item),
-                          trailing: Icon(LucideIcons.play, color: tokens.accent, size: 16),
-                        ),
+                      return AppListTileCard(
+                        title: item.title,
+                        subtitle: item.isVideo ? 'Video' : 'Audio',
+                        icon: item.isVideo ? LucideIcons.video : LucideIcons.music,
+                        trailingIcon: LucideIcons.play,
+                        onTap: () => _play(item),
                       );
                     },
                   ),
@@ -802,71 +944,150 @@ class UniversalRemoteSheet extends StatelessWidget {
   final String? targetId;
 
   void _cmd(BuildContext context, String type, String action, [dynamic value]) {
-    context.read<ServerViewModel>().broadcastCommand(type, action, value: value, targetId: targetId);
+    context.read<ServerViewModel>().broadcastCommand(
+      type,
+      action,
+      value: value,
+      targetId: targetId,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: tokens.background,
-        border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-      ),
+    return SingleChildScrollView(
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: tokens.border.withValues(alpha: 0.15),
+          constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppSheetHeader(
+                title: 'Remote control',
+                subtitle: targetId == null
+                    ? 'Control playback and navigation on connected devices.'
+                    : 'Control ${targetId!.toUpperCase()}.',
+                icon: LucideIcons.gamepad2,
+              ),
+              AppActionGrid(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  // Navigation Cluster
+                  AppActionCard(
+                    label: 'BACK',
+                    icon: LucideIcons.chevronLeft,
+                    onTap: () => _cmd(context, 'nav', 'back'),
                   ),
-                  child: GridView.count(
-                    crossAxisCount: 3,
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 1,
-                    crossAxisSpacing: 1,
-                    children: [
-                      // Navigation Cluster
-                      ServerQuickActionCard(label: 'BACK', icon: LucideIcons.chevronLeft, onTap: () => _cmd(context, 'nav', 'back')),
-                      ServerQuickActionCard(label: 'UP', icon: LucideIcons.chevronUp, onTap: () => _cmd(context, 'nav', 'up')),
-                      ServerQuickActionCard(label: 'HOME', icon: LucideIcons.home, onTap: () => _cmd(context, 'nav', 'home')),
-            
-                      ServerQuickActionCard(label: 'LEFT', icon: LucideIcons.chevronLeft, onTap: () => _cmd(context, 'nav', 'left')),
-                      ServerQuickActionCard(label: 'ENTER', icon: LucideIcons.circle, onTap: () => _cmd(context, 'nav', 'enter')),
-                      ServerQuickActionCard(label: 'RIGHT', icon: LucideIcons.chevronRight, onTap: () => _cmd(context, 'nav', 'right')),
-            
-                      ServerQuickActionCard(label: 'INFO', icon: LucideIcons.info, onTap: () => _cmd(context, 'nav', 'info')),
-                      ServerQuickActionCard(label: 'DOWN', icon: LucideIcons.chevronDown, onTap: () => _cmd(context, 'nav', 'down')),
-                      ServerQuickActionCard(label: 'MENU', icon: LucideIcons.menu, onTap: () => _cmd(context, 'nav', 'menu')),
-
-                      // Media Cluster
-                      ServerQuickActionCard(label: 'PREV', icon: LucideIcons.skipBack, onTap: () => _cmd(context, 'media', 'prev')),
-                      ServerQuickActionCard(label: 'PLAY/PAUSE', icon: LucideIcons.play, onTap: () => _cmd(context, 'media', 'toggle_play')),
-                      ServerQuickActionCard(label: 'NEXT', icon: LucideIcons.skipForward, onTap: () => _cmd(context, 'media', 'next')),
-            
-                      ServerQuickActionCard(label: '-10S', icon: LucideIcons.rewind, onTap: () => _cmd(context, 'media', 'seek', -10)),
-                      ServerQuickActionCard(label: 'STOP', icon: LucideIcons.square, onTap: () => _cmd(context, 'media', 'stop')),
-                      ServerQuickActionCard(label: '+10S', icon: LucideIcons.fastForward, onTap: () => _cmd(context, 'media', 'seek', 10)),
-
-                      // System Cluster
-                      ServerQuickActionCard(label: 'VOL UP', icon: LucideIcons.volume2, onTap: () => _cmd(context, 'system', 'volume_up')),
-                      ServerQuickActionCard(label: 'MUTE', icon: LucideIcons.volumeX, onTap: () => _cmd(context, 'system', 'mute')),
-                      ServerQuickActionCard(label: 'SHUTDOWN', icon: LucideIcons.power, onTap: () => _cmd(context, 'system', 'shutdown')),
-            
-                      ServerQuickActionCard(label: 'VOL DOWN', icon: LucideIcons.volume1, onTap: () => _cmd(context, 'system', 'volume_down')),
-                      ServerQuickActionCard(label: 'SYNC ALL', icon: LucideIcons.refreshCw, onTap: () => _cmd(context, 'media', 'sync_all')),
-                      ServerQuickActionCard(label: 'KILL ALL', icon: LucideIcons.skull, onTap: () => _cmd(context, 'system', 'shutdown_all')),
-                    ],
+                  AppActionCard(
+                    label: 'UP',
+                    icon: LucideIcons.chevronUp,
+                    onTap: () => _cmd(context, 'nav', 'up'),
                   ),
-                ),
-              ],
-            ),
+                  AppActionCard(
+                    label: 'HOME',
+                    icon: LucideIcons.home,
+                    onTap: () => _cmd(context, 'nav', 'home'),
+                  ),
+
+                  AppActionCard(
+                    label: 'LEFT',
+                    icon: LucideIcons.chevronLeft,
+                    onTap: () => _cmd(context, 'nav', 'left'),
+                  ),
+                  AppActionCard(
+                    label: 'ENTER',
+                    icon: LucideIcons.circle,
+                    onTap: () => _cmd(context, 'nav', 'enter'),
+                  ),
+                  AppActionCard(
+                    label: 'RIGHT',
+                    icon: LucideIcons.chevronRight,
+                    onTap: () => _cmd(context, 'nav', 'right'),
+                  ),
+
+                  AppActionCard(
+                    label: 'INFO',
+                    icon: LucideIcons.info,
+                    onTap: () => _cmd(context, 'nav', 'info'),
+                  ),
+                  AppActionCard(
+                    label: 'DOWN',
+                    icon: LucideIcons.chevronDown,
+                    onTap: () => _cmd(context, 'nav', 'down'),
+                  ),
+                  AppActionCard(
+                    label: 'MENU',
+                    icon: LucideIcons.menu,
+                    onTap: () => _cmd(context, 'nav', 'menu'),
+                  ),
+
+                  // Media Cluster
+                  AppActionCard(
+                    label: 'PREV',
+                    icon: LucideIcons.skipBack,
+                    onTap: () => _cmd(context, 'media', 'prev'),
+                  ),
+                  AppActionCard(
+                    label: 'PLAY/PAUSE',
+                    icon: LucideIcons.play,
+                    onTap: () => _cmd(context, 'media', 'toggle_play'),
+                  ),
+                  AppActionCard(
+                    label: 'NEXT',
+                    icon: LucideIcons.skipForward,
+                    onTap: () => _cmd(context, 'media', 'next'),
+                  ),
+
+                  AppActionCard(
+                    label: '-10S',
+                    icon: LucideIcons.rewind,
+                    onTap: () => _cmd(context, 'media', 'seek', -10),
+                  ),
+                  AppActionCard(
+                    label: 'STOP',
+                    icon: LucideIcons.square,
+                    onTap: () => _cmd(context, 'media', 'stop'),
+                  ),
+                  AppActionCard(
+                    label: '+10S',
+                    icon: LucideIcons.fastForward,
+                    onTap: () => _cmd(context, 'media', 'seek', 10),
+                  ),
+
+                  // System Cluster
+                  AppActionCard(
+                    label: 'VOL UP',
+                    icon: LucideIcons.volume2,
+                    onTap: () => _cmd(context, 'system', 'volume_up'),
+                  ),
+                  AppActionCard(
+                    label: 'MUTE',
+                    icon: LucideIcons.volumeX,
+                    onTap: () => _cmd(context, 'system', 'mute'),
+                  ),
+                  AppActionCard(
+                    label: 'SHUTDOWN',
+                    icon: LucideIcons.power,
+                    onTap: () => _cmd(context, 'system', 'shutdown'),
+                  ),
+
+                  AppActionCard(
+                    label: 'VOL DOWN',
+                    icon: LucideIcons.volume1,
+                    onTap: () => _cmd(context, 'system', 'volume_down'),
+                  ),
+                  AppActionCard(
+                    label: 'SYNC ALL',
+                    icon: LucideIcons.refreshCw,
+                    onTap: () => _cmd(context, 'media', 'sync_all'),
+                  ),
+                  AppActionCard(
+                    label: 'KILL ALL',
+                    icon: LucideIcons.skull,
+                    onTap: () => _cmd(context, 'system', 'shutdown_all'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -905,11 +1126,15 @@ class _DashboardCLIState extends State<_DashboardCLI> {
       case '/play':
         final q = parts.skip(1).join(' ');
         vm.broadcastCommand('media', 'play', value: q, targetId: targetId);
-        _log.add('MSG: BROADCASTING PLAY REQUEST [$q]${targetId != null ? ' TO [$targetId]' : ''}');
+        _log.add(
+          'MSG: BROADCASTING PLAY REQUEST [$q]${targetId != null ? ' TO [$targetId]' : ''}',
+        );
         break;
       case '/stop':
         vm.broadcastCommand('media', 'stop', targetId: targetId);
-        _log.add('MSG: BROADCASTING STOP${targetId != null ? ' TO [$targetId]' : ''}');
+        _log.add(
+          'MSG: BROADCASTING STOP${targetId != null ? ' TO [$targetId]' : ''}',
+        );
         break;
       case '/kill':
         if (parts.length > 1 && parts[1] == '--all') {
@@ -917,18 +1142,27 @@ class _DashboardCLIState extends State<_DashboardCLI> {
           _log.add('MSG: BROADCASTING SHUTDOWN ALL');
         } else {
           vm.broadcastCommand('system', 'shutdown', targetId: targetId);
-          _log.add('MSG: BROADCASTING SHUTDOWN${targetId != null ? ' TO [$targetId]' : ''}');
+          _log.add(
+            'MSG: BROADCASTING SHUTDOWN${targetId != null ? ' TO [$targetId]' : ''}',
+          );
         }
         break;
       case '/home':
         vm.broadcastCommand('nav', 'home', targetId: targetId);
-        _log.add('MSG: BROADCASTING HOME${targetId != null ? ' TO [$targetId]' : ''}');
+        _log.add(
+          'MSG: BROADCASTING HOME${targetId != null ? ' TO [$targetId]' : ''}',
+        );
         break;
       case '/sync':
         if (targetId != null) {
           vm
             ..broadcastCommand('media', 'set_sync_mode', value: 'slave')
-            ..broadcastCommand('media', 'set_sync_mode', value: 'master', targetId: targetId);
+            ..broadcastCommand(
+              'media',
+              'set_sync_mode',
+              value: 'master',
+              targetId: targetId,
+            );
           _log.add('MSG: SYNC MODE ENABLED. MASTER: [$targetId]');
         } else {
           _log.add('ERR: SYNC REQUIRES MASTER NODE [--to=clientId]');
@@ -975,7 +1209,9 @@ class _DashboardCLIState extends State<_DashboardCLI> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: tokens.surface1.withValues(alpha: 0.95),
-        border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+        border: Border(
+          top: BorderSide(color: tokens.border.withValues(alpha: 0.15)),
+        ),
       ),
       child: SafeArea(
         top: false,
@@ -983,19 +1219,43 @@ class _DashboardCLIState extends State<_DashboardCLI> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ..._log.map((l) => Padding(
-                  padding: const EdgeInsets.only(bottom: 2),
-                  child: Text(l, style: GoogleFonts.dmMono(color: l.startsWith('ERR') ? tokens.error : tokens.textMuted, fontSize: 9)),
-                )),
+            ..._log.map(
+              (l) => Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(
+                  l,
+                  style: AppTextStyles.caption.copyWith(
+                    color: l.startsWith('ERR')
+                        ? tokens.error
+                        : tokens.textMuted,
+                  ),
+                ),
+              ),
+            ),
             Row(
               children: [
-                Text('CMD>', style: GoogleFonts.dmMono(color: tokens.accent, fontSize: 12, fontWeight: FontWeight.bold)),
+                Text(
+                  'CMD>',
+                  style: AppTextStyles.caption.copyWith(
+                    color: tokens.accent,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: _ctrl,
-                    style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 12),
-                    decoration: const InputDecoration(border: InputBorder.none, isDense: true, hintText: 'TYPE COMMAND...', hintStyle: TextStyle(fontSize: 10)),
+                    style: AppTextStyles.caption.copyWith(
+                      color: tokens.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      hintText: 'TYPE COMMAND...',
+                      hintStyle: AppTextStyles.caption.copyWith(
+                        color: tokens.textMuted,
+                      ),
+                    ),
                     onSubmitted: _exec,
                   ),
                 ),
@@ -1012,74 +1272,102 @@ class _ConnectionHistoryScreen extends StatefulWidget {
   const _ConnectionHistoryScreen();
 
   @override
-  State<_ConnectionHistoryScreen> createState() => _ConnectionHistoryScreenState();
+  State<_ConnectionHistoryScreen> createState() =>
+      _ConnectionHistoryScreenState();
 }
 
 class _ConnectionHistoryScreenState extends State<_ConnectionHistoryScreen> {
   String _query = '';
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<ServerViewModel>();
-    final all = state.connectionHistory.where((c) => c.ip.contains(_query)).toList();
+    final records = state.connectionHistory
+        .where((c) => c.ip.contains(_query))
+        .toList();
     final isMobile = DS.isMobile(context);
-    final tokens = context.tokens;
 
-    return Scaffold(
-      backgroundColor: tokens.background,
+    return AppScaffold(
       body: SafeArea(
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            _buildAppBar(isMobile),
+            _buildAppBar(),
             SliverToBoxAdapter(
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 800),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildSearchField(),
-                      ...all.map((c) => _HistoryCard(record: c, isMobile: isMobile)),
-                      if (all.isEmpty)
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 80),
-                            child: Column(
-                              children: [
-                                Icon(LucideIcons.history, size: 48, color: tokens.textMuted),
-                                const SizedBox(height: 16),
-                                Text('NO LOGS FOUND', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 12, letterSpacing: 4)),
-                              ],
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 100),
-                    ],
+                  constraints: const BoxConstraints(
+                    maxWidth: DS.contentMaxWidth,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      DS.s16,
+                      DS.s8,
+                      DS.s16,
+                      0,
+                    ),
+                    child: _buildSearchField(),
                   ),
                 ),
               ),
             ),
+            if (records.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: AppStateView(
+                  title: _query.isEmpty
+                      ? 'No connection history'
+                      : 'No matching connections',
+                  description: _query.isEmpty
+                      ? 'Completed connections will appear here.'
+                      : 'Try another IP address or clear your search.',
+                  icon: LucideIcons.history,
+                  actionLabel: _query.isEmpty ? null : 'Clear search',
+                  onAction: _query.isEmpty
+                      ? null
+                      : () {
+                          _searchController.clear();
+                          setState(() => _query = '');
+                        },
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.only(bottom: DS.s32),
+                sliver: SliverList.builder(
+                  itemCount: records.length,
+                  itemBuilder: (context, index) => _HistoryCard(
+                    record: records[index],
+                    isMobile: isMobile,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAppBar(bool isMobile) {
+  Widget _buildAppBar() {
     final tokens = context.tokens;
-    return SliverAppBar(
-      backgroundColor: tokens.surface1,
+    return AppSliverAppBar(
       floating: true,
       pinned: true,
       title: Text(
-        'SYSTEM LOGS',
-        style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: isMobile ? 20 : 24, fontWeight: FontWeight.w900, letterSpacing: 4),
+        'Connection history',
+        style: AppTextStyles.titleLarge.copyWith(
+          color: tokens.textPrimary,
+          fontWeight: AppTextStyles.titleFontWeight,
+        ),
       ),
-      leading: IconButton(
-        icon: const Icon(LucideIcons.chevronLeft),
-        onPressed: () => Navigator.pop(context),
-      ),
+      leading: AppBackButton(onPressed: () => Navigator.pop(context)),
     );
   }
 
@@ -1087,94 +1375,86 @@ class _ConnectionHistoryScreenState extends State<_ConnectionHistoryScreen> {
     final tokens = context.tokens;
     return Focus(
       onFocusChange: (v) => handleTVFocusScroll(v, context),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: tokens.surface1,
-          border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-        ),
-        child: Row(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                '>',
-                style: GoogleFonts.dmMono(color: tokens.textMuted),
-              ),
-            ),
-            Expanded(
-              child: TextField(
-                style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 12),
-                decoration: const InputDecoration(
-                  hintText: 'QUERY IP...',
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(vertical: 20),
+      child: TextField(
+        style: AppTextStyles.body.copyWith(color: tokens.textPrimary),
+        decoration: InputDecoration(
+          hintText: 'Search by IP address',
+          prefixIcon: const Icon(LucideIcons.search),
+          suffixIcon: _query.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'Clear search',
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _query = '');
+                  },
+                  icon: const Icon(LucideIcons.x),
                 ),
-                onChanged: (v) => setState(() => _query = v),
-              ),
-            ),
-          ],
         ),
+        controller: _searchController,
+        onChanged: (value) => setState(() => _query = value.trim()),
       ),
     );
   }
 }
 
-class _HistoryCard extends StatefulWidget {
+class _HistoryCard extends StatelessWidget {
   const _HistoryCard({required this.record, required this.isMobile});
   final ConnectionRecord record;
   final bool isMobile;
 
   @override
-  State<_HistoryCard> createState() => _HistoryCardState();
-}
-
-class _HistoryCardState extends State<_HistoryCard> {
-  bool _isFocused = false;
-
-  @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    return Focus(
-      onFocusChange: (v) => setState(() => _isFocused = v),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          color: _isFocused ? tokens.textPrimary.withValues(alpha: 0.05) : tokens.surface1,
-          border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: DS.s16, vertical: 4),
+      child: AppCard(
         child: Padding(
-          padding: EdgeInsets.all(widget.isMobile ? 16 : 20),
+          padding: EdgeInsets.all(isMobile ? DS.s16 : DS.s20),
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
                   color: tokens.surface2,
-                  border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
+                  borderRadius: BorderRadius.circular(DS.radiusMd),
                 ),
-                child: Icon(LucideIcons.hardDrive, color: tokens.textSecondary, size: 18),
+                child: Icon(
+                  LucideIcons.hardDrive,
+                  color: tokens.textSecondary,
+                  size: 20,
+                ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: DS.s16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.record.ip,
-                      style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+                      record.ip,
+                      style: AppTextStyles.bodyLarge.copyWith(
+                        color: tokens.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
+                    const SizedBox(height: DS.s4),
                     Text(
-                      '${widget.record.network.toUpperCase()} // ${widget.record.time.hour}:${widget.record.time.minute}',
-                      style: GoogleFonts.dmMono(fontSize: 9, color: tokens.textMuted),
+                      '${record.network} · ${record.time.hour.toString().padLeft(2, '0')}:${record.time.minute.toString().padLeft(2, '0')}',
+                      style: AppTextStyles.supporting.copyWith(
+                        color: tokens.textMuted,
+                      ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: DS.s12),
               Text(
-                '${widget.record.transferGB.toStringAsFixed(1)} GB',
-                style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+                '${record.transferGB.toStringAsFixed(1)} GB',
+                style: AppTextStyles.bodyLarge.copyWith(
+                  color: tokens.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -1236,102 +1516,110 @@ class _FolderPickerScreenState extends State<FolderPickerScreen> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    return Scaffold(
-      backgroundColor: tokens.background,
+    final parentPath = Directory(_path).parent.path;
+    final canGoUp = parentPath != _path;
+    return AppScaffold(
       appBar: AppBar(
-        backgroundColor: tokens.surface1,
-        title: Text(_path, style: GoogleFonts.dmMono(fontSize: 12)),
+        leading: AppBackButton(onPressed: () => Navigator.pop(context)),
+        title: Text(
+          'Choose folder',
+          style: AppTextStyles.titleLarge.copyWith(
+            color: tokens.textPrimary,
+            fontWeight: AppTextStyles.titleFontWeight,
+          ),
+        ),
         actions: [
-          TextButton(
+          IconButton(
+            tooltip: 'Add this folder',
             onPressed: () => Navigator.pop(context, _path),
-            child: Text('MOUNT', style: GoogleFonts.dmMono(color: tokens.accent, fontWeight: FontWeight.bold)),
+            icon: const Icon(LucideIcons.folderPlus),
           ),
         ],
       ),
       body: Column(
         children: [
-          ListTile(
-            title: Text('LEVEL UP', style: GoogleFonts.dmMono(color: tokens.textPrimary)),
-            subtitle: Text('RETURN TO PARENT SIGNAL', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 8)),
-            leading: Icon(LucideIcons.arrowUpLeft, color: tokens.textPrimary),
-            onTap: () {
-              final parent = Directory(_path).parent;
-              if (parent.path != _path) {
-                _path = parent.path;
-                _load();
-              }
-            },
+          Padding(
+            padding: const EdgeInsets.fromLTRB(DS.s16, DS.s8, DS.s16, 0),
+            child: AppCard(
+              child: Padding(
+                padding: const EdgeInsets.all(DS.s16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Current folder',
+                      style: AppTextStyles.bodyLarge.copyWith(
+                        color: tokens.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: DS.s4),
+                    SelectableText(
+                      _path,
+                      style: AppTextStyles.supporting.copyWith(
+                        color: tokens.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          AppListTileCard(
+            title: 'Parent folder',
+            subtitle: canGoUp ? parentPath : 'You are at the top level',
+            icon: LucideIcons.arrowUpLeft,
+            trailingIcon: null,
+            onTap: canGoUp
+                ? () {
+                    _path = parentPath;
+                    _load();
+                  }
+                : () {},
           ),
           if (_error != null)
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text('ACCESS_ERROR: $_error', style: GoogleFonts.dmMono(color: tokens.error, fontSize: 10)),
+            Expanded(
+              child: AppStateView(
+                kind: AppStateKind.error,
+                title: 'Unable to read this folder',
+                description: _error,
+                icon: LucideIcons.folderX,
+                actionLabel: 'Try again',
+                onAction: _load,
+              ),
             ),
-          Expanded(
-            child: _loading
-                ? Center(child: CircularProgressIndicator(color: tokens.accent))
-                : _dirs.isEmpty && _error == null
-                    ? Center(child: Text('NO SUBDIRECTORIES FOUND', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10)))
-                    : ListView.builder(
-                        itemCount: _dirs.length,
-                        itemBuilder: (_, i) {
-                          final name = p.basename(_dirs[i]);
-                          return ListTile(
-                            title: Text(name.toUpperCase(), style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14)),
-                            subtitle: Text(_dirs[i], style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 8)),
-                            leading: Icon(LucideIcons.folder, color: tokens.textMuted, size: 18),
-                            onTap: () {
-                              _path = _dirs[i];
-                              _load();
-                            },
-                          );
-                        },
-                      ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TerminalHeader extends StatelessWidget {
-  const _TerminalHeader({required this.title, required this.icon});
-  final String title;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Container(
-      decoration: BoxDecoration(
-        color: tokens.surface2.withValues(alpha: 0.5),
-        border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              border: Border.all(color: tokens.textMuted.withValues(alpha: 0.3)),
+          if (_error == null)
+            Expanded(
+              child: _loading
+                  ? const AppStateView(
+                      kind: AppStateKind.loading,
+                      title: 'Loading folders',
+                      description: 'Reading available folders…',
+                    )
+                  : _dirs.isEmpty
+                  ? const AppStateView(
+                      title: 'No subfolders found',
+                      description: 'This folder does not contain any subfolders.',
+                      icon: LucideIcons.folderOpen,
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.only(bottom: DS.s24),
+                      itemCount: _dirs.length,
+                      itemBuilder: (_, index) {
+                        final path = _dirs[index];
+                        return AppListTileCard(
+                          title: p.basename(path),
+                          subtitle: path,
+                          icon: LucideIcons.folder,
+                          trailingIcon: null,
+                          onTap: () {
+                            _path = path;
+                            _load();
+                          },
+                        );
+                      },
+                    ),
             ),
-            child: Icon(icon, color: tokens.textMuted, size: 12),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            title,
-            style: GoogleFonts.dmMono(
-              color: tokens.textPrimary,
-              fontSize: 10,
-              letterSpacing: 2,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            'LOG_0x${(title.hashCode % 0xFFFF).toRadixString(16).padLeft(4, '0').toUpperCase()}',
-            style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 8),
-          ),
         ],
       ),
     );
@@ -1339,20 +1627,17 @@ class _TerminalHeader extends StatelessWidget {
 }
 
 class _ToggleRow extends StatefulWidget {
-
   const _ToggleRow({
     required this.label,
     required this.icon,
     required this.value,
     required this.isMobile,
     required this.onChanged,
-    this.isLast = false,
   });
   final String label;
   final IconData icon;
   final bool value;
   final bool isMobile;
-  final bool isLast;
   final Function(bool) onChanged;
 
   @override
@@ -1365,42 +1650,73 @@ class _ToggleRowState extends State<_ToggleRow> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    return Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            widget.onChanged(!widget.value);
-            return null;
-          },
-        ),
-      },
-      child: Focus(
-        onFocusChange: (v) {
-          setState(() => _isFocused = v);
-          handleTVFocusScroll(v, context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: DS.s24,
+        vertical: DS.s4,
+      ),
+      child: Actions(
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              widget.onChanged(!widget.value);
+              return null;
+            },
+          ),
         },
-        onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => widget.onChanged(!widget.value)),
-        child: InkWell(
-          onTap: () => widget.onChanged(!widget.value),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            decoration: BoxDecoration(
-              color: _isFocused ? tokens.textPrimary : Colors.transparent,
-              border: widget.isLast ? null : Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Row(
-              children: [
-                Icon(widget.icon, color: _isFocused ? tokens.background : (widget.value ? tokens.textPrimary : tokens.textMuted), size: 18),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    widget.label,
-                    style: GoogleFonts.dmMono(fontSize: 12, letterSpacing: 1, color: _isFocused ? tokens.background : (widget.value ? tokens.textPrimary : tokens.textMuted)),
+        child: Focus(
+          onFocusChange: (v) {
+            setState(() => _isFocused = v);
+            handleTVFocusScroll(v, context);
+          },
+          onKeyEvent: (_, ev) =>
+              handleTVSelectKey(ev, () => widget.onChanged(!widget.value)),
+          child: Semantics(
+            container: true,
+            label: widget.label,
+            checked: widget.value,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(DS.radiusMd),
+              onTap: () => widget.onChanged(!widget.value),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                decoration: BoxDecoration(
+                  color: _isFocused
+                      ? tokens.surface3
+                      : tokens.surface1.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(DS.radiusMd),
+                  border: Border.all(
+                    color: _isFocused
+                        ? tokens.focusColor
+                        : tokens.border.withValues(alpha: 0.5),
+                    width: _isFocused ? DS.focusWidth : 1,
                   ),
                 ),
-                _BrutalistCheckbox(value: widget.value, isFocused: _isFocused),
-              ],
+                padding: EdgeInsets.symmetric(
+                  horizontal: DS.s16,
+                  vertical: widget.isMobile ? DS.s12 : DS.s16,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      widget.icon,
+                      color: widget.value ? tokens.accent : tokens.textMuted,
+                      size: 20,
+                    ),
+                    const SizedBox(width: DS.s16),
+                    Expanded(
+                      child: Text(
+                        widget.label,
+                        style: AppTextStyles.bodyLarge.copyWith(
+                          fontWeight: FontWeight.w500,
+                          color: tokens.textPrimary,
+                        ),
+                      ),
+                    ),
+                    _ToggleIndicator(value: widget.value),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -1410,9 +1726,11 @@ class _ToggleRowState extends State<_ToggleRow> {
 }
 
 class _StationsTab extends StatefulWidget {
-  const _StationsTab({required this.state, required this.pad, required this.isMobile});
+  const _StationsTab({
+    required this.state,
+    required this.isMobile,
+  });
   final ServerViewModel state;
-  final double pad;
   final bool isMobile;
 
   @override
@@ -1420,146 +1738,187 @@ class _StationsTab extends StatefulWidget {
 }
 
 class _StationsTabState extends State<_StationsTab> {
-  bool _addFocused = false;
-
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final intro = Row(
+      children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: tokens.surface2,
+            borderRadius: BorderRadius.circular(DS.radiusMd),
+          ),
+          child: Icon(LucideIcons.radio, color: tokens.textSecondary),
+        ),
+        const SizedBox(width: DS.s16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Create a station',
+                style: AppTextStyles.bodyLarge.copyWith(
+                  color: tokens.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: DS.s4),
+              Text(
+                'Build a playlist for a live broadcast.',
+                style: AppTextStyles.supporting.copyWith(
+                  color: tokens.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    final createButton = AppButton(
+      label: 'Create station',
+      icon: LucideIcons.plus,
+      isPrimary: false,
+      height: 48,
+      onTap: () => _showCreateStationDialog(context),
+    );
+
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 800),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
-                color: tokens.surface1.withValues(alpha: 0.4),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'CREATE NEW STATION',
-                                style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1),
-                              ),
-                              const SizedBox(height: 4),
-                              Text('LINEAR PLAYLIST BROADCAST', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
-                            ],
-                          ),
-                        ),
-                        Actions(
-                          actions: {
-                            ActivateIntent: CallbackAction<ActivateIntent>(
-                              onInvoke: (_) {
-                                _showCreateStationDialog(context);
-                                return null;
-                              },
-                            ),
-                          },
-                          child: Focus(
-                            onFocusChange: (v) {
-                              setState(() => _addFocused = v);
-                              handleTVFocusScroll(v, context);
-                            },
-                            onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => _showCreateStationDialog(context)),
-                            child: InkWell(
-                              onTap: () => _showCreateStationDialog(context),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 150),
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: _addFocused ? tokens.textPrimary : Colors.transparent,
-                                  border: Border.all(color: tokens.textPrimary),
-                                ),
-                                child: Text(
-                                  '+',
-                                  style: GoogleFonts.dmMono(color: _addFocused ? tokens.background : tokens.textPrimary, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 2),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (widget.state.stations.isEmpty)
-              Center(
+        constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: DS.s16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppCard(
                 child: Padding(
-                  padding: const EdgeInsets.all(40),
-                  child: Text('NO ACTIVE BROADCASTS', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 4)),
+                  padding: const EdgeInsets.all(DS.s16),
+                  child: widget.isMobile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            intro,
+                            const SizedBox(height: DS.s16),
+                            createButton,
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(child: intro),
+                            const SizedBox(width: DS.s16),
+                            SizedBox(width: 176, child: createButton),
+                          ],
+                        ),
                 ),
+              ),
+              const SizedBox(height: DS.s16),
+            if (widget.state.stations.isEmpty)
+              const AppStateView(
+                title: 'No stations yet',
+                description: 'Create a station to start a live broadcast.',
+                icon: LucideIcons.radioTower,
               )
             else
-              ...widget.state.stations.map((s) => _StationCard(station: s, state: widget.state, isMobile: widget.isMobile)),
-          ],
+              ...widget.state.stations.map(
+                (s) => _StationCard(
+                  key: ValueKey(s.id),
+                  station: s,
+                  state: widget.state,
+                  isMobile: widget.isMobile,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _showCreateStationDialog(BuildContext context) {
+  Future<void> _showCreateStationDialog(BuildContext context) async {
     final nameCtrl = TextEditingController();
     final items = widget.state.getLocalMediaItems(shareImages: false);
     final selectedItems = <MediaItem>[];
     final width = MediaQuery.sizeOf(context).width;
     final isMobile = width < DS.bpMobile;
+    final dialogInset = isMobile ? 16.0 : 40.0;
+    final dialogWidth = (width - dialogInset * 2 - 48).clamp(0.0, 800.0);
     final tokens = context.tokens;
 
-    showDialog(
+    await showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: tokens.background,
-          insetPadding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 40, vertical: 24),
-          shape: Border.all(color: tokens.textPrimary, width: 2),
+          backgroundColor: tokens.surface1,
+          surfaceTintColor: Colors.transparent,
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 16 : 40,
+            vertical: 24,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DS.radiusLg),
+            side: BorderSide(color: tokens.border.withValues(alpha: 0.6)),
+          ),
           title: Text(
-            'NEW STATION',
-            style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: isMobile ? 24 : 32, fontWeight: FontWeight.bold, letterSpacing: 2),
+            'Create a station',
+            style: AppTextStyles.heading(
+              isMobile ? 22 : 28,
+              spacing: -0.4,
+              color: tokens.textPrimary,
+            ),
           ),
           content: SizedBox(
-            width: width * 0.9,
+            width: dialogWidth,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 TextField(
                   controller: nameCtrl,
-                  style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 13),
+                  style: AppTextStyles.supporting.copyWith(
+                    color: tokens.textPrimary,
+                  ),
                   onChanged: (_) => setDialogState(() {}),
                   decoration: InputDecoration(
-                    labelText: 'STATION NAME',
-                    labelStyle: TextStyle(color: tokens.textMuted, fontSize: 11),
+                    labelText: 'Station name',
+                    labelStyle: AppTextStyles.supporting.copyWith(
+                      color: tokens.textMuted,
+                    ),
+                    filled: true,
+                    fillColor: tokens.surface2,
                     enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: tokens.border.withValues(alpha: 0.15)),
-                      borderRadius: BorderRadius.zero,
+                      borderSide: BorderSide(
+                        color: tokens.border.withValues(alpha: 0.45),
+                      ),
+                      borderRadius: BorderRadius.circular(DS.radiusMd),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: tokens.textPrimary),
-                      borderRadius: BorderRadius.zero,
+                      borderSide: BorderSide(color: tokens.accent, width: 1.5),
+                      borderRadius: BorderRadius.circular(DS.radiusMd),
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                Text('SELECT MEDIA (${selectedItems.length})', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2)),
-                const SizedBox(height: 10),
+                const SizedBox(height: DS.s20),
+                Text(
+                  'Select media · ${selectedItems.length}',
+                  style: AppTextStyles.bodyLarge.copyWith(
+                    color: tokens.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: DS.s12),
                 Flexible(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(border: Border.all(color: tokens.border.withValues(alpha: 0.15))),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(DS.radiusMd),
                     child: items.isEmpty
                         ? Center(
-                            child: Text('WAITING FOR SCAN...', style: TextStyle(color: tokens.textMuted, fontSize: 10)),
+                            child: Text(
+                              'No media is available to add.',
+                              style: AppTextStyles.supporting.copyWith(
+                                color: tokens.textMuted,
+                              ),
+                            ),
                           )
                         : ListView.builder(
                             shrinkWrap: true,
@@ -1569,15 +1928,37 @@ class _StationsTabState extends State<_StationsTab> {
                               final isSelected = selectedItems.contains(item);
                               return ListTile(
                                 dense: true,
-                                onTap: () => setDialogState(() => isSelected ? selectedItems.remove(item) : selectedItems.add(item)),
-                                leading: Icon(item.isVideo ? LucideIcons.video : LucideIcons.music, color: isSelected ? tokens.textPrimary : tokens.textMuted, size: 18),
+                                onTap: () => setDialogState(
+                                  () => isSelected
+                                      ? selectedItems.remove(item)
+                                      : selectedItems.add(item),
+                                ),
+                                leading: Icon(
+                                  item.isVideo
+                                      ? LucideIcons.video
+                                      : LucideIcons.music,
+                                  color: isSelected
+                                      ? tokens.accent
+                                      : tokens.textMuted,
+                                  size: 18,
+                                ),
                                 title: Text(
                                   item.title,
-                                  style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 11),
+                                  style: AppTextStyles.body.copyWith(
+                                    color: tokens.textPrimary,
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                trailing: Icon(isSelected ? LucideIcons.checkSquare : LucideIcons.square, color: isSelected ? tokens.textPrimary : tokens.textMuted, size: 18),
+                                trailing: Icon(
+                                  isSelected
+                                      ? LucideIcons.circleCheck
+                                      : LucideIcons.circle,
+                                  color: isSelected
+                                      ? tokens.accent
+                                      : tokens.textMuted,
+                                  size: 18,
+                                ),
                               );
                             },
                           ),
@@ -1589,12 +1970,9 @@ class _StationsTabState extends State<_StationsTab> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                'CANCEL',
-                style: TextStyle(color: tokens.textMuted, fontFamily: 'DM Mono', fontSize: 12),
-              ),
+              child: const Text('Cancel'),
             ),
-            TextButton(
+            FilledButton.icon(
               onPressed: (nameCtrl.text.isEmpty || selectedItems.isEmpty)
                   ? null
                   : () {
@@ -1602,18 +1980,158 @@ class _StationsTabState extends State<_StationsTab> {
                       Navigator.pop(ctx);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          backgroundColor: tokens.textPrimary,
-                          content: Text(
-                            'BROADCAST "${nameCtrl.text.toUpperCase()}" INITIATED',
-                            style: TextStyle(color: tokens.background, fontWeight: FontWeight.bold, fontFamily: 'DM Mono', fontSize: 12),
-                          ),
+                          content: Text('Broadcast "${nameCtrl.text}" started.'),
                         ),
                       );
                     },
-              child: Text(
-                'BROADCAST',
-                style: TextStyle(color: (nameCtrl.text.isEmpty || selectedItems.isEmpty) ? tokens.textMuted : tokens.textPrimary, fontFamily: 'DM Mono', fontSize: 12, fontWeight: FontWeight.bold),
+              icon: const Icon(LucideIcons.radio),
+              label: const Text('Start broadcast'),
+            ),
+          ],
+        ),
+      ),
+    );
+    nameCtrl.dispose();
+  }
+}
+
+class _StationCard extends StatelessWidget {
+  const _StationCard({
+    super.key,
+    required this.station,
+    required this.state,
+    required this.isMobile,
+  });
+  final BroadcastStation station;
+  final ServerViewModel state;
+  final bool isMobile;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    final status = !station.isActive
+        ? 'Inactive'
+        : station.isPaused
+        ? 'Paused'
+        : 'Live';
+    final statusColor = !station.isActive
+        ? tokens.textMuted
+        : station.isPaused
+        ? tokens.warning
+        : tokens.success;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: DS.s4),
+      child: AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: EdgeInsets.all(isMobile ? DS.s16 : DS.s20),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: tokens.surface2,
+                      borderRadius: BorderRadius.circular(DS.radiusMd),
+                    ),
+                    child: Icon(
+                      LucideIcons.radio,
+                      color: station.isActive
+                          ? tokens.textPrimary
+                          : tokens.textMuted,
+                      size: 21,
+                    ),
+                  ),
+                  const SizedBox(width: DS.s16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          station.name,
+                          style: AppTextStyles.bodyLarge.copyWith(
+                            color: tokens.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: DS.s4),
+                        Text(
+                          '${station.playlist.length} items · ${station.totalDuration.inMinutes} min',
+                          style: AppTextStyles.supporting.copyWith(
+                            color: tokens.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: DS.s12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: DS.s12,
+                      vertical: DS.s8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(DS.radiusLg),
+                    ),
+                    child: Text(
+                      status,
+                      style: AppTextStyles.caption.copyWith(
+                        color: statusColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                DS.s16,
+                0,
+                DS.s16,
+                DS.s12,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (station.isActive)
+                    _StationActionButton(
+                      icon: station.isPaused
+                          ? LucideIcons.play
+                          : LucideIcons.pause,
+                      tooltip: station.isPaused ? 'Resume station' : 'Pause station',
+                      onPressed: () => state.toggleStationPlayback(station.id),
+                    ),
+                  _StationActionButton(
+                    icon: station.isActive
+                        ? LucideIcons.square
+                        : LucideIcons.play,
+                    tooltip: station.isActive ? 'Stop station' : 'Start station',
+                    onPressed: () => state.toggleStationActive(station.id),
+                  ),
+                  _StationActionButton(
+                    icon: LucideIcons.trash2,
+                    tooltip: 'Remove station',
+                    color: tokens.error,
+                    onPressed: () => state.removeStation(station.id),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                DS.s16,
+                0,
+                DS.s16,
+                DS.s16,
+              ),
+              child: _StationLiveStatus(station: station),
             ),
           ],
         ),
@@ -1622,109 +2140,34 @@ class _StationsTabState extends State<_StationsTab> {
   }
 }
 
-class _StationCard extends StatelessWidget {
-  const _StationCard({required this.station, required this.state, required this.isMobile});
-  final BroadcastStation station;
-  final ServerViewModel state;
-  final bool isMobile;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        border: Border.all(color: station.isActive ? tokens.border.withValues(alpha: 0.3) : tokens.border.withValues(alpha: 0.05)),
-        color: tokens.surface1.withValues(alpha: 0.4),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Icon(station.isActive ? LucideIcons.radio : LucideIcons.radioTower, color: station.isActive ? tokens.textPrimary : tokens.textMuted, size: 24),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        station.name.toUpperCase(),
-                        style: GoogleFonts.barlowCondensed(
-                          color: station.isActive ? tokens.textPrimary : tokens.textMuted,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                          decoration: station.isActive ? null : TextDecoration.lineThrough,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text('${station.playlist.length} ITEMS // ${station.totalDuration.inMinutes} MINS', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
-                    ],
-                  ),
-                ),
-                if (station.isActive) _BrutalistIconButton(icon: station.isPaused ? LucideIcons.play : LucideIcons.pause, onTap: () => state.toggleStationPlayback(station.id)),
-                _BrutalistIconButton(icon: station.isActive ? LucideIcons.square : LucideIcons.playCircle, onTap: () => state.toggleStationActive(station.id)),
-                _BrutalistIconButton(icon: LucideIcons.trash2, color: tokens.error, onTap: () => state.removeStation(station.id)),
-              ],
-            ),
-          ),
-          Container(height: 1, color: tokens.border.withValues(alpha: 0.15)),
-          _StationLiveStatus(station: station),
-        ],
-      ),
-    );
-  }
-}
-
-class _BrutalistIconButton extends StatefulWidget {
-  const _BrutalistIconButton({required this.icon, required this.onTap, this.color});
+class _StationActionButton extends StatelessWidget {
+  const _StationActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.color,
+  });
   final IconData icon;
-  final VoidCallback onTap;
+  final String tooltip;
+  final VoidCallback onPressed;
   final Color? color;
 
   @override
-  State<_BrutalistIconButton> createState() => _BrutalistIconButtonState();
-}
-
-class _BrutalistIconButtonState extends State<_BrutalistIconButton> {
-  bool _isFocused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            widget.onTap();
-            return null;
-          },
-        ),
-      },
-      child: Focus(
-        onFocusChange: (v) {
-          setState(() => _isFocused = v);
-          handleTVFocusScroll(v, context);
-        },
-        onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-        child: InkWell(
-          onTap: widget.onTap,
-          onHover: (v) => setState(() => _isFocused = v),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: _isFocused ? tokens.textPrimary : Colors.transparent,
-              border: Border.all(color: _isFocused ? tokens.textPrimary : Colors.transparent),
-            ),
-            child: Icon(widget.icon, color: _isFocused ? tokens.background : (widget.color ?? tokens.textPrimary), size: 20),
-          ),
-        ),
+  Widget build(BuildContext context) => Focus(
+    onFocusChange: (focused) {
+      if (focused) handleTVFocusScroll(focused, context);
+    },
+    child: IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        backgroundColor: context.tokens.surface2,
+        foregroundColor: color ?? context.tokens.textSecondary,
+        minimumSize: const Size(48, 48),
       ),
-    );
-  }
+      icon: Icon(icon),
+    ),
+  );
 }
 
 class _StationLiveStatus extends StatefulWidget {
@@ -1741,7 +2184,26 @@ class _StationLiveStatusState extends State<_StationLiveStatus> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+    _syncTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant _StationLiveStatus oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.station.isActive != widget.station.isActive ||
+        oldWidget.station.isPaused != widget.station.isPaused) {
+      _syncTimer();
+    }
+  }
+
+  void _syncTimer() {
+    _timer?.cancel();
+    _timer = null;
+    if (widget.station.isActive && !widget.station.isPaused) {
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    }
   }
 
   @override
@@ -1754,62 +2216,92 @@ class _StationLiveStatusState extends State<_StationLiveStatus> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     if (!widget.station.isActive) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        color: tokens.surface2.withValues(alpha: 0.5),
-        child: Center(
-          child: Text(
-            'STATION OFFLINE',
-            style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 4),
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: tokens.surface2,
+          borderRadius: BorderRadius.circular(DS.radiusMd),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(DS.s16),
+          child: Row(
+            children: [
+              Icon(LucideIcons.radioTower, color: tokens.textMuted, size: 18),
+              const SizedBox(width: DS.s8),
+              Text(
+                'Station is inactive',
+                style: AppTextStyles.supporting.copyWith(
+                  color: tokens.textMuted,
+                ),
+              ),
+            ],
           ),
         ),
       );
     }
 
     final playbackState = sl<StationService>().getPlaybackState(widget.station);
-    if (playbackState == null) return const SizedBox();
+    if (playbackState == null) return const SizedBox.shrink();
 
     final item = playbackState.item;
     final totalMs = item.duration * 1000;
-    final progress = totalMs > 0 ? playbackState.position.inMilliseconds / totalMs : 0.0;
+    final progress = totalMs > 0
+        ? playbackState.position.inMilliseconds / totalMs
+        : 0.0;
     final isPaused = widget.station.isPaused;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      color: tokens.surface2.withValues(alpha: 0.5),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                isPaused ? 'PAUSED' : 'LIVE NOW',
-                style: GoogleFonts.dmMono(color: isPaused ? tokens.warning : tokens.textPrimary, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 2),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  item.title.toUpperCase(),
-                  style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.right,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: tokens.surface2,
+        borderRadius: BorderRadius.circular(DS.radiusMd),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(DS.s16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isPaused ? LucideIcons.pause : LucideIcons.radio,
+                  color: isPaused ? tokens.warning : tokens.success,
+                  size: 16,
+                ),
+                const SizedBox(width: DS.s8),
+                Text(
+                  isPaused ? 'Paused' : 'Live now',
+                  style: AppTextStyles.caption.copyWith(
+                    color: isPaused ? tokens.warning : tokens.success,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: DS.s12),
+                Expanded(
+                  child: Text(
+                    item.title,
+                    style: AppTextStyles.supporting.copyWith(
+                      color: tokens.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: DS.s12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(DS.radiusSm),
+              child: LinearProgressIndicator(
+                value: progress.clamp(0.0, 1.0),
+                minHeight: 4,
+                backgroundColor: tokens.background,
+                valueColor: AlwaysStoppedAnimation(
+                  isPaused ? tokens.warning : tokens.accent,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Stack(
-            children: [
-              Container(height: 2, color: tokens.background),
-              FractionallySizedBox(
-                widthFactor: progress.clamp(0.0, 1.0),
-                child: Container(height: 2, color: isPaused ? tokens.warning : tokens.textPrimary),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1823,32 +2315,48 @@ class _LiveLogViewer extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final logs = state.serverLogs;
-    return Container(
-      height: 500,
-      decoration: BoxDecoration(
-        color: tokens.surface1.withValues(alpha: 0.8),
-        border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const _TerminalHeader(title: 'LIVE_SIGNAL_LOGS', icon: LucideIcons.terminal),
-          Expanded(
-            child: logs.isEmpty
-                ? Center(child: Text('WAITING FOR SIGNAL...', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10)))
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: logs.length,
-                    itemBuilder: (_, i) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        logs[i],
-                        style: GoogleFonts.dmMono(color: tokens.textSecondary, fontSize: 10),
+    return AppCard(
+      child: SizedBox(
+        height: 520,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const AppSheetHeader(
+              title: 'Recent server activity',
+              subtitle: 'Events from this server, newest first',
+              icon: LucideIcons.terminal,
+            ),
+            Expanded(
+              child: logs.isEmpty
+                  ? const AppStateView(
+                      title: 'Waiting for logs',
+                      description: 'New server activity will appear here.',
+                      icon: LucideIcons.terminal,
+                    )
+                  : SelectionArea(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(
+                          DS.s24,
+                          0,
+                          DS.s24,
+                          DS.s24,
+                        ),
+                        itemCount: logs.length,
+                        itemBuilder: (_, index) => Padding(
+                          padding: const EdgeInsets.only(bottom: DS.s8),
+                          child: Text(
+                            logs[index],
+                            style: AppTextStyles.supporting.copyWith(
+                              color: tokens.textSecondary,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1889,47 +2397,96 @@ class _TrafficMonitorState extends State<_TrafficMonitor> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final maxSpeed = _history.reduce((a, b) => a > b ? a : b).clamp(1.0, 1000.0);
+    final peakSpeed = _history.reduce((a, b) => a > b ? a : b);
+    final scaleMax = peakSpeed.clamp(1.0, 1000.0);
+    final currentSpeed = widget.state.currentSpeedMb;
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: tokens.surface1.withValues(alpha: 0.4),
-        border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
-      ),
+    return AppCard(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'REAL-TIME BANDWIDTH',
-            style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 120,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: _history.map((h) {
-                final hFactor = h / maxSpeed;
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 1),
-                    child: Container(
-                      height: (120 * hFactor).clamp(1.0, 120.0),
-                      color: tokens.telemetry,
-                    ),
-                  ),
-                );
-              }).toList(),
+          AppSheetHeader(
+            title: 'Live throughput',
+            subtitle: 'Live throughput over the last 30 seconds',
+            icon: LucideIcons.barChart,
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: DS.s12,
+                vertical: DS.s8,
+              ),
+              decoration: BoxDecoration(
+                color: tokens.surface2,
+                borderRadius: BorderRadius.circular(DS.radiusLg),
+              ),
+              child: Text(
+                '${currentSpeed.toStringAsFixed(1)} MB/s',
+                style: AppTextStyles.body.copyWith(
+                  color: tokens.telemetry,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('0 MB/S', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 8)),
-              Text('PEAK: ${maxSpeed.toStringAsFixed(1)} MB/S', style: GoogleFonts.dmMono(color: tokens.telemetry, fontSize: 8, fontWeight: FontWeight.bold)),
-            ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              DS.s24,
+              0,
+              DS.s24,
+              DS.s24,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: 144,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: _history.map((speed) {
+                      final height = (144 * speed / scaleMax).clamp(2.0, 144.0);
+                      return Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 1),
+                          child: Container(
+                            height: height,
+                            decoration: BoxDecoration(
+                              color: tokens.telemetry.withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(DS.radius(3)),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: DS.s12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '30 seconds ago',
+                      style: AppTextStyles.caption.copyWith(
+                        color: tokens.textMuted,
+                      ),
+                    ),
+                    Text(
+                      'Peak ${peakSpeed.toStringAsFixed(1)} MB/s',
+                      style: AppTextStyles.caption.copyWith(
+                        color: tokens.telemetry,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      'Now',
+                      style: AppTextStyles.caption.copyWith(
+                        color: tokens.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1937,62 +2494,36 @@ class _TrafficMonitorState extends State<_TrafficMonitor> {
   }
 }
 
-class _MountButton extends StatefulWidget {
+class _MountButton extends StatelessWidget {
   const _MountButton({required this.onMounted});
-  final Function(String) onMounted;
+  final ValueChanged<String> onMounted;
 
-  @override
-  State<_MountButton> createState() => _MountButtonState();
-}
-
-class _MountButtonState extends State<_MountButton> {
-  bool _isFocused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) async {
-            final picked = await Navigator.push(context, MaterialPageRoute(builder: (_) => const FolderPickerScreen()));
-            if (picked is String) widget.onMounted(picked);
-            return null;
-          },
-        ),
-      },
-      child: Focus(
-        onFocusChange: (v) => setState(() => _isFocused = v),
-        onKeyEvent: (_, ev) => handleTVSelectKey(ev, () async {
-          final picked = await Navigator.push(context, MaterialPageRoute(builder: (_) => const FolderPickerScreen()));
-          if (picked is String) widget.onMounted(picked);
-        }),
-        child: InkWell(
-          onTap: () async {
-            final picked = await Navigator.push(context, MaterialPageRoute(builder: (_) => const FolderPickerScreen()));
-            if (picked is String) widget.onMounted(picked);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              border: Border.all(color: _isFocused ? tokens.background : tokens.textPrimary),
-              color: _isFocused ? tokens.textPrimary : Colors.transparent,
-            ),
-            child: Text(
-              '+ MOUNT',
-              style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: _isFocused ? tokens.background : tokens.textPrimary, letterSpacing: 1),
-            ),
-          ),
-        ),
-      ),
+  Future<void> _pickFolder(BuildContext context) async {
+    final picked = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const FolderPickerScreen()),
     );
+    if (context.mounted && picked is String) onMounted(picked);
   }
+
+  @override
+  Widget build(BuildContext context) => Focus(
+    onFocusChange: (focused) {
+      if (focused) handleTVFocusScroll(focused, context);
+    },
+    child: AppButton(
+      label: 'Add folder',
+      icon: LucideIcons.folderPlus,
+      isPrimary: false,
+      height: 48,
+      onTap: () => _pickFolder(context),
+    ),
+  );
 }
 
 class _DirRow extends StatefulWidget {
-  const _DirRow({required this.path, required this.isLast, required this.onRemove});
+  const _DirRow({super.key, required this.path, required this.onRemove});
   final String path;
-  final bool isLast;
   final VoidCallback onRemove;
 
   @override
@@ -2000,99 +2531,161 @@ class _DirRow extends StatefulWidget {
 }
 
 class _DirRowState extends State<_DirRow> {
-  bool _isFocused = false;
+  Future<int>? _itemCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadItemCount();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DirRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path) _loadItemCount();
+  }
+
+  void _loadItemCount() {
+    _itemCount = kIsWeb ? null : compute(_countDirectoryEntries, widget.path);
+  }
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    var count = 0;
-    if (!kIsWeb) {
-      try {
-        count = Directory(widget.path).listSync(followLinks: false).length;
-      } catch (_) {}
-    }
-    return Container(
-      decoration: BoxDecoration(
-        border: widget.isLast ? null : Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: DS.s24,
+        vertical: DS.s4,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Icon(LucideIcons.folder, color: tokens.textMuted, size: 18),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.path,
-                  style: GoogleFonts.dmMono(fontSize: 11, color: tokens.textPrimary, letterSpacing: 1),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+      child: AppCard(
+        child: Padding(
+          padding: const EdgeInsets.all(DS.s16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: tokens.surface2,
+                  borderRadius: BorderRadius.circular(DS.radiusMd),
                 ),
-                const SizedBox(height: 4),
-                Text('$count ITEMS', style: GoogleFonts.dmMono(fontSize: 9, color: tokens.textMuted, letterSpacing: 1)),
-              ],
-            ),
-          ),
-          Actions(
-            actions: {
-              ActivateIntent: CallbackAction<ActivateIntent>(
-                onInvoke: (_) {
-                  widget.onRemove();
-                  return null;
+                child: Icon(
+                  LucideIcons.folder,
+                  color: tokens.textSecondary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: DS.s16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.path,
+                      style: AppTextStyles.bodyLarge.copyWith(
+                        color: tokens.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: DS.s4),
+                    if (kIsWeb)
+                      Text(
+                        'Shared with connected devices',
+                        style: AppTextStyles.supporting.copyWith(
+                          color: tokens.textMuted,
+                        ),
+                      )
+                    else
+                      FutureBuilder<int>(
+                        future: _itemCount,
+                        builder: (context, snapshot) => Text(
+                          snapshot.hasData
+                              ? '${snapshot.data} items'
+                              : snapshot.hasError
+                              ? 'Shared with connected devices'
+                              : 'Counting items…',
+                          style: AppTextStyles.supporting.copyWith(
+                            color: tokens.textMuted,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Focus(
+                onFocusChange: (focused) {
+                  if (focused) handleTVFocusScroll(focused, context);
                 },
-              ),
-            },
-            child: Focus(
-              onFocusChange: (v) => setState(() => _isFocused = v),
-              onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onRemove),
-              child: InkWell(
-                onTap: widget.onRemove,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: _isFocused ? tokens.textPrimary : Colors.transparent,
-                    border: Border.all(color: _isFocused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15)),
+                child: IconButton(
+                  tooltip: 'Remove shared folder',
+                  onPressed: widget.onRemove,
+                  icon: Icon(
+                    LucideIcons.x,
+                    color: tokens.textMuted,
+                    size: 20,
                   ),
-                  child: Icon(LucideIcons.x, size: 14, color: _isFocused ? tokens.background : tokens.textMuted),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _BrutalistCheckbox extends StatelessWidget {
-  const _BrutalistCheckbox({required this.value, required this.isFocused});
+class _ToggleIndicator extends StatelessWidget {
+  const _ToggleIndicator({required this.value});
   final bool value;
-  final bool isFocused;
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    return Container(
-      width: 20,
-      height: 20,
+    return AnimatedContainer(
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 150),
+      width: 24,
+      height: 24,
       decoration: BoxDecoration(
-        color: value ? (isFocused ? tokens.background : tokens.textPrimary) : Colors.transparent,
-        border: Border.all(color: isFocused ? tokens.background : tokens.textPrimary, width: 2),
+        color: value ? tokens.accent : Colors.transparent,
+        borderRadius: BorderRadius.circular(DS.radius(8)),
+        border: Border.all(
+          color: value ? tokens.accent : tokens.borderStrong,
+          width: 1.5,
+        ),
       ),
-      child: value ? Center(child: Icon(LucideIcons.check, size: 14, color: isFocused ? tokens.textPrimary : tokens.background)) : null,
+      child: value
+          ? Center(
+              child: Icon(
+                LucideIcons.check,
+                size: 16,
+                color: tokens.textPrimary,
+              ),
+            )
+          : null,
     );
   }
 }
 
 List<String> _listSubdirectories(String rootPath) {
-  try {
-    final dir = Directory(rootPath);
-    if (!dir.existsSync()) return [];
-    return dir.listSync(followLinks: false).whereType<Directory>().map((d) => d.path).toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-  } catch (_) {
-    return [];
+  final dir = Directory(rootPath);
+  if (!dir.existsSync()) return [];
+  return dir
+      .listSync(followLinks: false)
+      .whereType<Directory>()
+      .map((d) => d.path)
+      .toList()
+    ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+}
+
+Future<int> _countDirectoryEntries(String path) async {
+  var count = 0;
+  await for (final _ in Directory(path).list(followLinks: false)) {
+    count++;
   }
+  return count;
 }

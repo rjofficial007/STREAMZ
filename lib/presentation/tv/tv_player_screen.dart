@@ -1,6 +1,6 @@
 // presentation/tv/tv_player_screen.dart
 // ============================================================================
-// STREAMZ — TV Dedicated Media Player (VLC-Inspired Brutalist Edition)
+// STREAMZ — TV Dedicated Media Player
 // ============================================================================
 
 import 'dart:async';
@@ -11,7 +11,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -22,16 +21,19 @@ import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/domain/models/broadcast_station.dart';
 import 'package:streamz/domain/models/media_item.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/player/playback_issue.dart';
 import 'package:streamz/presentation/player/player_viewmodel.dart';
+import 'package:streamz/presentation/player/widgets/playback_recovery_overlay.dart';
 import 'package:streamz/presentation/player/widgets/low_fi_indicator.dart';
+import 'package:streamz/presentation/player/widgets/player_action_button.dart';
+import 'package:streamz/presentation/player/widgets/player_options_sheet.dart';
 import 'package:streamz/presentation/player/widgets/player_sync_tile.dart';
 import 'package:streamz/presentation/player/widgets/player_track_tile.dart';
-import 'package:streamz/presentation/shared/atmospheric_background.dart';
-import 'package:streamz/widget/glitch_effect.dart';
-
+import 'package:streamz/presentation/shared/app_list_tile_card.dart';
+import 'package:streamz/presentation/shared/app_state_view.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
 
 class TVPlayerScreen extends StatefulWidget {
-
   const TVPlayerScreen({
     super.key,
     required this.items,
@@ -64,17 +66,19 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
   void initState() {
     super.initState();
     _vm = PlayerViewModel();
-    _vm.load(
-      items: widget.items,
-      startIndex: widget.startIndex,
-      isPathBased: widget.isPathBased,
-      startOffset: widget.startOffset,
-      autoPlay: widget.autoPlay,
-    ).then((_) {
-      if (mounted) {
-        _playPauseFocusNode.requestFocus();
-      }
-    });
+    _vm
+        .load(
+          items: widget.items,
+          startIndex: widget.startIndex,
+          isPathBased: widget.isPathBased,
+          startOffset: widget.startOffset,
+          autoPlay: widget.autoPlay,
+        )
+        .then((_) {
+          if (mounted) {
+            _playPauseFocusNode.requestFocus();
+          }
+        });
     _vm.snapshotCallback = _captureSnapshot;
     _wasOSDVisible = _vm.showOSD;
     _vm.addListener(_onVMChange);
@@ -82,9 +86,13 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
 
   Future<String?> _captureSnapshot() async {
     try {
-      final boundary = _repaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      final boundary =
+          _repaintKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) return null;
-      final image = await boundary.toImage(pixelRatio: 0.15); // Low res for speed
+      final image = await boundary.toImage(
+        pixelRatio: 0.15,
+      ); // Low res for speed
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return null;
       return base64Encode(byteData.buffer.asUint8List());
@@ -112,8 +120,9 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
 
   @override
   void dispose() {
-    _vm..removeListener(_onVMChange)
-    ..dispose();
+    _vm
+      ..removeListener(_onVMChange)
+      ..dispose();
     _osdFocusScope.dispose();
     _playPauseFocusNode.dispose();
     _sidebarFirstItemFocusNode.dispose();
@@ -166,10 +175,11 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     return KeyEventResult.ignored;
   }
 
-  bool _isExitKey(LogicalKeyboardKey key) => key == LogicalKeyboardKey.escape ||
-        key == LogicalKeyboardKey.browserBack ||
-        key == LogicalKeyboardKey.goBack ||
-        key == LogicalKeyboardKey.exit;
+  bool _isExitKey(LogicalKeyboardKey key) =>
+      key == LogicalKeyboardKey.escape ||
+      key == LogicalKeyboardKey.browserBack ||
+      key == LogicalKeyboardKey.goBack ||
+      key == LogicalKeyboardKey.exit;
 
   KeyEventResult _handleExitRequest() {
     if (_showSidebar) {
@@ -184,23 +194,27 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     return KeyEventResult.handled;
   }
 
-  KeyEventResult _handleDedicatedMediaKeys(LogicalKeyboardKey key, MediaItem? item) {
-    if (key == LogicalKeyboardKey.mediaPlay || key == LogicalKeyboardKey.space) {
+  KeyEventResult _handleDedicatedMediaKeys(
+    LogicalKeyboardKey key,
+    MediaItem? item,
+  ) {
+    if (key == LogicalKeyboardKey.mediaPlay ||
+        key == LogicalKeyboardKey.space) {
       if (!_vm.player.state.playing) {
-        _vm.player.play();
+        _vm.play();
       } else if (key == LogicalKeyboardKey.space) {
-        _vm.player.pause();
+        _vm.pause();
       }
       _vm.wakeOSD();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaPause) {
-      _vm.player.pause();
+      _vm.pause();
       _vm.wakeOSD();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaPlayPause) {
-      _vm.player.playOrPause();
+      _vm.togglePlayback();
       _vm.wakeOSD();
       return KeyEventResult.handled;
     }
@@ -225,11 +239,13 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     _vm.wakeOSD();
 
     // Channel Switching
-    if (key == LogicalKeyboardKey.channelUp || key == LogicalKeyboardKey.pageUp) {
+    if (key == LogicalKeyboardKey.channelUp ||
+        key == LogicalKeyboardKey.pageUp) {
       _cycleStation(1);
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.channelDown || key == LogicalKeyboardKey.pageDown) {
+    if (key == LogicalKeyboardKey.channelDown ||
+        key == LogicalKeyboardKey.pageDown) {
       _cycleStation(-1);
       return KeyEventResult.handled;
     }
@@ -268,7 +284,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
 
     final currentStationId = _vm.current?.folder;
     var idx = stations.indexWhere((s) => s.id == currentStationId);
-    
+
     if (idx == -1) {
       idx = 0;
     } else {
@@ -281,63 +297,55 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     final clientVM = context.read<ClientViewModel>();
     final res = await clientVM.joinStation(station.id);
     if (res != null && mounted) {
-      unawaited(_vm.load(
-        items: res.playlist,
-        startIndex: res.itemIndex,
-        isPathBased: false,
-        startOffset: res.position,
-        autoPlay: !res.isPaused,
-      ));
+      unawaited(
+        _vm.load(
+          items: res.playlist,
+          startIndex: res.itemIndex,
+          isPathBased: false,
+          startOffset: res.position,
+          autoPlay: !res.isPaused,
+        ),
+      );
     }
   }
 
   void _showStationModal() {
     final clientVM = context.read<ClientViewModel>();
     final stations = clientVM.stations;
-    final tokens = context.tokens;
 
-    showGeneralDialog(
+    showPlayerOptionsSheet<void>(
       context: context,
-      barrierColor: tokens.background.withValues(alpha: 0.9),
-      barrierDismissible: true,
-      barrierLabel: 'Close',
-      pageBuilder: (ctx, anim1, anim2) => Center(
-        child: FocusScope(
-          autofocus: true,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: 540,
-              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                    child: Text('LIVE BROADCAST STATIONS', style: AppTextStyles.barlowBold(28, spacing: 2, color: tokens.textPrimary)),
-                  ),
-                  if (stations.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(40),
-                      child: Text('NO ACTIVE BROADCASTS FOUND', style: AppTextStyles.mono(16, spacing: 2, color: tokens.textMuted), textAlign: TextAlign.center),
-                    ),
-                  ...stations.map((s) => PlayerTrackTile(
-                    isTV: true,
-                    label: s.name.toUpperCase(),
-                    isActive: _vm.current?.folder == s.id,
-                    onTap: () {
-                      _switchStation(s);
-                      context.pop();
-                    },
-                  )),
-                ],
+      isTV: true,
+      title: AppStrings.networkBroadcasts,
+      subtitle: 'Join a live broadcast on your network.',
+      icon: LucideIcons.radio,
+      contentBuilder: (sheetContext) {
+        if (stations.isEmpty) {
+          return const AppStateView(
+            title: 'No active broadcasts',
+            description: 'Start a broadcast on your network to see it here.',
+            icon: LucideIcons.radio,
+          );
+        }
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final station in stations)
+              AppListTileCard(
+                title: station.name,
+                subtitle: station.nowPlaying == null
+                    ? AppStrings.awaitingSignal
+                    : '${AppStrings.statusNowPlaying} · ${station.nowPlaying!.item.title}',
+                icon: LucideIcons.radio,
+                isActive: _vm.current?.folder == station.id,
+                onTap: () {
+                  _switchStation(station);
+                  Navigator.pop(sheetContext);
+                },
               ),
-            ),
-          ),
-        ),
-      ),
+          ],
+        );
+      },
     );
   }
 
@@ -348,55 +356,72 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     final tokens = context.tokens;
     return ChangeNotifierProvider.value(
       value: _vm,
-      child: Scaffold(
-        backgroundColor: tokens.background,
-        body: Selector<PlayerViewModel, List<Color>?>(
-          selector: (_, vm) => vm.vibeColors,
-          builder: (context, vibeColors, child) => AtmosphericBackground(
-            colors: vibeColors,
-            child: child!,
-          ),
-          child: MouseRegion(
-            onHover: (_) => _vm.wakeOSD(),
-            child: FocusScope(
-              node: _osdFocusScope,
-              onKeyEvent: _onKey,
-              child: RepaintBoundary(
-                key: _repaintKey,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Selector<PlayerViewModel, (MediaItem?, bool)>(
-                      selector: (_, vm) => (vm.current, vm.isLowFiMode),
-                      builder: (context, data, _) => GlitchEffect(
-                        active: data.$1?.isBroadcast == true || data.$2,
-                        child: _buildMediaLayer(context, data.$1),
+      child: AppScaffold(
+        body: MouseRegion(
+          onHover: (_) => _vm.wakeOSD(),
+          child: FocusScope(
+            node: _osdFocusScope,
+            onKeyEvent: _onKey,
+            child: RepaintBoundary(
+              key: _repaintKey,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Selector<PlayerViewModel, MediaItem?>(
+                    selector: (_, vm) => vm.current,
+                    builder: (context, item, _) =>
+                        _buildMediaLayer(context, item),
+                  ),
+                  Selector<PlayerViewModel, (double, String)>(
+                    selector: (_, vm) => (vm.gestureOpacity, vm.gestureTxt),
+                    builder: (context, data, _) =>
+                        _buildGestureFeedback(context, data.$1, data.$2),
+                  ),
+                  Selector<PlayerViewModel, bool>(
+                    selector: (_, vm) => vm.showOSD,
+                    builder: (context, show, _) => _buildOSD(context, show),
+                  ),
+                  Selector<PlayerViewModel, String?>(
+                    selector: (_, vm) => vm.intercomMessage,
+                    builder: (context, msg, _) =>
+                        _buildIntercomOverlay(context, msg),
+                  ),
+                  Selector<PlayerViewModel, bool>(
+                    selector: (_, vm) => vm.isLowFiMode,
+                    builder: (context, lowFi, _) => lowFi
+                        ? const LowFiIndicator(isTV: true)
+                        : const SizedBox.shrink(),
+                  ),
+                  if (_showSidebar)
+                    GestureDetector(
+                      onTap: () => _toggleSidebar(false),
+                      child: Container(
+                        color: tokens.background.withValues(alpha: 0.6),
                       ),
                     ),
-                    Selector<PlayerViewModel, (double, String)>(
-                      selector: (_, vm) => (vm.gestureOpacity, vm.gestureTxt),
-                      builder: (context, data, _) => _buildGestureFeedback(context, data.$1, data.$2),
+                  _buildToolsSidebar(context),
+                  Selector<PlayerViewModel, (PlaybackIssue?, bool, bool, int)>(
+                    selector: (_, vm) => (
+                      vm.playbackIssue,
+                      vm.isRecovering,
+                      vm.isRetryInFlight,
+                      vm.retryAttempt,
                     ),
-                    Selector<PlayerViewModel, bool>(
-                      selector: (_, vm) => vm.showOSD,
-                      builder: (context, show, _) => _buildOSD(context, show),
-                    ),
-                    Selector<PlayerViewModel, String?>(
-                      selector: (_, vm) => vm.intercomMessage,
-                      builder: (context, msg, _) => _buildIntercomOverlay(context, msg),
-                    ),
-                    Selector<PlayerViewModel, bool>(
-                      selector: (_, vm) => vm.isLowFiMode,
-                      builder: (context, lowFi, _) => lowFi ? const LowFiIndicator(isTV: true) : const SizedBox.shrink(),
-                    ),
-                    if (_showSidebar)
-                      GestureDetector(
-                        onTap: () => _toggleSidebar(false),
-                        child: Container(color: tokens.background.withValues(alpha: 0.6)),
-                      ),
-                    _buildToolsSidebar(context),
-                  ],
-                ),
+                    builder: (context, state, _) {
+                      final issue = state.$1;
+                      if (issue == null) return const SizedBox.shrink();
+                      return PlaybackRecoveryOverlay(
+                        issue: issue,
+                        isRecovering: state.$2,
+                        isRetryInFlight: state.$3,
+                        retryAttempt: state.$4,
+                        isTV: true,
+                        onRetry: () => _vm.retryPlayback(),
+                        onBack: () => context.pop(),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
           ),
@@ -405,13 +430,13 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     );
   }
 
-
-
   // ── Media Layers ──────────────────────────────────────────────────────────
 
   Widget _buildMediaLayer(BuildContext context, MediaItem? item) {
     final tokens = context.tokens;
-    if (item == null) return Center(child: CircularProgressIndicator(color: tokens.accent));
+    if (item == null) {
+      return Center(child: CircularProgressIndicator(color: tokens.accent));
+    }
 
     if (item.isImage) return _buildImageLayout(context, item);
     if (item.isAudio) return _buildAudioLayout(context, item);
@@ -430,10 +455,10 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     );
   }
 
-
-
   Widget _buildAudioLayout(BuildContext context, MediaItem item) {
     final tokens = context.tokens;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final coverSize = (screenWidth * 0.18).clamp(280.0, 480.0);
     return Container(
       color: tokens.background,
       child: Center(
@@ -441,39 +466,57 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 380,
-              height: 380,
+              width: coverSize,
+              height: coverSize,
               decoration: BoxDecoration(
                 color: tokens.surface1,
-                border: Border.all(color: tokens.textPrimary, width: 2),
+                borderRadius: BorderRadius.circular(DS.radius(24)),
+                border: Border.all(
+                  color: tokens.border.withValues(alpha: 0.65),
+                ),
                 boxShadow: [
-                  BoxShadow(color: tokens.accent.withValues(alpha: 0.1), offset: const Offset(12, 12)),
+                  BoxShadow(
+                    color: tokens.accent.withValues(alpha: 0.1),
+                    offset: const Offset(12, 12),
+                  ),
                 ],
               ),
-              child: NetworkImageFade(
-                url: _vm.thumbUrl,
-                fit: BoxFit.cover,
-                fallbackIcon: LucideIcons.music,
+              clipBehavior: Clip.antiAlias,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(DS.radius(23)),
+                child: NetworkImageFade(
+                  url: _vm.thumbUrl,
+                  fit: BoxFit.cover,
+                  fallbackIcon: LucideIcons.music,
+                ),
               ),
             ),
-            const SizedBox(height: 60),
-            Text(
-              item.title.toUpperCase(),
-              style: AppTextStyles.barlowBlack(40, spacing: 2, color: tokens.textPrimary),
-              textAlign: TextAlign.center,
+            SizedBox(height: (screenWidth * 0.025).clamp(24.0, 56.0)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                item.title,
+                style: AppTextStyles.style(
+                  fontSize: (screenWidth * 0.025).clamp(28.0, 48.0),
+                  fontWeight: AppTextStyles.titleFontWeight,
+                  letterSpacing: -0.5,
+                  color: tokens.textPrimary,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             const SizedBox(height: 12),
             Text(
-              'SIGNAL_TYPE // AUDIO_STREAM',
-              style: AppTextStyles.mono(14, spacing: 4, color: tokens.textMuted),
+              'Audio stream',
+              style: AppTextStyles.bodyLarge.copyWith(color: tokens.textMuted),
             ),
           ],
         ),
       ),
     );
   }
-
-
 
   Widget _buildImageLayout(BuildContext context, MediaItem item) {
     final tokens = context.tokens;
@@ -483,50 +526,54 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       child: Center(
         child: DecoratedBox(
           decoration: BoxDecoration(
-            border: Border.all(color: tokens.border.withValues(alpha: 0.15), width: 1),
+            border: Border.all(
+              color: tokens.border.withValues(alpha: 0.15),
+              width: 1,
+            ),
           ),
           child: Image.network(
             _vm.mediaUrl,
             fit: BoxFit.contain,
-            errorBuilder: (_, error, stack) => Icon(LucideIcons.image, color: tokens.textMuted, size: 100),
+            errorBuilder: (_, error, stack) =>
+                Icon(LucideIcons.image, color: tokens.textMuted, size: 100),
           ),
         ),
       ),
     );
   }
-
-
 
   // ── OSD (VLC Inspired) ────────────────────────────────────────────────────
 
   Widget _buildOSD(BuildContext context, bool showOSD) {
     final tokens = context.tokens;
-    return AnimatedOpacity(
-      opacity: showOSD ? 1.0 : 0.0,
-      duration: const Duration(milliseconds: 250),
-      child: ExcludeFocus(
-        excluding: !showOSD,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.bottomCenter,
-              end: Alignment.topCenter,
-              colors: [tokens.background.withValues(alpha: 0.9), Colors.transparent],
-              stops: const [0.0, 0.4],
+    return IgnorePointer(
+      ignoring: !showOSD,
+      child: AnimatedOpacity(
+        opacity: showOSD ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 250),
+        child: ExcludeFocus(
+          excluding: !showOSD,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  tokens.background.withValues(alpha: 0.9),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.4],
+              ),
             ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              _buildVlcBottomControls(context),
-            ],
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [_buildVlcBottomControls(context)],
+            ),
           ),
         ),
       ),
     );
   }
-
-
 
   Widget _buildVlcBottomControls(BuildContext context) {
     final tokens = context.tokens;
@@ -550,7 +597,11 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
             children: [
               // 1. Progress Bar
               if (item?.isImage == false) ...[
-                BrutalistProgressBar(player: _vm.player, compact: false, isReadOnly: isBroadcast),
+                PlayerProgressBar(
+                  player: _vm.player,
+                  compact: false,
+                  isReadOnly: isBroadcast,
+                ),
                 SizedBox(height: (size.height * 0.02).clamp(12.0, 24.0)),
               ],
               // 2. Metadata & Controls Row
@@ -565,17 +616,32 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                         Row(
                           children: [
                             Text(
-                              'STREAMZ // ${idx + 1} OF $total',
-                              style: AppTextStyles.mono((size.width * 0.008).clamp(9.0, 12.0), spacing: 3, color: tokens.textMuted),
+                              'Streamz · ${idx + 1} of $total',
+                              style: AppTextStyles.style(
+                                fontSize: (size.width * 0.008).clamp(
+                                  12.0,
+                                  16.0,
+                                ),
+                                color: tokens.textMuted,
+                              ),
                             ),
                             if (isBroadcast) ...[
                               const SizedBox(width: 12),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                color: tokens.error,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: tokens.error,
+                                  borderRadius: BorderRadius.circular(99),
+                                ),
                                 child: Text(
                                   AppStrings.live,
-                                  style: AppTextStyles.mono(10, weight: FontWeight.bold, spacing: 1, color: tokens.background),
+                                  style: AppTextStyles.caption.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: tokens.background,
+                                  ),
                                 ),
                               ),
                             ],
@@ -583,8 +649,13 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          (item?.title ?? '').toUpperCase(),
-                          style: AppTextStyles.barlowBlack((size.width * 0.012).clamp(14.0, 20.0), spacing: 1, color: tokens.textPrimary).copyWith(height: 1.1),
+                          item?.title ?? '',
+                          style: AppTextStyles.style(
+                            fontSize: (size.width * 0.012).clamp(18.0, 30.0),
+                            fontWeight: AppTextStyles.titleFontWeight,
+                            letterSpacing: -0.4,
+                            color: tokens.textPrimary,
+                          ).copyWith(height: 1.1),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -595,11 +666,23 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _TVVlcBtn(icon: LucideIcons.skipBack, size: (size.width * 0.03).clamp(32.0, 48.0), onTap: _vm.prev),
+                      PlayerActionButton(
+                        icon: LucideIcons.skipBack,
+                        label: 'Previous item',
+                        size: (size.width * 0.03).clamp(32.0, 48.0),
+                        isTV: true,
+                        onPressed: _vm.prev,
+                      ),
                       const SizedBox(width: 16),
                       _buildPlayPauseBtn(context),
                       const SizedBox(width: 16),
-                      _TVVlcBtn(icon: LucideIcons.skipForward, size: (size.width * 0.03).clamp(32.0, 48.0), onTap: _vm.next),
+                      PlayerActionButton(
+                        icon: LucideIcons.skipForward,
+                        label: 'Next item',
+                        size: (size.width * 0.03).clamp(32.0, 48.0),
+                        isTV: true,
+                        onPressed: _vm.next,
+                      ),
                     ],
                   ),
                   // Options (Right)
@@ -607,13 +690,38 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        _TVVlcBtn(icon: LucideIcons.subtitles, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => _showTrackModal('subtitles')),
+                        PlayerActionButton(
+                          icon: LucideIcons.subtitles,
+                          label: 'Subtitle tracks',
+                          size: (size.width * 0.025).clamp(28.0, 44.0),
+                          isTV: true,
+                          onPressed: () => _showTrackModal('subtitles'),
+                        ),
                         const SizedBox(width: 12),
-                        _TVVlcBtn(icon: LucideIcons.activity, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => _showTrackModal('audio')),
+                        PlayerActionButton(
+                          icon: LucideIcons.activity,
+                          label: 'Audio tracks',
+                          size: (size.width * 0.025).clamp(28.0, 44.0),
+                          isTV: true,
+                          onPressed: () => _showTrackModal('audio'),
+                        ),
                         const SizedBox(width: 12),
-                        _TVVlcBtn(icon: LucideIcons.settings2, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => _toggleSidebar(true)),
+                        PlayerActionButton(
+                          icon: LucideIcons.settings2,
+                          label: 'Player settings',
+                          size: (size.width * 0.025).clamp(28.0, 44.0),
+                          isTV: true,
+                          onPressed: () => _toggleSidebar(true),
+                        ),
                         const SizedBox(width: 12),
-                        _TVVlcBtn(icon: LucideIcons.x, size: (size.width * 0.025).clamp(28.0, 44.0), onTap: () => context.pop(), isDestructive: true),
+                        PlayerActionButton(
+                          icon: LucideIcons.x,
+                          label: 'Close player',
+                          size: (size.width * 0.025).clamp(28.0, 44.0),
+                          isTV: true,
+                          onPressed: () => context.pop(),
+                          isDestructive: true,
+                        ),
                       ],
                     ),
                   ),
@@ -626,8 +734,6 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     );
   }
 
-
-
   Widget _buildPlayPauseBtn(BuildContext context) {
     final item = _vm.current;
     if (item?.isImage == true) return const SizedBox.shrink();
@@ -637,22 +743,21 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       stream: _vm.player.stream.playing,
       builder: (_, snap) {
         final playing = snap.data ?? false;
-        return _TVVlcBtn(
+        return PlayerActionButton(
           icon: playing ? LucideIcons.pause : LucideIcons.play,
+          label: playing ? 'Pause' : 'Play',
           size: (size.width * 0.04).clamp(44.0, 64.0),
+          isTV: true,
           isPrimary: true,
           focusNode: _playPauseFocusNode,
-          onTap: () {
-            _vm.player.playOrPause();
+          onPressed: () {
+            _vm.togglePlayback();
             _vm.wakeOSD();
           },
         );
       },
     );
   }
-
-
-
 
   // ── Sidebar & Components ──────────────────────────────────────────────────
 
@@ -671,21 +776,47 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: tokens.surface1,
-          border: Border(left: BorderSide(color: tokens.textPrimary, width: 2)),
+          borderRadius: BorderRadius.horizontal(
+            left: Radius.circular(DS.radius(24)),
+          ),
+          border: Border(
+            left: BorderSide(color: tokens.border.withValues(alpha: 0.7)),
+          ),
           boxShadow: [
-            BoxShadow(color: tokens.background, blurRadius: 40, offset: const Offset(-20, 0)),
+            BoxShadow(
+              color: tokens.background,
+              blurRadius: 40,
+              offset: const Offset(-20, 0),
+            ),
           ],
         ),
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: tokens.border.withValues(alpha: 0.15),
+                  ),
+                ),
+              ),
               child: Row(
                 children: [
-                  Icon(LucideIcons.settings2, color: tokens.textPrimary, size: (size.width * 0.02).clamp(20.0, 28.0)),
+                  Icon(
+                    LucideIcons.settings2,
+                    color: tokens.textPrimary,
+                    size: (size.width * 0.02).clamp(20.0, 28.0),
+                  ),
                   const SizedBox(width: 16),
-                  Text('SYSTEM_CONFIG', style: AppTextStyles.barlowBold((size.width * 0.015).clamp(20.0, 28.0), spacing: 2, color: tokens.textPrimary)),
+                  Text(
+                    'System controls',
+                    style: AppTextStyles.style(
+                      fontSize: (size.width * 0.015).clamp(20.0, 28.0),
+                      fontWeight: AppTextStyles.titleFontWeight,
+                      color: tokens.textPrimary,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -693,26 +824,63 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  _TVSidebarItem(label: 'STATION LIST', icon: LucideIcons.radio, focusNode: _sidebarFirstItemFocusNode, onTap: _showStationModal),
-                  _TVSidebarItem(label: 'SUBTITLE TRACKS', icon: LucideIcons.subtitles, onTap: () => _showTrackModal('subtitles')),
-                  _TVSidebarItem(label: 'AUDIO TRACKS', icon: LucideIcons.activity, onTap: () => _showTrackModal('audio')),
+                  _TVSidebarItem(
+                    label: 'Station list',
+                    icon: LucideIcons.radio,
+                    focusNode: _sidebarFirstItemFocusNode,
+                    onTap: _showStationModal,
+                  ),
+                  _TVSidebarItem(
+                    label: 'Subtitle tracks',
+                    icon: LucideIcons.subtitles,
+                    onTap: () => _showTrackModal('subtitles'),
+                  ),
+                  _TVSidebarItem(
+                    label: 'Audio tracks',
+                    icon: LucideIcons.activity,
+                    onTap: () => _showTrackModal('audio'),
+                  ),
                   if (!(_vm.current?.isBroadcast ?? false))
-                    _TVSidebarItem(label: 'PLAYBACK RATE', icon: LucideIcons.gauge, onTap: _showSpeedModal),
-                  _TVSidebarItem(label: 'ASPECT RATIO', icon: LucideIcons.minimize, onTap: _showFitModal),
-                  _TVSidebarItem(label: 'SLEEP TIMER', icon: LucideIcons.clock, onTap: _showSleepModal),
-                  _TVSidebarItem(label: 'SYNC CALIBRATION', icon: LucideIcons.layers, onTap: _showSyncModal),
+                    _TVSidebarItem(
+                      label: 'Playback speed',
+                      icon: LucideIcons.gauge,
+                      onTap: _showSpeedModal,
+                    ),
+                  _TVSidebarItem(
+                    label: 'Aspect ratio',
+                    icon: LucideIcons.minimize,
+                    onTap: _showFitModal,
+                  ),
+                  _TVSidebarItem(
+                    label: 'Sleep timer',
+                    icon: LucideIcons.clock,
+                    onTap: _showSleepModal,
+                  ),
+                  _TVSidebarItem(
+                    label: 'Sync adjustment',
+                    icon: LucideIcons.layers,
+                    onTap: _showSyncModal,
+                  ),
                 ],
               ),
             ),
-            _TVSidebarItem(label: 'EXIT_TOOLS', icon: LucideIcons.chevronRight, isDestructive: true, onTap: () => setState(() => _showSidebar = false)),
+            _TVSidebarItem(
+              label: 'Close',
+              icon: LucideIcons.chevronRight,
+              isDestructive: true,
+              onTap: () => setState(() => _showSidebar = false),
+            ),
           ],
         ),
       ),
     );
   }
 
-
-  Widget _buildGestureFeedback(BuildContext context, double opacity, String text) {
+  Widget _buildGestureFeedback(
+    BuildContext context,
+    double opacity,
+    String text,
+  ) {
     final tokens = context.tokens;
     return Center(
       child: AnimatedOpacity(
@@ -722,17 +890,20 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
           decoration: BoxDecoration(
             color: tokens.textPrimary,
-            border: Border.all(color: tokens.background, width: 4),
+            borderRadius: BorderRadius.circular(DS.radius(24)),
           ),
           child: Text(
-            text.toUpperCase(),
-            style: GoogleFonts.dmMono(color: tokens.background, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 4),
+            text,
+            style: AppTextStyles.sectionTitle.copyWith(
+              color: tokens.background,
+              fontWeight: AppTextStyles.titleFontWeight,
+              letterSpacing: 0.8,
+            ),
           ),
         ),
       ),
     );
   }
-
 
   Widget _buildIntercomOverlay(BuildContext context, String? msg) {
     final tokens = context.tokens;
@@ -745,19 +916,28 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
           padding: const EdgeInsets.all(60),
           decoration: BoxDecoration(
             color: tokens.error,
-            border: Border.all(color: tokens.textPrimary, width: 8),
+            borderRadius: BorderRadius.circular(DS.radius(28)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'SYSTEM_PRIORITY_INTERCOM',
-                style: GoogleFonts.dmMono(color: tokens.background, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 8),
+                'Priority broadcast',
+                style: AppTextStyles.title.copyWith(
+                  color: tokens.background,
+                  fontWeight: AppTextStyles.titleFontWeight,
+                  letterSpacing: 0.8,
+                ),
               ),
               const SizedBox(height: 32),
               Text(
-                msg.toUpperCase(),
-                style: GoogleFonts.barlowCondensed(color: tokens.background, fontSize: 48, fontWeight: FontWeight.w900, letterSpacing: 2),
+                msg,
+                style: AppTextStyles.style(
+                  color: tokens.background,
+                  fontSize: 48,
+                  fontWeight: FontWeight.w300,
+                  letterSpacing: 0.5,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -767,272 +947,177 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
     );
   }
 
-
   // ── Modals ────────────────────────────────────────────────────────────────
 
   void _showTrackModal(String type) {
-    final tokens = context.tokens;
-    final tracks = type == 'audio' ? _vm.player.state.tracks.audio : _vm.player.state.tracks.subtitle;
-    final current = type == 'audio' ? _vm.player.state.track.audio : _vm.player.state.track.subtitle;
+    final tracks = type == 'audio'
+        ? _vm.player.state.tracks.audio
+        : _vm.player.state.tracks.subtitle;
+    final current = type == 'audio'
+        ? _vm.player.state.track.audio
+        : _vm.player.state.track.subtitle;
 
-    showGeneralDialog(
+    showPlayerOptionsSheet<void>(
       context: context,
-      barrierColor: tokens.background.withValues(alpha: 0.9),
-      barrierDismissible: true,
-      barrierLabel: 'Close',
-      pageBuilder: (ctx, anim1, anim2) => Center(
-        child: FocusScope(
-          autofocus: true,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: 540,
-              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                    child: Text('${type.toUpperCase()} SIGNAL SELECT', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                  ),
-                  if (type == 'subtitles')
-                    PlayerTrackTile(isTV: true, label: 'DISABLE SUBTITLES', isActive: current.id == 'no', onTap: () { _vm.setSubtitleTrack(SubtitleTrack.no()); Navigator.pop(ctx); }),
-                  ...tracks.map((t) => PlayerTrackTile(
-                    isTV: true,
-                    label: (t.title ?? t.language ?? t.id).toUpperCase(),
-                    isActive: t.id == current.id,
-                    onTap: () {
-                      type == 'audio' ? _vm.setAudioTrack(t as AudioTrack) : _vm.setSubtitleTrack(t as SubtitleTrack);
-                      Navigator.pop(ctx);
-                    },
-                  )),
-                ],
+      isTV: true,
+      title: type == 'audio' ? 'Audio tracks' : 'Subtitles',
+      subtitle: type == 'audio'
+          ? 'Choose the audio track for this media.'
+          : 'Choose a subtitle track or turn subtitles off.',
+      icon: type == 'audio' ? LucideIcons.audioLines : LucideIcons.subtitles,
+      maxWidth: 560,
+      contentBuilder: (sheetContext) {
+        if (type == 'audio' && tracks.isEmpty) {
+          return const AppStateView(
+            title: 'No audio tracks',
+            description: 'This media does not provide alternate audio tracks.',
+            icon: LucideIcons.audioLines,
+          );
+        }
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (type == 'subtitles')
+              PlayerTrackTile(
+                isTV: true,
+                label: 'Disabled',
+                isActive: current.id == 'no',
+                onTap: () {
+                  _vm.setSubtitleTrack(SubtitleTrack.no());
+                  Navigator.pop(sheetContext);
+                },
               ),
-            ),
-          ),
-        ),
-      ),
+            for (final track in tracks)
+              PlayerTrackTile(
+                isTV: true,
+                label: track.title ?? track.language ?? track.id,
+                isActive: track.id == current.id,
+                onTap: () {
+                  type == 'audio'
+                      ? _vm.setAudioTrack(track as AudioTrack)
+                      : _vm.setSubtitleTrack(track as SubtitleTrack);
+                  Navigator.pop(sheetContext);
+                },
+              ),
+          ],
+        );
+      },
     );
   }
 
-
   void _showSpeedModal() {
-    final tokens = context.tokens;
     final speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
     final current = _vm.player.state.rate;
 
-    showGeneralDialog(
+    showPlayerOptionsSheet<void>(
       context: context,
-      barrierColor: tokens.background.withValues(alpha: 0.9),
-      barrierDismissible: true,
-      barrierLabel: 'Close',
-      pageBuilder: (ctx, anim1, anim2) => Center(
-        child: FocusScope(
-          autofocus: true,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: 440,
-              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                    child: Text('PLAYBACK RATE', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                  ),
-                  ...speeds.map((s) => PlayerTrackTile(
-                    isTV: true,
-                    label: '${s}X SPEED',
-                    isActive: (s - current).abs() < 0.01,
-                    onTap: () { _vm.setRate(s); Navigator.pop(ctx); },
-                  )),
-                ],
-              ),
+      isTV: true,
+      title: 'Playback speed',
+      subtitle: 'Adjust the playback rate.',
+      icon: LucideIcons.gauge,
+      maxWidth: 480,
+      contentBuilder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final speed in speeds)
+            PlayerTrackTile(
+              isTV: true,
+              label: '$speed× speed',
+              isActive: (speed - current).abs() < 0.01,
+              onTap: () {
+                _vm.setRate(speed);
+                Navigator.pop(sheetContext);
+              },
             ),
-          ),
-        ),
+        ],
       ),
     );
   }
 
   void _showFitModal() {
-    final tokens = context.tokens;
-    final fits = {BoxFit.contain: 'CONTAIN', BoxFit.cover: 'FILL_COVER', BoxFit.fill: 'STRETCH_FILL'};
-    showGeneralDialog(
+    final fits = {
+      BoxFit.contain: 'Contain',
+      BoxFit.cover: 'Cover',
+      BoxFit.fill: 'Stretch',
+    };
+    showPlayerOptionsSheet<void>(
       context: context,
-      barrierColor: tokens.background.withValues(alpha: 0.9),
-      barrierDismissible: true,
-      barrierLabel: 'Close',
-      pageBuilder: (ctx, anim1, anim2) => Center(
-        child: FocusScope(
-          autofocus: true,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: 440,
-              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                    child: Text('ASPECT_CALIBRATION', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                  ),
-                  ...fits.entries.map((e) => PlayerTrackTile(
-                    isTV: true,
-                    label: e.value,
-                    isActive: _vm.videoFit == e.key,
-                    onTap: () { _vm.setVideoFit(e.key); Navigator.pop(ctx); },
-                  )),
-                ],
-              ),
+      isTV: true,
+      title: 'Aspect ratio',
+      subtitle: 'Choose how the picture fits the screen.',
+      icon: LucideIcons.scan,
+      maxWidth: 480,
+      contentBuilder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final fit in fits.entries)
+            PlayerTrackTile(
+              isTV: true,
+              label: fit.value,
+              isActive: _vm.videoFit == fit.key,
+              onTap: () {
+                _vm.setVideoFit(fit.key);
+                Navigator.pop(sheetContext);
+              },
             ),
-          ),
-        ),
+        ],
       ),
     );
   }
-
 
   void _showSleepModal() {
-    final tokens = context.tokens;
     final options = [0, 5, 15, 30, 60, 120];
-    showGeneralDialog(
+    showPlayerOptionsSheet<void>(
       context: context,
-      barrierColor: tokens.background.withValues(alpha: 0.9),
-      barrierDismissible: true,
-      barrierLabel: 'Close',
-      pageBuilder: (ctx, anim1, anim2) => Center(
-        child: FocusScope(
-          autofocus: true,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: 440,
-              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                    child: Text('AUTO_SHUTDOWN', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                  ),
-                  ...options.map((m) => PlayerTrackTile(
-                    isTV: true,
-                    label: m == 0 ? 'DISABLED' : '$m MINUTES',
-                    isActive: _vm.sleepMinutesRemaining == m,
-                    onTap: () { _vm.setSleepTimer(m); Navigator.pop(ctx); },
-                  )),
-                ],
-              ),
+      isTV: true,
+      title: 'Sleep timer',
+      subtitle: 'Stop playback after a set time.',
+      icon: LucideIcons.clock,
+      maxWidth: 480,
+      contentBuilder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final minutes in options)
+            PlayerTrackTile(
+              isTV: true,
+              label: minutes == 0 ? 'Off' : '$minutes minutes',
+              isActive: _vm.sleepMinutesRemaining == minutes,
+              onTap: () {
+                _vm.setSleepTimer(minutes);
+                Navigator.pop(sheetContext);
+              },
             ),
-          ),
-        ),
+        ],
       ),
     );
   }
-
 
   void _showSyncModal() {
-    final tokens = context.tokens;
-    showGeneralDialog(
+    showPlayerOptionsSheet<void>(
       context: context,
-      barrierColor: tokens.background.withValues(alpha: 0.9),
-      barrierDismissible: true,
-      barrierLabel: 'Close',
-      pageBuilder: (ctx, anim1, anim2) => Center(
-        child: FocusScope(
-          autofocus: true,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              width: 440,
-              decoration: BoxDecoration(color: tokens.surface1, border: Border.all(color: tokens.textPrimary, width: 2)),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
-                    child: Text('SYNC_ADJUSTMENT', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                  ),
-                  ListenableBuilder(
-                    listenable: _vm,
-                    builder: (_, child) => Column(
-                      children: [
-                        PlayerSyncTile(isTV: true, label: 'AUDIO OFFSET', value: _vm.audioDelay, onChanged: _vm.setAudioDelay),
-                        PlayerSyncTile(isTV: true, label: 'SUBTITLE OFFSET', value: _vm.subDelay, onChanged: _vm.setSubtitleDelay),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+      isTV: true,
+      title: 'Sync adjustment',
+      subtitle: 'Fine-tune audio and subtitle timing.',
+      icon: LucideIcons.layers,
+      maxWidth: 480,
+      contentBuilder: (_) => ListenableBuilder(
+        listenable: _vm,
+        builder: (_, _) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PlayerSyncTile(
+              isTV: true,
+              label: 'Audio offset',
+              value: _vm.audioDelay,
+              onChanged: _vm.setAudioDelay,
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// VLC UI COMPONENTS
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _TVVlcBtn extends StatefulWidget {
-
-  const _TVVlcBtn({required this.icon, required this.size, this.onTap, this.isPrimary = false, this.isDestructive = false, this.focusNode});
-  final IconData icon;
-  final double size;
-  final VoidCallback? onTap;
-  final bool isPrimary;
-  final bool isDestructive;
-  final FocusNode? focusNode;
-
-  @override
-  State<_TVVlcBtn> createState() => _TVVlcBtnState();
-}
-
-class _TVVlcBtnState extends State<_TVVlcBtn> {
-  bool _focused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final bg = _focused ? (widget.isDestructive ? tokens.error : tokens.textPrimary) : (widget.isPrimary ? tokens.surface2 : Colors.transparent);
-    final fg = _focused ? tokens.background : (widget.isDestructive ? tokens.error : tokens.textPrimary);
-
-    return Focus(
-      focusNode: widget.focusNode,
-      onFocusChange: (v) => setState(() => _focused = v),
-      onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: _focused ? 1.1 : 1.0,
-          duration: const Duration(milliseconds: 150),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            width: widget.size,
-            height: widget.size,
-            decoration: BoxDecoration(
-              color: bg,
-              border: Border.all(color: _focused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15), width: _focused ? 4 : 1),
-              boxShadow: _focused ? [BoxShadow(color: tokens.textPrimary.withValues(alpha: 0.2), blurRadius: 20, offset: const Offset(4, 4))] : [],
+            PlayerSyncTile(
+              isTV: true,
+              label: 'Subtitle offset',
+              value: _vm.subDelay,
+              onChanged: _vm.setSubtitleDelay,
             ),
-            child: Icon(widget.icon, color: fg, size: widget.size * 0.5),
-          ),
+          ],
         ),
       ),
     );
@@ -1040,8 +1125,13 @@ class _TVVlcBtnState extends State<_TVVlcBtn> {
 }
 
 class _TVSidebarItem extends StatefulWidget {
-
-  const _TVSidebarItem({required this.label, required this.icon, required this.onTap, this.isDestructive = false, this.focusNode});
+  const _TVSidebarItem({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.isDestructive = false,
+    this.focusNode,
+  });
   final String label;
   final IconData icon;
   final VoidCallback onTap;
@@ -1071,23 +1161,38 @@ class _TVSidebarItemState extends State<_TVSidebarItem> {
           scale: _focused ? 1.02 : 1.0,
           duration: const Duration(milliseconds: 150),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
             decoration: BoxDecoration(
-              color: _focused ? (widget.isDestructive ? tokens.error : tokens.textPrimary) : Colors.transparent,
-              border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+              color: _focused ? tokens.surface3 : Colors.transparent,
+              borderRadius: BorderRadius.circular(DS.radius(16)),
+              border: Border.all(
+                color: _focused
+                    ? tokens.focusColor
+                    : tokens.border.withValues(alpha: 0.55),
+                width: _focused ? 2 : 1,
+              ),
             ),
             child: Row(
               children: [
-                Icon(widget.icon, color: _focused ? tokens.background : (widget.isDestructive ? tokens.error : tokens.textPrimary), size: 24),
+                Icon(
+                  widget.icon,
+                  color: _focused
+                      ? tokens.error
+                      : (widget.isDestructive
+                            ? tokens.error
+                            : tokens.textPrimary),
+                  size: 24,
+                ),
                 const SizedBox(width: 24),
                 Expanded(
                   child: Text(
                     widget.label,
-                    style: GoogleFonts.dmMono(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: _focused ? tokens.background : (widget.isDestructive ? tokens.error : tokens.textPrimary),
-                      letterSpacing: 2,
+                    style: AppTextStyles.bodyLarge.copyWith(
+                      fontWeight: FontWeight.w500,
+                      color: widget.isDestructive
+                          ? tokens.error
+                          : tokens.textPrimary,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),

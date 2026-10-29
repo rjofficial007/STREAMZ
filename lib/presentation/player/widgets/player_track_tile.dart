@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
 
 /// PlayerTrackTile is an adaptive selection tile for media tracks (Audio, Subtitles)
 /// and Broadcast Stations. It handles both touch (Mobile) and D-Pad (TV) interactions.
-class PlayerTrackTile extends StatefulWidget {
-
+class PlayerTrackTile extends StatelessWidget {
   const PlayerTrackTile({
     super.key,
     required this.label,
@@ -20,68 +20,50 @@ class PlayerTrackTile extends StatefulWidget {
   final bool isTV;
 
   @override
-  State<PlayerTrackTile> createState() => _PlayerTrackTileState();
-}
-
-class _PlayerTrackTileState extends State<PlayerTrackTile> {
-  bool _focused = false;
-
-  @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    
-    // Scale properties based on platform
-    final verticalPadding = widget.isTV ? 32.0 : 14.0;
-    final fontSize = widget.isTV ? 16.0 : 11.0;
-    final iconSize = widget.isTV ? 24.0 : 12.0;
-    final scale = _focused ? 1.02 : 1.0;
-
-    return Focus(
-      onFocusChange: (v) {
-        setState(() => _focused = v);
-        if (v && widget.isTV) handleTVFocusScroll(v, context);
-      },
-      onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: scale,
-          duration: const Duration(milliseconds: 150),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: verticalPadding),
-            decoration: BoxDecoration(
-              color: _focused 
-                  ? tokens.textPrimary 
-                  : (widget.isActive ? tokens.textPrimary.withValues(alpha: 0.05) : Colors.transparent),
-              border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.label,
-                    style: GoogleFonts.dmMono(
-                      color: _focused 
-                          ? tokens.background 
-                          : (widget.isActive ? tokens.textPrimary : tokens.textSecondary),
-                      fontSize: fontSize,
-                      fontWeight: widget.isActive ? FontWeight.bold : FontWeight.normal,
-                      letterSpacing: widget.isTV ? 2 : 1,
-                    ),
+    final card = AppCard(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: DS.s16,
+          vertical: isTV ? DS.s20 : DS.s12,
+        ),
+        child: Semantics(
+          selected: isActive,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTextStyles.bodyLarge.copyWith(
+                    color: tokens.textPrimary,
+                    fontSize: isTV ? 18 : null,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
-                if (widget.isActive)
-                  Icon(
-                    LucideIcons.check, 
-                    color: _focused ? tokens.background : tokens.textPrimary, 
-                    size: iconSize
-                  ),
-              ],
-            ),
+              ),
+              if (isActive)
+                Icon(
+                  LucideIcons.circleCheck,
+                  color: tokens.accent,
+                  size: isTV ? 24 : 20,
+                ),
+            ],
           ),
         ),
       ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: DS.s16, vertical: DS.s4),
+      child: isTV
+          ? Focus(
+              canRequestFocus: false,
+              onKeyEvent: (_, event) => handleTVSelectKey(event, onTap),
+              child: card,
+            )
+          : card,
     );
   }
 }

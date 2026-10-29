@@ -3,13 +3,14 @@
 // STREAMZ — Master Design System & UI Components (Production-Fixed)
 // ============================================================================
 
+import 'dart:ui' show ImageFilter;
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:media_kit/media_kit.dart';
-
+import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/core/theme/streamz_theme.dart';
 import 'package:streamz/core/theme/theme_tokens.dart';
@@ -18,39 +19,240 @@ abstract final class AppTheme {
   static const double bpMobile = DS.bpMobile;
   static const double bpDesktop = DS.bpTablet;
 
-  static ThemeData themeFor(StreamzTheme streamzTheme) {
-    final tokens = streamzTheme.tokens;
+  static ThemeData themeFor(
+    StreamzTheme streamzTheme, {
+    Color? scaffoldTopColor,
+    double? cornerRadius,
+  }) {
+    final tokens = streamzTheme.tokens.copyWith(
+      scaffoldTopColor: scaffoldTopColor,
+      borderRadius: cornerRadius,
+    );
+    final baseTheme = ThemeData.dark();
+    final fontFamily = AppTextStyles.style().fontFamily;
 
-    return ThemeData.dark().copyWith(
-      scaffoldBackgroundColor: tokens.background,
+    return baseTheme.copyWith(
+      scaffoldBackgroundColor: Colors.transparent,
+      primaryTextTheme: baseTheme.primaryTextTheme.apply(
+        fontFamily: fontFamily,
+      ),
       primaryColor: tokens.primary,
       canvasColor: tokens.surface1,
       extensions: [tokens],
-      appBarTheme: AppBarTheme(
-        backgroundColor: tokens.background,
+      dividerColor: tokens.borderSubtle,
+      cardTheme: CardThemeData(
+        color: tokens.surface1,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DS.radius(18)),
+          side: BorderSide(color: tokens.border.withValues(alpha: 0.55)),
+        ),
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: false,
         iconTheme: IconThemeData(color: tokens.textPrimary),
-        shape: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15), width: 1)),
-        titleTextStyle: GoogleFonts.dmMono(fontSize: 14, letterSpacing: 3, color: tokens.textPrimary, fontWeight: FontWeight.bold),
+        titleTextStyle: AppTextStyles.style(
+          fontSize: 18,
+          letterSpacing: -0.2,
+          color: tokens.textPrimary,
+          fontWeight: AppTextStyles.titleFontWeight,
+        ),
       ),
       iconTheme: IconThemeData(color: tokens.textPrimary),
       dialogTheme: DialogThemeData(
         backgroundColor: tokens.surface1,
-        shape: Border.all(color: tokens.textPrimary, width: 2),
-        titleTextStyle: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2),
-        contentTextStyle: GoogleFonts.dmMono(color: tokens.textSecondary, fontSize: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DS.radius(18)),
+          side: BorderSide(color: tokens.border.withValues(alpha: 0.7)),
+        ),
+        titleTextStyle: AppTextStyles.style(
+          color: tokens.textPrimary,
+          fontSize: 24,
+          fontWeight: AppTextStyles.titleFontWeight,
+          letterSpacing: 0.5,
+        ),
+        contentTextStyle: AppTextStyles.style(
+          color: tokens.textSecondary,
+          fontSize: 14,
+        ),
       ),
-      colorScheme: (const ColorScheme.dark()).copyWith(primary: tokens.primary, secondary: tokens.accent, surface: tokens.surface1, onSurface: tokens.textPrimary),
-      textTheme: TextTheme(
-        displayLarge: GoogleFonts.barlowCondensed(fontSize: 80, fontWeight: FontWeight.w900, color: tokens.textPrimary, letterSpacing: -2, height: 0.9),
-        displayMedium: GoogleFonts.barlowCondensed(fontSize: 48, fontWeight: FontWeight.w900, color: tokens.textPrimary, letterSpacing: -1, height: 1.0),
-        headlineSmall: GoogleFonts.barlowCondensed(fontSize: 32, fontWeight: FontWeight.w700, color: tokens.textPrimary, letterSpacing: -0.5, height: 1.1),
-        titleMedium: GoogleFonts.barlowCondensed(fontSize: 24, fontWeight: FontWeight.w700, color: tokens.textPrimary, letterSpacing: 1.0),
-        labelSmall: GoogleFonts.dmMono(fontSize: 11, letterSpacing: 3, color: tokens.textMuted, fontWeight: FontWeight.w500),
-        labelMedium: GoogleFonts.dmMono(fontSize: 13, letterSpacing: 2, color: tokens.textPrimary, fontWeight: FontWeight.w500),
-        bodyLarge: GoogleFonts.barlow(fontSize: 15, fontWeight: FontWeight.w300, color: tokens.textSecondary, height: 1.6),
-        bodyMedium: GoogleFonts.barlow(fontSize: 13, fontWeight: FontWeight.w300, color: tokens.textSecondary, height: 1.6),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: tokens.surface1,
+        modalBackgroundColor: tokens.surface1,
+        surfaceTintColor: Colors.transparent,
+        showDragHandle: true,
+        dragHandleColor: tokens.textMuted,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(DS.radius(24)),
+          ),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: tokens.surface2,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 15,
+        ),
+        hintStyle: AppTextStyles.style(color: tokens.textMuted, fontSize: 14),
+        labelStyle: AppTextStyles.style(
+          color: tokens.textSecondary,
+          fontSize: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(DS.radius(14)),
+          borderSide: BorderSide(color: tokens.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(DS.radius(14)),
+          borderSide: BorderSide(color: tokens.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(DS.radius(14)),
+          borderSide: BorderSide(color: tokens.focusColor, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(DS.radius(14)),
+          borderSide: BorderSide(color: tokens.error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(DS.radius(14)),
+          borderSide: BorderSide(color: tokens.error, width: 1.5),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: tokens.accent,
+          foregroundColor: tokens.background,
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DS.radius(14)),
+          ),
+          textStyle: AppTextStyles.style(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: tokens.textPrimary,
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          side: BorderSide(color: tokens.borderStrong),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DS.radius(14)),
+          ),
+          textStyle: AppTextStyles.style(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: tokens.textPrimary,
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DS.radius(12)),
+          ),
+          textStyle: AppTextStyles.style(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: tokens.textPrimary,
+          minimumSize: const Size(48, 48),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DS.radius(14)),
+          ),
+        ),
+      ),
+      sliderTheme: SliderThemeData(
+        activeTrackColor: tokens.accent,
+        inactiveTrackColor: tokens.surface3,
+        thumbColor: tokens.textPrimary,
+        overlayColor: tokens.accent.withValues(alpha: 0.14),
+        valueIndicatorColor: tokens.surface4,
+        valueIndicatorTextStyle: AppTextStyles.caption.copyWith(
+          color: tokens.textPrimary,
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: tokens.surface3,
+        contentTextStyle: AppTextStyles.style(
+          color: tokens.textPrimary,
+          fontSize: 14,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DS.radius(14))),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: tokens.accent,
+        linearTrackColor: tokens.surface3,
+        circularTrackColor: tokens.surface3,
+      ),
+      colorScheme: (const ColorScheme.dark()).copyWith(
+        primary: tokens.primary,
+        onPrimary: tokens.background,
+        onSecondary: tokens.background,
+        error: tokens.error,
+        onError: tokens.background,
+        secondary: tokens.accent,
+        surface: tokens.surface1,
+        onSurface: tokens.textPrimary,
+      ),
+      textTheme: baseTheme.textTheme
+          .apply(fontFamily: fontFamily)
+          .copyWith(
+        displayLarge: AppTextStyles.display(64, color: tokens.textPrimary),
+        displayMedium: AppTextStyles.display(48, color: tokens.textPrimary),
+        displaySmall: AppTextStyles.display(36, color: tokens.textPrimary),
+        headlineLarge: AppTextStyles.heading(32, color: tokens.textPrimary),
+        headlineMedium: AppTextStyles.headline.copyWith(
+          color: tokens.textPrimary,
+        ),
+        headlineSmall: AppTextStyles.sectionTitle.copyWith(
+          color: tokens.textPrimary,
+        ),
+        titleLarge: AppTextStyles.titleLarge.copyWith(
+          color: tokens.textPrimary,
+        ),
+        titleMedium: AppTextStyles.title.copyWith(color: tokens.textPrimary),
+        titleSmall: AppTextStyles.bodyLarge.copyWith(
+          color: tokens.textPrimary,
+          fontWeight: AppTextStyles.titleFontWeight,
+        ),
+        bodyLarge: AppTextStyles.bodyLarge.copyWith(
+          color: tokens.textSecondary,
+        ),
+        bodyMedium: AppTextStyles.body.copyWith(color: tokens.textSecondary),
+        bodySmall: AppTextStyles.supporting.copyWith(color: tokens.textMuted),
+        labelLarge: AppTextStyles.body.copyWith(
+          color: tokens.textPrimary,
+          fontWeight: FontWeight.w600,
+        ),
+        labelMedium: AppTextStyles.supporting.copyWith(
+          color: tokens.textPrimary,
+          fontWeight: FontWeight.w500,
+        ),
+        labelSmall: AppTextStyles.caption.copyWith(
+          color: tokens.textMuted,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
@@ -70,28 +272,240 @@ abstract final class AppTheme {
   static ThemeData get theme => themeFor(StreamzTheme.pureBlack);
 }
 
-extension ThemeUtils on BuildContext {
-  StreamzThemeExtension get tokens => Theme.of(this).extension<StreamzThemeExtension>()!;
-  TextTheme get textTheme => Theme.of(this).textTheme;
-  ColorScheme get colorScheme => Theme.of(this).colorScheme;
+/// Shared near-black backdrop with the app-wide blue top glow.
+class AppBackdrop extends StatelessWidget {
+  const AppBackdrop({super.key, required this.child, this.topColor});
+
+  final Widget child;
+  final Color? topColor;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [AppBackdropSurface(topColor: topColor), child],
+  );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// RESPONSIVE HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
+/// Opaque shared surface for route transitions and the app launch overlay.
+class AppBackdropSurface extends StatelessWidget {
+  const AppBackdropSurface({super.key, this.topColor});
 
-class Responsive {
-  static bool isMobile(BuildContext ctx) => MediaQuery.sizeOf(ctx).width <= DS.bpMobile;
-  static bool isDesktop(BuildContext ctx) => MediaQuery.sizeOf(ctx).width >= DS.bpTablet;
-  static bool isTV(BuildContext ctx) => MediaQuery.sizeOf(ctx).width >= DS.bpTV;
-  static double hPad(BuildContext ctx) => DS.hPad(MediaQuery.sizeOf(ctx).width);
+  final Color? topColor;
 
-  static T value<T>(BuildContext ctx, {required T mobile, T? tablet, required T desktop}) {
-    final w = MediaQuery.sizeOf(ctx).width;
-    if (w >= DS.bpTablet) return desktop;
-    if (w > DS.bpMobile && tablet != null) return tablet;
-    return mobile;
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        topColor ??
+        Theme.of(context).extension<StreamzThemeExtension>()?.scaffoldTopColor ??
+        DS.scaffoldGlowColor;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const DecoratedBox(
+          decoration: BoxDecoration(gradient: DS.scaffoldBackground),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: const Alignment(0, -1.15),
+              radius: 0.9,
+              stops: const [0.0, 0.35, 1.0],
+              colors: [
+                color.withValues(alpha: 0.85),
+                color.withValues(alpha: 0.25),
+                Colors.transparent,
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
+}
+
+/// Keeps form and dashboard content readable on wide desktop and TV windows.
+class AppContentSliver extends StatelessWidget {
+  const AppContentSliver({
+    super.key,
+    required this.sliver,
+    this.maxWidth = DS.contentMaxWidth,
+  });
+
+  final Widget sliver;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final inset = width > maxWidth ? (width - maxWidth) / 2 : 0.0;
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(horizontal: inset),
+      sliver: sliver,
+    );
+  }
+}
+
+/// Small, clipped blur surface reused by regular and sliver app bars.
+class _AppBarBackdropBlur extends StatefulWidget {
+  const _AppBarBackdropBlur();
+
+  @override
+  State<_AppBarBackdropBlur> createState() => _AppBarBackdropBlurState();
+}
+
+class _AppBarBackdropBlurState extends State<_AppBarBackdropBlur> {
+  ScrollNotificationObserverState? _scrollObserver;
+  bool _scrolledUnder = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scrollObserver?.removeListener(_handleScrollNotification);
+    final isSliverAppBar =
+        context.dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>() !=
+        null;
+    _scrollObserver = isSliverAppBar
+        ? null
+        : ScrollNotificationObserver.maybeOf(context);
+    _scrollObserver?.addListener(_handleScrollNotification);
+  }
+
+  void _handleScrollNotification(ScrollNotification notification) {
+    if (notification is! ScrollUpdateNotification || notification.depth != 0) {
+      return;
+    }
+
+    final metrics = notification.metrics;
+    final scrolledUnder = switch (metrics.axisDirection) {
+      AxisDirection.up => metrics.extentAfter > 0,
+      AxisDirection.down => metrics.extentBefore > 0,
+      AxisDirection.left || AxisDirection.right => null,
+    };
+    if (scrolledUnder != null && scrolledUnder != _scrolledUnder) {
+      setState(() => _scrolledUnder = scrolledUnder);
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollObserver?.removeListener(_handleScrollNotification);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.dependOnInheritedWidgetOfExactType<
+      FlexibleSpaceBarSettings
+    >();
+    final scrolledUnder = settings?.isScrolledUnder ?? _scrolledUnder;
+    if (!scrolledUnder) return const SizedBox.expand();
+
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: ColoredBox(
+          color: context.tokens.background.withValues(alpha: 0.22),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shared transparent app bar for every scrolling page. Keep page titles,
+/// navigation actions, and per-screen scrolling behavior in the callers.
+class AppSliverAppBar extends StatelessWidget {
+  const AppSliverAppBar({
+    super.key,
+    this.title,
+    this.leading,
+    this.actions = const [],
+    this.bottom,
+    this.automaticallyImplyLeading = true,
+    this.centerTitle,
+    this.floating = false,
+    this.pinned = false,
+    this.snap = false,
+    this.stretch = false,
+    this.primary = true,
+    this.forceElevated = false,
+    this.toolbarHeight,
+    this.collapsedHeight,
+    this.expandedHeight,
+    this.leadingWidth,
+    this.titleSpacing = 0,
+    this.flexibleSpace,
+    this.actionsPadding,
+  });
+
+  final Widget? title;
+  final Widget? leading;
+  final List<Widget> actions;
+  final PreferredSizeWidget? bottom;
+  final bool automaticallyImplyLeading;
+  final bool? centerTitle;
+  final bool floating;
+  final bool pinned;
+  final bool snap;
+  final bool stretch;
+  final bool primary;
+  final bool forceElevated;
+  final double? toolbarHeight;
+  final double? collapsedHeight;
+  final double? expandedHeight;
+  final double? leadingWidth;
+  final double titleSpacing;
+  final Widget? flexibleSpace;
+  final EdgeInsetsGeometry? actionsPadding;
+
+  @override
+  Widget build(BuildContext context) => SliverAppBar(
+    backgroundColor: Colors.transparent,
+    surfaceTintColor: Colors.transparent,
+    shadowColor: Colors.transparent,
+    elevation: 0,
+    scrolledUnderElevation: 0,
+    forceMaterialTransparency: true,
+    title: title,
+    leading: leading,
+    actions: actions,
+    bottom: bottom,
+    automaticallyImplyLeading: automaticallyImplyLeading,
+    centerTitle: centerTitle,
+    floating: floating,
+    pinned: pinned,
+    snap: snap,
+    stretch: stretch,
+    primary: primary,
+    forceElevated: forceElevated,
+    toolbarHeight: toolbarHeight ?? kToolbarHeight,
+    collapsedHeight: collapsedHeight,
+    expandedHeight: expandedHeight,
+    leadingWidth: leadingWidth,
+    titleSpacing: titleSpacing,
+    flexibleSpace: Stack(
+      fit: StackFit.expand,
+      children: [
+        ?flexibleSpace,
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height:
+              (primary ? MediaQuery.paddingOf(context).top : 0) +
+              (toolbarHeight ?? kToolbarHeight),
+          child: const _AppBarBackdropBlur(),
+        ),
+      ],
+    ),
+    actionsPadding: actionsPadding,
+  );
+}
+
+extension ThemeUtils on BuildContext {
+  StreamzThemeExtension get tokens =>
+      Theme.of(this).extension<StreamzThemeExtension>()!;
+  TextTheme get textTheme => Theme.of(this).textTheme;
+  ColorScheme get colorScheme => Theme.of(this).colorScheme;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -122,7 +536,12 @@ void handleTVFocusScroll(bool hasFocus, BuildContext context) {
     // Guard: context may have been unmounted by the time the callback fires.
     if (!context.mounted) return;
     try {
-      Scrollable.ensureVisible(context, alignment: 0.5, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
+      Scrollable.ensureVisible(
+        context,
+        alignment: 0.5,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+      );
     } catch (_) {
       // No ancestor Scrollable — safe to ignore (e.g. full-screen TV cards).
     }
@@ -134,32 +553,72 @@ void handleTVFocusScroll(bool hasFocus, BuildContext context) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class AppScaffold extends StatelessWidget {
-
-  const AppScaffold({super.key, required this.body, this.appBar, this.floatingActionButton, this.floatingActionButtonLocation, this.bottomNavigationBar});
+  const AppScaffold({
+    super.key,
+    required this.body,
+    this.appBar,
+    this.floatingActionButton,
+    this.floatingActionButtonLocation,
+    this.bottomNavigationBar,
+    this.extendBody = false,
+    this.extendBodyBehindAppBar = false,
+    this.resizeToAvoidBottomInset,
+  });
   final Widget body;
   final PreferredSizeWidget? appBar;
   final Widget? floatingActionButton;
   final FloatingActionButtonLocation? floatingActionButtonLocation;
   final Widget? bottomNavigationBar;
+  final bool extendBody;
+  final bool extendBodyBehindAppBar;
+  final bool? resizeToAvoidBottomInset;
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    extendBody: true,
-    backgroundColor: context.tokens.background,
-    appBar: appBar,
+    extendBody: extendBody,
+    extendBodyBehindAppBar: extendBodyBehindAppBar,
+    resizeToAvoidBottomInset: resizeToAvoidBottomInset,
+    backgroundColor: Colors.transparent,
+    appBar: appBar == null ? null : AppBlurredAppBar(child: appBar!),
     body: body,
     floatingActionButton: floatingActionButton,
-    floatingActionButtonLocation: floatingActionButtonLocation ?? FloatingActionButtonLocation.centerFloat,
+    floatingActionButtonLocation: floatingActionButtonLocation,
     bottomNavigationBar: bottomNavigationBar,
   );
 }
 
-class AppCard extends StatefulWidget {
+/// Adds a restrained backdrop blur behind transparent app bars so content
+/// scrolling beneath remains visible without competing with the title/actions.
+class AppBlurredAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const AppBlurredAppBar({super.key, required this.child});
 
-  const AppCard({super.key, required this.child, this.onTap, this.onLongPress});
+  final PreferredSizeWidget child;
+
+  @override
+  Size get preferredSize => child.preferredSize;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [
+      const _AppBarBackdropBlur(),
+      child,
+    ],
+  );
+}
+
+class AppCard extends StatefulWidget {
+  const AppCard({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.onLongPress,
+    this.onFocusChanged,
+  });
   final Widget child;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final ValueChanged<bool>? onFocusChanged;
 
   @override
   State<AppCard> createState() => _AppCardState();
@@ -167,43 +626,48 @@ class AppCard extends StatefulWidget {
 
 class _AppCardState extends State<AppCard> {
   bool _isFocused = false;
+  bool _isHovered = false;
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final isHoveredOrFocused = _isFocused;
-    return Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            widget.onTap?.call();
-            return null;
-          },
-        ),
-      },
-      child: Focus(
-        onFocusChange: (val) {
-          setState(() => _isFocused = val);
-          handleTVFocusScroll(val, context);
-        },
-        onKeyEvent: (node, event) => handleTVSelectKey(event, widget.onTap),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          decoration: BoxDecoration(
-            color: isHoveredOrFocused ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.surface2,
-            border: Border.all(
-              color: isHoveredOrFocused ? tokens.accent : tokens.border.withValues(alpha: 0.15), 
-              width: isHoveredOrFocused ? 2.5 : 1.0
-            ),
+    final active = _isFocused || _isHovered;
+    final interactive = widget.onTap != null || widget.onLongPress != null;
+    return Semantics(
+      button: interactive,
+      child: AnimatedContainer(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          color: active
+              ? tokens.surface3
+              : tokens.surface1.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(DS.radiusMd),
+          border: Border.all(
+            color: _isFocused
+                ? tokens.focusColor
+                : _isHovered
+                ? tokens.borderStrong
+                : tokens.border.withValues(alpha: 0.55),
+            width: _isFocused ? DS.focusWidth : 1,
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: widget.onTap, 
-              onLongPress: widget.onLongPress, 
-              onHover: (val) => setState(() => _isFocused = val), 
-              child: widget.child
-            ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(DS.radiusMd),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            canRequestFocus: interactive,
+            onTap: widget.onTap,
+            onLongPress: widget.onLongPress,
+            onFocusChange: (value) {
+              setState(() => _isFocused = value);
+              widget.onFocusChanged?.call(value);
+              handleTVFocusScroll(value, context);
+            },
+            onHover: (value) => setState(() => _isHovered = value),
+            child: widget.child,
           ),
         ),
       ),
@@ -211,9 +675,14 @@ class _AppCardState extends State<AppCard> {
   }
 }
 
-class BrutalistBlock extends StatelessWidget {
-
-  const BrutalistBlock({super.key, required this.child, required this.padding, this.color, this.borderColor});
+class AppPanel extends StatelessWidget {
+  const AppPanel({
+    super.key,
+    required this.child,
+    required this.padding,
+    this.color,
+    this.borderColor,
+  });
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color? color;
@@ -223,222 +692,211 @@ class BrutalistBlock extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: padding,
     decoration: BoxDecoration(
-      color: color ?? context.tokens.surface1,
-      border: Border.all(color: borderColor ?? context.tokens.border, width: 1),
+      color: color ?? context.tokens.surface2.withValues(alpha: 0.88),
+      borderRadius: BorderRadius.circular(DS.radius(18)),
+      border: Border.all(
+        color: borderColor ?? context.tokens.border.withValues(alpha: 0.55),
+        width: 1,
+      ),
     ),
     child: child,
   );
 }
 
-class BrutalistToggle extends StatelessWidget {
+/// Compact variant of the same accessible button used throughout the app.
+class CompactBtn extends StatelessWidget {
+  const CompactBtn({
+    super.key,
+    required this.label,
+    this.icon,
+    required this.onTap,
+    this.isPrimary = true,
+    this.isLoading = false,
+    this.height = 48,
+  });
+  final String label;
+  final IconData? icon;
+  final VoidCallback onTap;
+  final bool isPrimary;
+  final bool isLoading;
+  final double height;
 
-  const BrutalistToggle({super.key, required this.value, required this.isMobile});
-  final bool value;
-  final bool isMobile;
+  @override
+  Widget build(BuildContext context) => AppButton(
+    label: label,
+    icon: icon,
+    onTap: onTap,
+    isPrimary: isPrimary,
+    isLoading: isLoading,
+    height: height,
+  );
+}
+
+class AppButton extends StatelessWidget {
+  const AppButton({
+    super.key,
+    required this.label,
+    this.icon,
+    required this.onTap,
+    this.isPrimary = true,
+    this.isLoading = false,
+    this.height = 54,
+  });
+  final String label;
+  final IconData? icon;
+  final VoidCallback onTap;
+  final bool isPrimary;
+  final bool isLoading;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      width: isMobile ? 32 : 40,
-      height: isMobile ? 16 : 20,
-      decoration: BoxDecoration(
-        color: value ? tokens.accent : Colors.transparent,
-        border: Border.all(color: value ? tokens.accent : tokens.textMuted, width: 2),
+    final content = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (isLoading) ...[
+          const SizedBox.square(
+            dimension: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: DS.s12),
+        ] else if (icon != null) ...[
+          Icon(icon, size: 20),
+          const SizedBox(width: DS.s12),
+        ],
+        Flexible(child: Text(label, textAlign: TextAlign.center)),
+      ],
+    );
+    final style = ButtonStyle(
+      minimumSize: WidgetStatePropertyAll(Size(48, height < 48 ? 48 : height)),
+      side: WidgetStateProperty.resolveWith(
+        (states) => BorderSide(
+          color: states.contains(WidgetState.focused)
+              ? context.tokens.focusColor
+              : context.tokens.border,
+          width: states.contains(WidgetState.focused) ? 3 : 1,
+        ),
       ),
-      child: Stack(
+    );
+    return Semantics(
+      liveRegion: isLoading,
+      child: SizedBox(
+        width: double.infinity,
+        child: isPrimary
+            ? ElevatedButton(
+                onPressed: isLoading ? null : onTap,
+                style: style,
+                child: content,
+              )
+            : OutlinedButton(
+                onPressed: isLoading ? null : onTap,
+                style: style,
+                child: content,
+              ),
+      ),
+    );
+  }
+}
+
+/// Focusable, touch friendly action grid shared by gateway and server screens.
+class AppActionGrid extends StatelessWidget {
+  const AppActionGrid({
+    super.key,
+    required this.children,
+    this.padding = const EdgeInsets.all(DS.s16),
+    this.spacing = DS.s12,
+    this.minTileWidth = 140,
+    this.maxColumns = 4,
+  });
+
+  final List<Widget> children;
+  final EdgeInsetsGeometry padding;
+  final double spacing;
+  final double minTileWidth;
+  final int maxColumns;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final resolvedPadding = padding.resolve(Directionality.of(context));
+      final availableWidth = constraints.maxWidth - resolvedPadding.horizontal;
+      final columns = constraints.hasBoundedWidth
+          ? DS.responsiveColumns(
+              context,
+              availableWidth: availableWidth,
+              spacing: spacing,
+              minTileWidth: minTileWidth,
+              maxColumns: maxColumns,
+            )
+          : maxColumns;
+      final scaledFont = MediaQuery.textScalerOf(context).scale(14);
+      final tileHeight = (84 + scaledFont * 2.5).clamp(120.0, 176.0);
+      return GridView.count(
+        crossAxisCount: columns,
+        shrinkWrap: true,
+        padding: padding,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: spacing,
+        crossAxisSpacing: spacing,
+        mainAxisExtent: tileHeight,
+        children: children,
+      );
+    },
+  );
+}
+
+class AppActionCard extends StatelessWidget {
+  const AppActionCard({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.isActive = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) => AppCard(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: DS.s12, vertical: DS.s16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          AnimatedAlign(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
-            alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-            child: Container(width: isMobile ? 10 : 12, height: isMobile ? 10 : 12, margin: const EdgeInsets.symmetric(horizontal: 2), color: value ? tokens.background : tokens.textMuted),
+          Icon(
+            icon,
+            size: 24,
+            color: isActive
+                ? context.tokens.success
+                : context.tokens.textPrimary,
+          ),
+          const SizedBox(height: DS.s12),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w500),
           ),
         ],
       ),
-    );
-  }
-}
-
-class BrutalistToggleTile extends StatelessWidget {
-
-  const BrutalistToggleTile({super.key, required this.label, required this.icon, required this.value, required this.isMobile, required this.onChanged});
-  final String label;
-  final IconData icon;
-  final bool value;
-  final bool isMobile;
-  final Function(bool) onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return InkWell(
-      onTap: () => onChanged(!value),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: DS.s16, vertical: isMobile ? DS.s8 : DS.s12),
-        child: Row(
-          children: [
-            Icon(icon, color: tokens.accent, size: isMobile ? 16 : 20),
-            const SizedBox(width: DS.s16),
-            Expanded(
-              child: Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(fontSize: isMobile ? 11 : 12)),
-            ),
-            BrutalistToggle(value: value, isMobile: isMobile),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class CompactBtn extends StatefulWidget {
-
-  const CompactBtn({super.key, required this.label, this.icon, required this.onTap, this.isPrimary = true, this.isLoading = false, this.height = 48});
-  final String label;
-  final IconData? icon;
-  final VoidCallback onTap;
-  final bool isPrimary;
-  final bool isLoading;
-  final double height;
-
-  @override
-  State<CompactBtn> createState() => _CompactBtnState();
-}
-
-class _CompactBtnState extends State<CompactBtn> {
-  bool _isFocused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final bg = widget.isPrimary ? tokens.accent : Colors.transparent;
-    final fg = widget.isPrimary ? tokens.background : tokens.textPrimary;
-    final border = widget.isPrimary ? tokens.accent : tokens.border;
-
-    return Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            if (!widget.isLoading) widget.onTap();
-            return null;
-          },
-        ),
-      },
-      child: Focus(
-        onFocusChange: (val) => setState(() => _isFocused = val),
-        onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.isLoading ? null : widget.onTap),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          height: widget.height,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: _isFocused && !widget.isPrimary ? tokens.surface3 : bg,
-            border: Border.all(color: _isFocused ? tokens.accent : border, width: widget.isPrimary ? 2 : 1),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: widget.isLoading ? null : widget.onTap,
-              child: Center(
-                child: widget.isLoading
-                    ? SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: fg))
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (widget.icon != null) ...[Icon(widget.icon, size: 16, color: fg), const SizedBox(width: DS.s8)],
-                          Text(
-                            widget.label.toUpperCase(),
-                            style: GoogleFonts.dmMono(fontWeight: FontWeight.w700, fontSize: 11, letterSpacing: 2, color: fg),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class AppButton extends StatefulWidget {
-
-  const AppButton({super.key, required this.label, this.icon, required this.onTap, this.isPrimary = true, this.isLoading = false, this.height = 54});
-  final String label;
-  final IconData? icon;
-  final VoidCallback onTap;
-  final bool isPrimary;
-  final bool isLoading;
-  final double height;
-
-  @override
-  State<AppButton> createState() => _AppButtonState();
-}
-
-class _AppButtonState extends State<AppButton> {
-  bool _isFocused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final bg = widget.isPrimary ? tokens.accent : Colors.transparent;
-    final fg = widget.isPrimary ? tokens.background : tokens.textPrimary;
-    final border = widget.isPrimary ? tokens.accent : tokens.border;
-
-    return Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            if (!widget.isLoading) widget.onTap();
-            return null;
-          },
-        ),
-      },
-      child: Focus(
-        onFocusChange: (val) {
-          setState(() => _isFocused = val);
-          handleTVFocusScroll(val, context);
-        },
-        onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.isLoading ? null : widget.onTap),
-        child: GestureDetector(
-          onTap: widget.isLoading ? null : widget.onTap,
-          child: MouseRegion(
-            onEnter: (_) => setState(() => _isFocused = true),
-            onExit: (_) => setState(() => _isFocused = false),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 100),
-              height: widget.height,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: _isFocused ? (widget.isPrimary ? tokens.accent.withValues(alpha: 0.7) : tokens.surface3) : bg,
-                border: Border.all(color: _isFocused ? tokens.accent : border, width: _isFocused ? 3 : 1),
-              ),
-              child: Center(
-                child: widget.isLoading
-                    ? SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: fg))
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (widget.icon != null) ...[Icon(widget.icon, size: 16, color: fg), const SizedBox(width: DS.s12)],
-                          Text(
-                            widget.label.toUpperCase(),
-                            style: GoogleFonts.dmMono(fontWeight: FontWeight.w700, fontSize: 12, letterSpacing: 3, color: fg),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+    ),
+  );
 }
 
 class StatusBadge extends StatelessWidget {
-
-  const StatusBadge({super.key, required this.label, this.isActive = false, this.activeColor, this.activeFg});
+  const StatusBadge({
+    super.key,
+    required this.label,
+    this.isActive = false,
+    this.activeColor,
+    this.activeFg,
+  });
   final String label;
   final bool isActive;
   final Color? activeColor;
@@ -452,14 +910,19 @@ class StatusBadge extends StatelessWidget {
       color: isActive ? (activeColor ?? tokens.accent) : tokens.surface3,
       child: Text(
         label.toUpperCase(),
-        style: GoogleFonts.dmMono(fontSize: 9, fontWeight: FontWeight.bold, color: isActive ? (activeFg ?? tokens.background) : tokens.textSecondary),
+        style: AppTextStyles.style(
+          fontSize: 9,
+          fontWeight: FontWeight.w500,
+          color: isActive
+              ? (activeFg ?? tokens.background)
+              : tokens.textSecondary,
+        ),
       ),
     );
   }
 }
 
 class SkeletonBox extends StatelessWidget {
-
   const SkeletonBox({super.key, this.width, this.height});
   final double? width;
   final double? height;
@@ -476,8 +939,12 @@ class SkeletonBox extends StatelessWidget {
 }
 
 class NetworkImageFade extends StatelessWidget {
-
-  const NetworkImageFade({super.key, required this.url, this.fit = BoxFit.cover, this.fallbackIcon = LucideIcons.film});
+  const NetworkImageFade({
+    super.key,
+    required this.url,
+    this.fit = BoxFit.cover,
+    this.fallbackIcon = LucideIcons.film,
+  });
   final String url;
   final BoxFit fit;
   final IconData fallbackIcon;
@@ -489,11 +956,15 @@ class NetworkImageFade extends StatelessWidget {
     fadeInDuration: const Duration(milliseconds: 300),
     placeholder: (_, _) => Container(
       color: context.tokens.surface1,
-      child: Center(child: Icon(fallbackIcon, color: context.tokens.textMuted, size: 32)),
+      child: Center(
+        child: Icon(fallbackIcon, color: context.tokens.textMuted, size: 32),
+      ),
     ),
     errorWidget: (_, _, _) => Container(
       color: context.tokens.surface1,
-      child: Center(child: Icon(fallbackIcon, color: context.tokens.textMuted, size: 32)),
+      child: Center(
+        child: Icon(fallbackIcon, color: context.tokens.textMuted, size: 32),
+      ),
     ),
   );
 }
@@ -502,82 +973,22 @@ class NetworkImageFade extends StatelessWidget {
 // PLAYER COMPONENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-class BrutalistPlayerBtn extends StatefulWidget {
-
-  const BrutalistPlayerBtn({super.key, required this.icon, required this.size, this.onTap, this.focusNode, this.autoFocus = false, this.isPrimary = false});
-  final IconData icon;
-  final double size;
-  final VoidCallback? onTap;
-  final FocusNode? focusNode;
-  final bool autoFocus;
-  final bool isPrimary;
-
-  @override
-  State<BrutalistPlayerBtn> createState() => _BrutalistPlayerBtnState();
-}
-
-class _BrutalistPlayerBtnState extends State<BrutalistPlayerBtn> {
-  bool _isFocused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final isMobile = Responsive.isMobile(context);
-    final bg = _isFocused ? tokens.accent : (widget.isPrimary ? tokens.textPrimary : tokens.surface1);
-    final fg = _isFocused ? tokens.background : (widget.isPrimary ? tokens.background : tokens.textPrimary);
-    final borderColor = _isFocused ? tokens.accent : tokens.border;
-    final shadowOffset = isMobile ? const Offset(4, 4) : const Offset(6, 6);
-    final boxSize = (Responsive.isTV(context) || Responsive.isDesktop(context)) ? widget.size * 1.6 : widget.size * 2.0;
-
-    return Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            widget.onTap?.call();
-            return null;
-          },
-        ),
-      },
-      child: Focus(
-        focusNode: widget.focusNode,
-        autofocus: widget.autoFocus,
-        onFocusChange: (val) => setState(() => _isFocused = val),
-        onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedScale(
-            scale: _isFocused ? 1.05 : 1.0,
-            duration: const Duration(milliseconds: 150),
-            child: Container(
-              margin: EdgeInsets.only(right: _isFocused ? shadowOffset.dx : 0, bottom: _isFocused ? shadowOffset.dy : 0),
-              width: boxSize,
-              height: boxSize,
-              decoration: BoxDecoration(
-                color: bg,
-                border: Border.all(color: borderColor, width: _isFocused ? (isMobile ? 2 : 4) : (isMobile ? 1 : 2)),
-                boxShadow: _isFocused ? [BoxShadow(color: tokens.accent, offset: shadowOffset)] : [],
-              ),
-              child: Icon(widget.icon, size: widget.size, color: fg),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class BrutalistProgressBar extends StatefulWidget {
-
-  const BrutalistProgressBar({super.key, required this.player, this.compact = false, this.isReadOnly = false});
+class PlayerProgressBar extends StatefulWidget {
+  const PlayerProgressBar({
+    super.key,
+    required this.player,
+    this.compact = false,
+    this.isReadOnly = false,
+  });
   final Player player;
   final bool compact;
   final bool isReadOnly;
 
   @override
-  State<BrutalistProgressBar> createState() => _BrutalistProgressBarState();
+  State<PlayerProgressBar> createState() => _PlayerProgressBarState();
 }
 
-class _BrutalistProgressBarState extends State<BrutalistProgressBar> {
+class _PlayerProgressBarState extends State<PlayerProgressBar> {
   bool _isFocused = false;
 
   String _fmt(int seconds) {
@@ -601,14 +1012,19 @@ class _BrutalistProgressBarState extends State<BrutalistProgressBar> {
         builder: (_, durSnap) {
           final pos = posSnap.data ?? Duration.zero;
           final dur = durSnap.data ?? Duration.zero;
-          final maxVal = dur.inMilliseconds.toDouble().clamp(1.0, double.infinity);
+          final maxVal = dur.inMilliseconds.toDouble().clamp(
+            1.0,
+            double.infinity,
+          );
           final curVal = pos.inMilliseconds.toDouble().clamp(0.0, maxVal);
 
           return Focus(
             onFocusChange: (val) => setState(() => _isFocused = val),
             onKeyEvent: (node, event) {
               if (widget.isReadOnly) return KeyEventResult.ignored;
-              if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
+              if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+                return KeyEventResult.ignored;
+              }
 
               if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
                 widget.player.seek(pos - const Duration(seconds: 10));
@@ -624,33 +1040,66 @@ class _BrutalistProgressBarState extends State<BrutalistProgressBar> {
               duration: const Duration(milliseconds: 150),
               padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
               decoration: BoxDecoration(
-                color: _isFocused ? tokens.surface3.withValues(alpha: 0.3) : Colors.transparent,
-                border: Border.all(color: _isFocused ? tokens.accent : Colors.transparent, width: 2),
+                color: _isFocused
+                    ? tokens.surface3.withValues(alpha: 0.24)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(DS.radiusMd),
+                border: Border.all(
+                  color: _isFocused
+                      ? tokens.focusColor.withValues(alpha: 0.8)
+                      : Colors.transparent,
+                  width: _isFocused ? DS.focusWidth : 1,
+                ),
+                boxShadow: _isFocused
+                    ? [
+                        BoxShadow(
+                          color: tokens.focusShadow.withValues(alpha: 0.14),
+                          blurRadius: 18,
+                        ),
+                      ]
+                    : null,
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   SizedBox(
                     width: widget.compact ? 56 : 80,
-                    child: Text(_fmt(pos.inSeconds), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: widget.compact ? 12 : 16)),
+                    child: Text(
+                      _fmt(pos.inSeconds),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontSize: widget.compact ? 12 : 16,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: DS.s16),
                   Expanded(
                     child: SliderTheme(
                       data: SliderThemeData(
-                        trackHeight: widget.compact ? 4 : 8,
-                        activeTrackColor: widget.isReadOnly ? tokens.warning : tokens.accent,
+                        trackHeight: widget.compact ? 4 : 6,
+                        activeTrackColor: widget.isReadOnly
+                            ? tokens.warning
+                            : tokens.accent,
                         inactiveTrackColor: tokens.surface3,
-                        thumbColor: widget.isReadOnly ? Colors.transparent : tokens.accent,
+                        thumbColor: widget.isReadOnly
+                            ? Colors.transparent
+                            : tokens.accent,
                         overlayShape: SliderComponentShape.noOverlay,
-                        trackShape: const RectangularSliderTrackShape(),
-                        thumbShape: RoundSliderThumbShape(enabledThumbRadius: widget.isReadOnly ? 0 : 6),
+                        trackShape: const RoundedRectSliderTrackShape(),
+                        thumbShape: RoundSliderThumbShape(
+                          enabledThumbRadius: widget.isReadOnly ? 0 : 7,
+                        ),
                       ),
                       child: Slider(
                         value: curVal,
                         min: 0,
                         max: maxVal,
-                        onChanged: widget.isReadOnly ? null : (v) => widget.player.seek(Duration(milliseconds: v.toInt())),
+                        onChanged: widget.isReadOnly
+                            ? null
+                            : (v) => widget.player.seek(
+                                Duration(milliseconds: v.toInt()),
+                              ),
+                        semanticFormatterCallback: (value) =>
+                            '${_fmt((value / 1000).round())} of ${_fmt(dur.inSeconds)}',
                       ),
                     ),
                   ),
@@ -660,12 +1109,14 @@ class _BrutalistProgressBarState extends State<BrutalistProgressBar> {
                     child: Text(
                       widget.isReadOnly ? 'LIVE' : _fmt(dur.inSeconds),
                       textAlign: TextAlign.right,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelMedium?.copyWith(
-                        color: widget.isReadOnly ? tokens.warning : tokens.textMuted,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: widget.isReadOnly
+                            ? tokens.warning
+                            : tokens.textMuted,
                         fontSize: widget.compact ? 12 : 16,
-                        fontWeight: widget.isReadOnly ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: widget.isReadOnly
+                            ? FontWeight.w500
+                            : FontWeight.normal,
                       ),
                     ),
                   ),

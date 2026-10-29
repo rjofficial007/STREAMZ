@@ -1,5 +1,7 @@
 # Implementation Plan - Liquid Glass UI for SamsungFileManagerScreen
 
+> Historical planning artifact from June 2026. It records a proposal from that task and is not a statement of current implementation status. Use the [current architecture](../../docs/ARCHITECTURE.md), [UI component guide](../../docs/UI_COMPONENTS.md), and [README](../../README.md) as the source of truth.
+
 Apply a high-end "Liquid Glass" aesthetic to the `SamsungFileManagerScreen` using the `liquid_glass_easy` package. This involves replacing the current Brutalist design with a translucent, refracted, and distorted glass UI over a vibrant background.
 
 ## Proposed Changes

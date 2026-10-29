@@ -29,7 +29,6 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart' as shelf_router;
 import 'package:shelf_web_socket/shelf_web_socket.dart';
-import 'package:streamz/core/di/service_locator.dart';
 import 'package:streamz/core/utils/file_type_utils.dart';
 import 'package:streamz/core/utils/logger.dart';
 import 'package:streamz/data/local/media_scanner.dart';
@@ -46,18 +45,30 @@ import 'package:streamz/domain/services/station_service.dart';
 import 'package:streamz/domain/services/video_thumbnail_service.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-typedef SessionUpdateCallback = void Function(String sessionId, StreamSession? session);
+typedef SessionUpdateCallback =
+    void Function(String sessionId, StreamSession? session);
 typedef ConnectionLogCallback = void Function(String ip);
 
 class HttpServerService {
-
-  HttpServerService({required MediaScanner scanner, required ThumbnailCache thumbCache, required VideoThumbnailService thumbGenerator})
-    : _scanner = scanner,
-      _thumbCache = thumbCache,
-      _thumbGenerator = thumbGenerator;
+  HttpServerService({
+    required MediaScanner scanner,
+    required ThumbnailCache thumbCache,
+    required VideoThumbnailService thumbGenerator,
+    required StationService stationService,
+    required QueueService queueService,
+    required ServerRepository serverRepository,
+  }) : _scanner = scanner,
+       _thumbCache = thumbCache,
+       _thumbGenerator = thumbGenerator,
+       _stationService = stationService,
+       _queueService = queueService,
+       _serverRepository = serverRepository;
   final MediaScanner _scanner;
   final ThumbnailCache _thumbCache;
   final VideoThumbnailService _thumbGenerator;
+  final StationService _stationService;
+  final QueueService _queueService;
+  final ServerRepository _serverRepository;
 
   HttpServer? _server;
 
@@ -100,7 +111,12 @@ class HttpServerService {
 
   void _addLog(String message) {
     logger.i('[HttpServer] $message');
-    final timestamp = DateTime.now().toString().split(' ').last.split('.').first;
+    final timestamp = DateTime.now()
+        .toString()
+        .split(' ')
+        .last
+        .split('.')
+        .first;
     _logs.add('[$timestamp] $message');
     if (_logs.length > 100) _logs.removeAt(0);
     onSocketsChanged?.call();
@@ -110,16 +126,25 @@ class HttpServerService {
 
   /// Returns true only if [rawPath] resolves to a location inside one of
   /// [sharedFolders] after URL-decoding and OS-level canonicalisation.
-  bool _isPathAllowed(String rawPath, List<String> sharedFolders) {
+  @visibleForTesting
+  static Future<bool> isPathAllowed(
+    String rawPath,
+    List<String> sharedFolders,
+  ) async {
     if (rawPath.isEmpty) return false;
     try {
       final decoded = Uri.decodeComponent(rawPath);
       final absolutePath = p.absolute(decoded);
       final canonical = p.canonicalize(absolutePath);
+      final resolvedPath = await _resolveThroughExistingAncestors(canonical);
 
       for (final folder in sharedFolders) {
         final canonicalFolder = p.canonicalize(p.absolute(folder));
-        if (canonical == canonicalFolder || p.isWithin(canonicalFolder, canonical)) {
+        final resolvedFolder = await _resolveThroughExistingAncestors(
+          canonicalFolder,
+        );
+        if (resolvedPath == resolvedFolder ||
+            p.isWithin(resolvedFolder, resolvedPath)) {
           return true;
         }
       }
@@ -130,9 +155,40 @@ class HttpServerService {
     }
   }
 
+  /// Resolves symlinks in the existing portion of a path while preserving
+  /// missing trailing segments so callers can still return their usual 404.
+  static Future<String> _resolveThroughExistingAncestors(String path) async {
+    var existing = path;
+    final suffix = <String>[];
+    while (true) {
+      final type = await FileSystemEntity.type(existing, followLinks: false);
+      if (type != FileSystemEntityType.notFound) {
+        final resolved = switch (type) {
+          FileSystemEntityType.directory => await Directory(
+            existing,
+          ).resolveSymbolicLinks(),
+          FileSystemEntityType.link => await Link(
+            existing,
+          ).resolveSymbolicLinks(),
+          _ => await File(existing).resolveSymbolicLinks(),
+        };
+        return p.canonicalize(p.joinAll([resolved, ...suffix.reversed]));
+      }
+
+      final parent = p.dirname(existing);
+      if (parent == existing) return path;
+      suffix.add(p.basename(existing));
+      existing = parent;
+    }
+  }
+
   // ── Server Lifecycle ───────────────────────────────────────────────────────
 
-  Future<void> start({required String ip, required List<String> sharedFolders, required List<MediaItem> Function() getMediaItems}) async {
+  Future<void> start({
+    required String ip,
+    required List<String> sharedFolders,
+    required List<MediaItem> Function() getMediaItems,
+  }) async {
     if (_server != null) await stop();
 
     final router = shelf_router.Router()
@@ -144,36 +200,59 @@ class HttpServerService {
         try {
           final data = await rootBundle.load('assets/images/$name');
           final bytes = data.buffer.asUint8List();
-          final ct = (name.endsWith('.jpg') || name.endsWith('.jpeg')) ? 'image/jpeg' : 'image/png';
-          return shelf.Response.ok(bytes, headers: {'Content-Type': ct, 'Cache-Control': 'public, max-age=86400'});
+          final ct = (name.endsWith('.jpg') || name.endsWith('.jpeg'))
+              ? 'image/jpeg'
+              : 'image/png';
+          return shelf.Response.ok(
+            bytes,
+            headers: {
+              'Content-Type': ct,
+              'Cache-Control': 'public, max-age=86400',
+            },
+          );
         } catch (_) {
           return shelf.Response.notFound('Asset not found');
         }
       })
       ..get('/', (_) {
         _addLog('GET / [WEB_UI]');
-        final html = useModernWebUI ? kModernWebInterfaceHtml : kWebInterfaceHtml;
-        return shelf.Response.ok(html, headers: {'content-type': 'text/html; charset=utf-8'});
+        final html = useModernWebUI
+            ? kModernWebInterfaceHtml
+            : kWebInterfaceHtml;
+        return shelf.Response.ok(
+          html,
+          headers: {'content-type': 'text/html; charset=utf-8'},
+        );
       })
       ..get('/api/media', (_) async {
         _addLog('GET /api/media');
         final items = getMediaItems();
-        final body = await compute(_jsonEncode, items.map((e) => e.toJson()).toList());
-        return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
+        final body = await compute(
+          _jsonEncode,
+          items.map((e) => e.toJson()).toList(),
+        );
+        return shelf.Response.ok(
+          body,
+          headers: {'content-type': 'application/json'},
+        );
       })
       ..get('/api/stations', (_) async {
-        final svc = sl<StationService>();
         final results = stations.map((s) {
-          final state = svc.getPlaybackState(s);
+          final state = _stationService.getPlaybackState(s);
           return {...s.toJson(), 'nowPlaying': state?.toJson()};
         }).toList();
         final body = await compute(_jsonEncode, results);
-        return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
+        return shelf.Response.ok(
+          body,
+          headers: {'content-type': 'application/json'},
+        );
       })
       ..get('/api/stations/join/<id>', (shelf.Request r, String id) async {
-        final station = stations.firstWhere((s) => s.id == id, orElse: () => throw Exception('Station not found'));
-        final svc = sl<StationService>();
-        final state = svc.getPlaybackState(station);
+        final station = stations.firstWhere(
+          (s) => s.id == id,
+          orElse: () => throw Exception('Station not found'),
+        );
+        final state = _stationService.getPlaybackState(station);
         if (state == null) return shelf.Response.notFound('No active content');
 
         // [A3] Master election: first Flutter client to join an active station
@@ -200,22 +279,39 @@ class HttpServerService {
           ...state.toJson(),
           'isPaused': station.isPaused,
           'syncRole': syncRole,
-          'playlist': station.playlist.map((e) => e.copyWith(isBroadcast: true).toJson()).toList(),
+          'playlist': station.playlist
+              .map((e) => e.copyWith(isBroadcast: true).toJson())
+              .toList(),
         };
 
         final body = await compute(_jsonEncode, response);
-        return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
+        return shelf.Response.ok(
+          body,
+          headers: {'content-type': 'application/json'},
+        );
       })
       ..get('/api/browse', (shelf.Request r) async {
         final rawPath = r.url.queryParameters['path'] ?? '';
 
         if (rawPath.isEmpty) {
-          final roots = sharedFolders.map((f) => {'name': f, 'path': f, 'isDirectory': true, 'itemCount': 0}).toList();
+          final roots = sharedFolders
+              .map(
+                (f) => {
+                  'name': f,
+                  'path': f,
+                  'isDirectory': true,
+                  'itemCount': 0,
+                },
+              )
+              .toList();
           final body = await compute(_jsonEncode, roots);
-          return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
+          return shelf.Response.ok(
+            body,
+            headers: {'content-type': 'application/json'},
+          );
         }
 
-        if (!_isPathAllowed(rawPath, sharedFolders)) {
+        if (!await isPathAllowed(rawPath, sharedFolders)) {
           return shelf.Response.forbidden('Access denied');
         }
 
@@ -231,20 +327,37 @@ class HttpServerService {
               .handleError((_) {})
               .asyncMap((entity) async {
                 final stat = await entity.stat();
-                final name = entity.uri.pathSegments.lastWhere((s) => s.isNotEmpty, orElse: () => entity.path);
-                return {'name': name, 'path': entity.path, 'isDirectory': entity is Directory, 'size': stat.size, 'itemCount': 0};
+                final name = entity.uri.pathSegments.lastWhere(
+                  (s) => s.isNotEmpty,
+                  orElse: () => entity.path,
+                );
+                return {
+                  'name': name,
+                  'path': entity.path,
+                  'isDirectory': entity is Directory,
+                  'size': stat.size,
+                  'itemCount': 0,
+                };
               })
-              .timeout(const Duration(seconds: 10), onTimeout: (sink) => sink.close())
+              .timeout(
+                const Duration(seconds: 10),
+                onTimeout: (sink) => sink.close(),
+              )
               .forEach(entries.add);
 
           entries.sort((a, b) {
             if (a['isDirectory'] == true && b['isDirectory'] != true) return -1;
             if (a['isDirectory'] != true && b['isDirectory'] == true) return 1;
-            return (a['name'] as String).toLowerCase().compareTo((b['name'] as String).toLowerCase());
+            return (a['name'] as String).toLowerCase().compareTo(
+              (b['name'] as String).toLowerCase(),
+            );
           });
 
           final body = await compute(_jsonEncode, entries);
-          return shelf.Response.ok(body, headers: {'content-type': 'application/json'});
+          return shelf.Response.ok(
+            body,
+            headers: {'content-type': 'application/json'},
+          );
         } catch (e) {
           return shelf.Response.internalServerError(body: e.toString());
         }
@@ -252,7 +365,7 @@ class HttpServerService {
       ..get('/api/file', (shelf.Request r) async {
         final path = r.url.queryParameters['path'] ?? '';
         _addLog('GET /api/file?path=${p.basename(path)}');
-        if (path.isEmpty || !_isPathAllowed(path, sharedFolders)) {
+        if (path.isEmpty || !await isPathAllowed(path, sharedFolders)) {
           return shelf.Response.forbidden('Access denied');
         }
         return _serveFile(r, File(Uri.decodeComponent(path)));
@@ -281,19 +394,24 @@ class HttpServerService {
           } catch (_) {}
 
           if (item != null) {
-            final connInfo = r.context['shelf.io.connection_info'] as HttpConnectionInfo?;
+            final connInfo =
+                r.context['shelf.io.connection_info'] as HttpConnectionInfo?;
             final ip = connInfo?.remoteAddress.address ?? 'Unknown';
-            
-            unawaited(sl<ServerRepository>().logMediaView(HistoryItem(
-              media: item,
-              timestamp: DateTime.now(),
-              clientIp: ip,
-            )));
+
+            unawaited(
+              _serverRepository.logMediaView(
+                HistoryItem(
+                  media: item,
+                  timestamp: DateTime.now(),
+                  clientIp: ip,
+                ),
+              ),
+            );
           }
 
           return _serveFile(r, f);
         }
-        
+
         return shelf.Response.notFound('File not found');
       })
       ..get(
@@ -304,7 +422,8 @@ class HttpServerService {
         // is null => rejected with 1008 so clients stop retrying and surface
         // a "pairing required" error instead of reconnecting forever.
         webSocketHandler((WebSocketChannel ws, String? subprotocol) {
-          if (pairingToken.isEmpty || !_constantTimeEquals(subprotocol ?? '', pairingToken)) {
+          if (pairingToken.isEmpty ||
+              !_constantTimeEquals(subprotocol ?? '', pairingToken)) {
             try {
               ws.sink.close(1008, 'pairing required');
             } catch (_) {}
@@ -318,7 +437,8 @@ class HttpServerService {
           ws.stream.listen(
             (message) {
               try {
-                final data = jsonDecode(message as String) as Map<String, dynamic>;
+                final data =
+                    jsonDecode(message as String) as Map<String, dynamic>;
                 // [SECURITY B1] Server-originated commands never arrive over a
                 // client socket (the server's own broadcasts are in-process).
                 // Any frame claiming senderId 'SERVER' is a forgery — it could
@@ -329,95 +449,107 @@ class HttpServerService {
                   } catch (_) {}
                   return;
                 }
-                final senderId = data['clientId']?.toString() ?? data['senderId']?.toString();
+                final senderId =
+                    data['clientId']?.toString() ??
+                    data['senderId']?.toString();
                 if (senderId != null) {
                   _clientSockets[senderId] = ws;
                 }
 
                 if (data['type'] == 'report_status') {
-                    // [FIX C5] A report with no identity at all used to put a
-                    // null key into _activeSessions (TypeError in the WS
-                    // listener). Drop unidentifiable frames.
-                    final sId = data['sessionId']?.toString() ?? data['clientId']?.toString();
-                    if (sId == null) return;
-                    final stopped = data['isStopped'] == true;
-                    if (stopped) {
-                      onSessionUpdate?.call(sId, null);
-                    } else {
-                      final rawProg = data['progress'];
-                      final progress = (rawProg is num ? rawProg.toDouble() : 0.0).clamp(0.0, 1.0);
-                      final snapshot = data['snapshot']?.toString();
-                      final vibeColors = (data['vibeColors'] as List?)?.map((e) => e.toString()).toList();
-                      final mediaId = data['mediaId']?.toString();
-                      final position = data['position'] as int?;
+                  // [FIX C5] A report with no identity at all used to put a
+                  // null key into _activeSessions (TypeError in the WS
+                  // listener). Drop unidentifiable frames.
+                  final sId =
+                      data['sessionId']?.toString() ??
+                      data['clientId']?.toString();
+                  if (sId == null) return;
+                  final stopped = data['isStopped'] == true;
+                  if (stopped) {
+                    onSessionUpdate?.call(sId, null);
+                  } else {
+                    final rawProg = data['progress'];
+                    final progress = (rawProg is num ? rawProg.toDouble() : 0.0)
+                        .clamp(0.0, 1.0);
+                    final snapshot = data['snapshot']?.toString();
+                    final vibeColors = (data['vibeColors'] as List?)
+                        ?.map((e) => e.toString())
+                        .toList();
+                    final mediaId = data['mediaId']?.toString();
+                    final position = data['position'] as int?;
 
-                      if (vibeColors != null && vibeColors.isNotEmpty) {
-                        broadcast(jsonEncode({
+                    if (vibeColors != null && vibeColors.isNotEmpty) {
+                      broadcast(
+                        jsonEncode({
                           'type': 'system',
                           'action': 'vibe_sync',
                           'value': vibeColors,
-                        }));
-                      }
-
-                      onSessionUpdate?.call(
-                        sId,
-                        StreamSession(
-                          sessionId: sId,
-                          clientId: data['clientId']?.toString() ?? sId,
-                          title: data['title']?.toString() ?? '',
-                          mediaId: mediaId,
-                          progress: progress,
-                          position: position,
-                          mediaType: data['mediaType']?.toString() ?? 'video',
-                          snapshot: snapshot,
-                          vibeColors: vibeColors,
-                          lastUpdated: DateTime.now(),
-                        ),
+                        }),
                       );
                     }
-                  } else if (data['type'] == 'queue') {
-                    final queueSvc = sl<QueueService>();
-                    if (data['action'] == 'add') {
-                      queueSvc.addItem(MediaItem.fromJson(data['value'] as Map<String, dynamic>), (data['senderId'] ?? 'Unknown').toString());
-                    } else if (data['action'] == 'vote') {
-                      final voteData = data['value'] as Map<String, dynamic>;
-                      queueSvc.voteItem(voteData['id'] as String, voteData['delta'] as int);
-                    }
-                    // NOTE: the old 'lock' action required senderId 'SERVER'
-                    // over the wire — i.e. it was only reachable by
-                    // impersonation. The impersonation guard above kills that
-                    // path, so the branch was removed (server-side locking
-                    // should be an in-process API if ever needed).
-                    
-                    broadcast(jsonEncode({
+
+                    onSessionUpdate?.call(
+                      sId,
+                      StreamSession(
+                        sessionId: sId,
+                        clientId: data['clientId']?.toString() ?? sId,
+                        title: data['title']?.toString() ?? '',
+                        mediaId: mediaId,
+                        progress: progress,
+                        position: position,
+                        mediaType: data['mediaType']?.toString() ?? 'video',
+                        snapshot: snapshot,
+                        vibeColors: vibeColors,
+                        lastUpdated: DateTime.now(),
+                      ),
+                    );
+                  }
+                } else if (data['type'] == 'queue') {
+                  if (data['action'] == 'add') {
+                    _queueService.addItem(
+                      MediaItem.fromJson(data['value'] as Map<String, dynamic>),
+                      (data['senderId'] ?? 'Unknown').toString(),
+                    );
+                  } else if (data['action'] == 'vote') {
+                    final voteData = data['value'] as Map<String, dynamic>;
+                    _queueService.voteItem(
+                      voteData['id'] as String,
+                      voteData['delta'] as int,
+                    );
+                  }
+                  // NOTE: the old 'lock' action required senderId 'SERVER'
+                  // over the wire — i.e. it was only reachable by
+                  // impersonation. The impersonation guard above kills that
+                  // path, so the branch was removed (server-side locking
+                  // should be an in-process API if ever needed).
+
+                  broadcast(
+                    jsonEncode({
                       'type': 'queue',
                       'action': 'update',
                       'value': {
-                        'items': queueSvc.queue.map((e) => e.toJson()).toList(),
-                        'isLocked': queueSvc.isLocked,
+                        'items': _queueService.queue
+                            .map((e) => e.toJson())
+                            .toList(),
+                        'isLocked': _queueService.isLocked,
                       },
-                    }));
-                  } else if (data['type'] == 'intercom') {
-                    broadcast(message.toString());
-                  } else if (data['targetId'] != null) {
-                    final targetId = data['targetId'].toString();
-                    final targetSocket = _clientSockets[targetId];
-                    
-                    if (targetSocket != null) {
-                      try {
-                        targetSocket.sink.add(message);
-                      } catch (e) {
-                        logger.w('Failed to send targeted message to $targetId', error: e);
-                        _clientSockets.remove(targetId);
-                      }
-                    } else {
-                      for (final s in List.of(_sockets)) {
-                        if (s != ws) {
-                          try {
-                            s.sink.add(message);
-                          } catch (_) {}
-                        }
-                      }
+                    }),
+                  );
+                } else if (data['type'] == 'intercom') {
+                  broadcast(message.toString());
+                } else if (data['targetId'] != null) {
+                  final targetId = data['targetId'].toString();
+                  final targetSocket = _clientSockets[targetId];
+
+                  if (targetSocket != null) {
+                    try {
+                      targetSocket.sink.add(message);
+                    } catch (e) {
+                      logger.w(
+                        'Failed to send targeted message to $targetId',
+                        error: e,
+                      );
+                      _clientSockets.remove(targetId);
                     }
                   } else {
                     for (final s in List.of(_sockets)) {
@@ -428,7 +560,7 @@ class HttpServerService {
                       }
                     }
                   }
-                } catch (_) {
+                } else {
                   for (final s in List.of(_sockets)) {
                     if (s != ws) {
                       try {
@@ -437,42 +569,56 @@ class HttpServerService {
                     }
                   }
                 }
-              },
-              onDone: () {
-                _sockets.remove(ws);
-                _clientSockets.removeWhere((_, socket) => socket == ws);
-                _addLog('WS_DISCONNECT: [ACTIVE: ${_sockets.length}]');
-                onSocketsChanged?.call();
-              },
-              onError: (_) {
-                _sockets.remove(ws);
-                _clientSockets.removeWhere((_, socket) => socket == ws);
-                _addLog('WS_ERROR: [ACTIVE: ${_sockets.length}]');
-                onSocketsChanged?.call();
-              },
-              cancelOnError: false,
-            );
-          }, protocols: pairingToken.isNotEmpty ? {pairingToken} : <String>{}),
-        );
+              } catch (_) {
+                for (final s in List.of(_sockets)) {
+                  if (s != ws) {
+                    try {
+                      s.sink.add(message);
+                    } catch (_) {}
+                  }
+                }
+              }
+            },
+            onDone: () {
+              _sockets.remove(ws);
+              _clientSockets.removeWhere((_, socket) => socket == ws);
+              _addLog('WS_DISCONNECT: [ACTIVE: ${_sockets.length}]');
+              onSocketsChanged?.call();
+            },
+            onError: (_) {
+              _sockets.remove(ws);
+              _clientSockets.removeWhere((_, socket) => socket == ws);
+              _addLog('WS_ERROR: [ACTIVE: ${_sockets.length}]');
+              onSocketsChanged?.call();
+            },
+            cancelOnError: false,
+          );
+        }, protocols: pairingToken.isNotEmpty ? {pairingToken} : <String>{}),
+      );
 
     // Middleware: CORS + connection tracking.
-    shelf.Handler withMiddleware(shelf.Handler inner) => (shelf.Request request) async {
-        if (request.method == 'OPTIONS') {
-          return shelf.Response.ok('', headers: _corsHeaders);
-        }
-        final connInfo = request.context['shelf.io.connection_info'] as HttpConnectionInfo?;
-        if (connInfo != null) {
-          final remoteIp = connInfo.remoteAddress.address;
-          // Skip localhost to avoid log spam from internal previews.
-          if (remoteIp != '127.0.0.1' && remoteIp != '::1') {
-            onConnection?.call(remoteIp);
+    shelf.Handler withMiddleware(shelf.Handler inner) =>
+        (shelf.Request request) async {
+          if (request.method == 'OPTIONS') {
+            return shelf.Response.ok('', headers: _corsHeaders);
           }
-        }
-        final response = await inner(request);
-        return response.change(headers: _corsHeaders);
-      };
+          final connInfo =
+              request.context['shelf.io.connection_info']
+                  as HttpConnectionInfo?;
+          if (connInfo != null) {
+            final remoteIp = connInfo.remoteAddress.address;
+            // Skip localhost to avoid log spam from internal previews.
+            if (remoteIp != '127.0.0.1' && remoteIp != '::1') {
+              onConnection?.call(remoteIp);
+            }
+          }
+          final response = await inner(request);
+          return response.change(headers: _corsHeaders);
+        };
 
-    final handler = const shelf.Pipeline().addMiddleware(withMiddleware).addHandler(router.call);
+    final handler = const shelf.Pipeline()
+        .addMiddleware(withMiddleware)
+        .addHandler(router.call);
 
     _server = await shelf_io.serve(handler, InternetAddress.anyIPv4, 8080);
     logger.i('[HttpServer] Listening on http://$ip:8080');
@@ -503,7 +649,8 @@ class HttpServerService {
 
   /// Called when a station is (re)activated or removed so the next joiner
   /// can be re-elected as sync master.
-  void clearStationMaster(String stationId) => _stationMasters.remove(stationId);
+  void clearStationMaster(String stationId) =>
+      _stationMasters.remove(stationId);
 
   // ── File Serving ──────────────────────────────────────────────────────────
 
@@ -516,7 +663,9 @@ class HttpServerService {
     final parts = header.replaceFirst('bytes=', '').split('-');
     final start = (int.tryParse(parts[0]) ?? 0).clamp(0, fileSize - 1);
     // FIX: clamp end to fileSize - 1 to prevent out-of-range reads.
-    final end = (parts.length > 1 && parts[1].isNotEmpty) ? (int.tryParse(parts[1]) ?? (fileSize - 1)).clamp(start, fileSize - 1) : fileSize - 1;
+    final end = (parts.length > 1 && parts[1].isNotEmpty)
+        ? (int.tryParse(parts[1]) ?? (fileSize - 1)).clamp(start, fileSize - 1)
+        : fileSize - 1;
     if (end - start + 1 <= 0) return null;
     return (start, end);
   }
@@ -531,7 +680,10 @@ class HttpServerService {
     if (rangeHeader != null) {
       final bounds = parseRange(rangeHeader, fileSize);
       if (bounds == null) {
-        return shelf.Response(416, headers: {'Content-Range': 'bytes */$fileSize', 'Content-Type': ct});
+        return shelf.Response(
+          416,
+          headers: {'Content-Range': 'bytes */$fileSize', 'Content-Type': ct},
+        );
       }
       final (start, end) = bounds;
       final length = end - start + 1;
@@ -539,11 +691,23 @@ class HttpServerService {
       return shelf.Response(
         206,
         body: _tracked(file.openRead(start, end + 1)),
-        headers: {'Content-Type': ct, 'Content-Range': 'bytes $start-$end/$fileSize', 'Content-Length': '$length', 'Accept-Ranges': 'bytes'},
+        headers: {
+          'Content-Type': ct,
+          'Content-Range': 'bytes $start-$end/$fileSize',
+          'Content-Length': '$length',
+          'Accept-Ranges': 'bytes',
+        },
       );
     }
 
-    return shelf.Response.ok(_tracked(file.openRead()), headers: {'Content-Type': ct, 'Content-Length': '$fileSize', 'Accept-Ranges': 'bytes'});
+    return shelf.Response.ok(
+      _tracked(file.openRead()),
+      headers: {
+        'Content-Type': ct,
+        'Content-Length': '$fileSize',
+        'Accept-Ranges': 'bytes',
+      },
+    );
   }
 
   Stream<List<int>> _tracked(Stream<List<int>> src) async* {
@@ -557,7 +721,10 @@ class HttpServerService {
 
   // ── Thumbnail Serving ──────────────────────────────────────────────────────
 
-  Future<shelf.Response> _serveThumbnail(String id, List<String> sharedFolders) async {
+  Future<shelf.Response> _serveThumbnail(
+    String id,
+    List<String> sharedFolders,
+  ) async {
     var cacheKey = id;
     final file = _scanner.fileById(id);
 
@@ -574,7 +741,13 @@ class HttpServerService {
     // Check disk cache first.
     final cached = await _thumbCache.get(cacheKey);
     if (cached != null) {
-      return shelf.Response.ok(cached, headers: {'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400'});
+      return shelf.Response.ok(
+        cached,
+        headers: {
+          'Content-Type': 'image/jpeg',
+          'Cache-Control': 'public, max-age=86400',
+        },
+      );
     }
 
     Uint8List? data;
@@ -586,10 +759,17 @@ class HttpServerService {
     }
 
     // 2. Audio artwork (Android/iOS).
-    if (data == null && !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS)) {
+    if (data == null &&
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS)) {
       final song = _scanner.songById(id) ?? _scanner.songByPath(id);
       if (song != null) {
-        data = await OnAudioQuery().queryArtwork(song.id, ArtworkType.AUDIO, size: 400);
+        data = await OnAudioQuery().queryArtwork(
+          song.id,
+          ArtworkType.AUDIO,
+          size: 400,
+        );
       }
     }
 
@@ -597,10 +777,15 @@ class HttpServerService {
     if (data == null && !kIsWeb) {
       // The id may be either a scanner ID or a raw file path.
       final filePath = file?.path ?? id;
-      if (_isPathAllowed(filePath, sharedFolders) && File(filePath).existsSync()) {
+      if (await isPathAllowed(filePath, sharedFolders) &&
+          File(filePath).existsSync()) {
         final type = FileTypeUtils.fromFilename(filePath);
         if (type == MediaFileType.video) {
-          data = await _thumbGenerator.generateThumbnail(filePath, maxWidth: 400, quality: 85);
+          data = await _thumbGenerator.generateThumbnail(
+            filePath,
+            maxWidth: 400,
+            quality: 85,
+          );
         } else if (type == MediaFileType.image) {
           // For images, the original file is our thumbnail.
           data = await File(filePath).readAsBytes();
@@ -611,7 +796,10 @@ class HttpServerService {
     if (data != null) {
       await _thumbCache.put(cacheKey, data);
       final ct = _detectImageType(data);
-      return shelf.Response.ok(data, headers: {'Content-Type': ct, 'Cache-Control': 'public, max-age=86400'});
+      return shelf.Response.ok(
+        data,
+        headers: {'Content-Type': ct, 'Cache-Control': 'public, max-age=86400'},
+      );
     }
 
     return shelf.Response.notFound('No thumbnail');
@@ -620,10 +808,21 @@ class HttpServerService {
   String _detectImageType(Uint8List bytes) {
     if (bytes.length < 4) return 'image/jpeg';
     if (bytes[0] == 0xFF && bytes[1] == 0xD8) return 'image/jpeg';
-    if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) return 'image/png';
-    if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46) return 'image/gif';
+    if (bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) {
+      return 'image/png';
+    }
+    if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46) {
+      return 'image/gif';
+    }
     return 'image/jpeg';
   }
 
-  static const _corsHeaders = {'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Origin, Content-Type'};
+  static const _corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Origin, Content-Type',
+  };
 }

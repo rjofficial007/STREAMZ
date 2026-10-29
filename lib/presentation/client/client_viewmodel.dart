@@ -21,7 +21,6 @@ import 'package:streamz/domain/services/remote_command_service.dart';
 import 'package:streamz/presentation/player/player_screen.dart';
 
 class ClientViewModel extends ChangeNotifier {
-
   ClientViewModel() {
     _loadLocalHistory();
     // Global Navigation Hook: Translates Remote WS Commands into Flutter UI Focus movements
@@ -82,7 +81,9 @@ class ClientViewModel extends ChangeNotifier {
                   KeyDownEvent(
                     logicalKey: LogicalKeyboardKey(char),
                     physicalKey: PhysicalKeyboardKey.usbReserved,
-                    timeStamp: Duration(milliseconds: DateTime.now().millisecondsSinceEpoch),
+                    timeStamp: Duration(
+                      milliseconds: DateTime.now().millisecondsSinceEpoch,
+                    ),
                     character: key,
                   ),
                 );
@@ -90,7 +91,9 @@ class ClientViewModel extends ChangeNotifier {
                   KeyUpEvent(
                     logicalKey: LogicalKeyboardKey(char),
                     physicalKey: PhysicalKeyboardKey.usbReserved,
-                    timeStamp: Duration(milliseconds: DateTime.now().millisecondsSinceEpoch),
+                    timeStamp: Duration(
+                      milliseconds: DateTime.now().millisecondsSinceEpoch,
+                    ),
                   ),
                 );
               }
@@ -108,13 +111,21 @@ class ClientViewModel extends ChangeNotifier {
           match = MediaItem.fromJson(cmd.value as Map<String, dynamic>);
         } else if (cmd.value is String && _remoteMedia.isNotEmpty) {
           final query = (cmd.value as String).toLowerCase();
-          match = _remoteMedia.firstWhere((m) => m.title.toLowerCase().contains(query), orElse: () => _remoteMedia.first);
+          match = _remoteMedia.firstWhere(
+            (m) => m.title.toLowerCase().contains(query),
+            orElse: () => _remoteMedia.first,
+          );
         }
         if (match != null) {
           final item = match; // capture promoted value for the closure below
           final focus = FocusManager.instance.primaryFocus;
           if (focus?.context != null) {
-            Navigator.push(focus!.context!, MaterialPageRoute(builder: (_) => PlayerScreen(items: [item], startIndex: 0)));
+            Navigator.push(
+              focus!.context!,
+              MaterialPageRoute(
+                builder: (_) => PlayerScreen(items: [item], startIndex: 0),
+              ),
+            );
           }
         }
       }
@@ -133,7 +144,7 @@ class ClientViewModel extends ChangeNotifier {
             break;
         }
       }
-      
+
       if (cmd.type == 'queue') {
         if (cmd.action == 'update' && cmd.value is List) {
           sl<QueueService>().updateFromRemote(cmd.value as List);
@@ -179,7 +190,19 @@ class ClientViewModel extends ChangeNotifier {
   /// [SECURITY B1] Non-null when the server rejected the pairing token.
   String? get wsAuthError => remote.authError;
 
-  List<MediaItem> get continueWatching => _mediaRepo.continueWatching(_remoteMedia);
+  List<MediaItem> get continueWatching =>
+      _mediaRepo.continueWatching(_remoteMedia);
+
+  List<MediaItem> get recentlyPlayed {
+    final byId = {for (final item in _remoteMedia) item.id: item};
+    final inProgressIds = continueWatching.map((item) => item.id).toSet();
+    return _localHistory
+        .map((entry) => byId[entry.media.id])
+        .whereType<MediaItem>()
+        .where((item) => !inProgressIds.contains(item.id))
+        .take(20)
+        .toList(growable: false);
+  }
 
   List<MediaItem> get videos => _remoteMedia.where((m) => m.isVideo).toList();
   List<MediaItem> get audio => _remoteMedia.where((m) => m.isAudio).toList();
@@ -199,16 +222,18 @@ class ClientViewModel extends ChangeNotifier {
     });
   }
 
-  void stopDiscovery() {
+  void stopDiscovery({bool notify = true}) {
     _discovery.stop();
     _isDiscovering = false;
-    notifyListeners();
+    if (notify) notifyListeners();
   }
 
   // ── Connection ────────────────────────────────────────────────────────────
 
   Future<bool> connect(String ip, {String? pairingToken}) async {
-    if (_isLoading) return false; // [FIX]: Prevent parallel connections on rapid taps
+    if (_isLoading) {
+      return false; // [FIX]: Prevent parallel connections on rapid taps
+    }
 
     if (ip.trim().isEmpty) {
       _connectionError = 'Enter an IP address';
@@ -240,7 +265,10 @@ class ClientViewModel extends ChangeNotifier {
       await _serverRepo.logAccess(ip.trim());
 
       _refreshTimer?.cancel();
-      _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) => refresh());
+      _refreshTimer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => refresh(),
+      );
 
       if (!_ipHistory.contains(ip)) {
         _ipHistory.insert(0, ip);
@@ -252,7 +280,13 @@ class ClientViewModel extends ChangeNotifier {
       return true;
     } catch (e) {
       _connectionError = e.toString();
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+      remote.disconnect();
+      _mediaRepo.clearClient();
       _targetIp = '';
+      _remoteMedia = [];
+      _stations = [];
       _isLoading = false;
       notifyListeners();
       return false;
@@ -297,6 +331,13 @@ class ClientViewModel extends ChangeNotifier {
   Future<void> addToHistory(MediaItem item) async {
     await _mediaRepo.addToHistory(item);
     _loadLocalHistory();
+  }
+
+  Future<void> refreshPlaybackProgress() async {
+    // Let player-route disposal finish before notifying widgets underneath it.
+    await Future<void>.delayed(Duration.zero);
+    _remoteMedia = _mediaRepo.withLocalProgress(_remoteMedia);
+    notifyListeners();
   }
 
   void disconnect() {
@@ -345,7 +386,7 @@ class ClientViewModel extends ChangeNotifier {
   void dispose() {
     _cmdSub?.cancel();
     _refreshTimer?.cancel();
-    stopDiscovery();
+    stopDiscovery(notify: false);
     super.dispose();
   }
 }

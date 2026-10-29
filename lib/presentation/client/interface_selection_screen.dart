@@ -1,27 +1,30 @@
 // presentation/client/interface_selection_screen.dart
 // ============================================================================
-// STREAMZ — Interface Gateway (Samsung-Style / Brutalist Edition)
+// STREAMZ — Interface Selection Gateway
 // ============================================================================
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/domain/models/broadcast_station.dart';
 import 'package:streamz/domain/models/history_item.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
 import 'package:streamz/presentation/client/interface_selection_screen_tv.dart';
+import 'package:streamz/presentation/shared/app_back_button.dart';
+import 'package:streamz/presentation/shared/app_list_tile_card.dart';
 
 class InterfaceSelectionScreen extends StatefulWidget {
   const InterfaceSelectionScreen({super.key});
 
   @override
-  State<InterfaceSelectionScreen> createState() => _InterfaceSelectionScreenState();
+  State<InterfaceSelectionScreen> createState() =>
+      _InterfaceSelectionScreenState();
 }
 
 class _InterfaceSelectionScreenState extends State<InterfaceSelectionScreen> {
@@ -40,28 +43,24 @@ class _InterfaceSelectionScreenState extends State<InterfaceSelectionScreen> {
     }
 
     final vm = context.watch<ClientViewModel>();
-    final tokens = context.tokens;
 
-    return Scaffold(
-      backgroundColor: tokens.background,
+    return AppScaffold(
       body: SafeArea(
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            _buildSliverAppBar(context, vm),
-            _buildBody(context, vm),
+            _buildAppSliverAppBar(context, vm),
+            AppContentSliver(sliver: _buildBody(context, vm)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSliverAppBar(BuildContext context, ClientViewModel vm) {
+  Widget _buildAppSliverAppBar(BuildContext context, ClientViewModel vm) {
     final tokens = context.tokens;
-    return SliverAppBar(
-      backgroundColor: tokens.surface1,
+    return AppSliverAppBar(
       floating: true,
-      elevation: 0,
       pinned: true,
       titleSpacing: 0,
       leading: Actions(
@@ -79,8 +78,7 @@ class _InterfaceSelectionScreenState extends State<InterfaceSelectionScreen> {
             vm.disconnect();
             Navigator.pop(context);
           }),
-          child: IconButton(
-            icon: Icon(LucideIcons.arrowLeft, size: 20, color: tokens.textPrimary),
+          child: AppBackButton(
             onPressed: () {
               vm.disconnect();
               Navigator.pop(context);
@@ -89,24 +87,23 @@ class _InterfaceSelectionScreenState extends State<InterfaceSelectionScreen> {
         ),
       ),
       title: Text(
-        'GATEWAY MODE',
-        style: GoogleFonts.barlowCondensed(
-          color: tokens.textPrimary, 
-          fontSize: 20, 
-          fontWeight: FontWeight.w900, 
-          letterSpacing: 4
+        'Choose an interface',
+        style: AppTextStyles.titleLarge.copyWith(
+          color: tokens.textPrimary,
+          fontWeight: AppTextStyles.titleFontWeight,
+          letterSpacing: -0.2,
         ),
       ),
       actions: [
         IconButton(
-          icon: Icon(LucideIcons.refreshCw, size: 20, color: tokens.textPrimary),
+          icon: Icon(
+            LucideIcons.refreshCw,
+            size: 20,
+            color: tokens.textPrimary,
+          ),
           onPressed: () => vm.refresh(),
         ),
       ],
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(color: tokens.textPrimary, height: 1),
-      ),
     );
   }
 
@@ -115,33 +112,31 @@ class _InterfaceSelectionScreenState extends State<InterfaceSelectionScreen> {
     return SliverList(
       delegate: SliverChildListDelegate([
         _GatewayAnalysisCard(vm: vm),
-        
-        DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.symmetric(horizontal: BorderSide(color: tokens.textPrimary)), 
-          ),
+
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: IntrinsicHeight(
             child: Row(
               children: [
                 Expanded(
-                  child: _QuickActionCard(
-                    label: 'TV USER',
+                  child: AppActionCard(
+                    label: 'TV',
                     icon: LucideIcons.tv,
                     onTap: () => context.push('/client/tv'),
                   ),
                 ),
-                VerticalDivider(width: 1, thickness: 1, color: tokens.textPrimary),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: _QuickActionCard(
-                    label: 'MOBILE USER',
+                  child: AppActionCard(
+                    label: 'Mobile',
                     icon: LucideIcons.smartphone,
                     onTap: () => context.push('/client/mobile'),
                   ),
                 ),
-                VerticalDivider(width: 1, thickness: 1, color: tokens.textPrimary),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: _QuickActionCard(
-                    label: 'TERMINATE',
+                  child: AppActionCard(
+                    label: 'Disconnect',
                     icon: LucideIcons.power,
                     onTap: () {
                       vm.disconnect();
@@ -156,59 +151,103 @@ class _InterfaceSelectionScreenState extends State<InterfaceSelectionScreen> {
 
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-          child: Text('LIVE SIGNALS', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2)),
+          child: Text(
+            'Live streams',
+            style: AppTextStyles.supporting.copyWith(
+              color: tokens.textMuted,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ),
-        
+
         if (vm.stations.isEmpty)
           _EmptySignalsPlaceholder()
         else
-          ...vm.stations.asMap().entries.map((e) => _StationTile(
-            station: e.value, 
-            isFirst: e.key == 0, 
-            onTap: () => _tuneIn(context, vm, e.value),
-          )),
+          ...vm.stations.map(
+            (station) => AppListTileCard(
+              title: station.name,
+              subtitle: station.nowPlaying == null
+                  ? 'Live station · Waiting for a track'
+                  : 'Now playing · ${station.nowPlaying!.item.title}',
+              icon: LucideIcons.radio,
+              onTap: () => _tuneIn(context, vm, station),
+            ),
+          ),
 
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-          child: Text('RECENTLY VIEWED', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 2)),
+          child: Text(
+            'Recently viewed',
+            style: AppTextStyles.supporting.copyWith(
+              color: tokens.textMuted,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ),
 
         if (vm.localHistory.isEmpty)
-           Padding(
+          Padding(
             padding: const EdgeInsets.all(16),
-            child: Text('NO HISTORY FOUND', style: GoogleFonts.dmMono(color: tokens.textDisabled, fontSize: 9, letterSpacing: 2)),
+            child: Text(
+              'No history yet',
+              style: AppTextStyles.supporting.copyWith(
+                color: tokens.textDisabled,
+              ),
+            ),
           )
         else
-          ...vm.localHistory.asMap().entries.map((e) => _ViewHistoryTile(
-            item: e.value, 
-            isFirst: e.key == 0,
-            onTap: () {
-               context.push('/player', extra: {
-                'items': [e.value.media],
-                'startIndex': 0,
-                'isPathBased': false,
-              });
-            },
-          )),
-          
+          ...vm.localHistory.map(
+            (item) => AppListTileCard(
+              title: item.media.title,
+              subtitle: _historySubtitle(item),
+              icon: item.media.isVideo ? LucideIcons.video : LucideIcons.music,
+              trailingIcon: LucideIcons.play,
+              onTap: () {
+                context.push(
+                  '/player',
+                  extra: {
+                    'items': [item.media],
+                    'startIndex': 0,
+                    'isPathBased': false,
+                  },
+                );
+              },
+            ),
+          ),
+
         const SizedBox(height: 100),
       ]),
     );
   }
 
-  Future<void> _tuneIn(BuildContext context, ClientViewModel vm, BroadcastStation station) async {
+  Future<void> _tuneIn(
+    BuildContext context,
+    ClientViewModel vm,
+    BroadcastStation station,
+  ) async {
     final res = await vm.joinStation(station.id);
     if (res != null && context.mounted) {
-      unawaited(context.push('/player', extra: {
-        'items': res.playlist,
-        'startIndex': res.itemIndex,
-        'isPathBased': false,
-        'startOffset': res.position,
-      }));
+      unawaited(
+        context.push(
+          '/player',
+          extra: {
+            'items': res.playlist,
+            'startIndex': res.itemIndex,
+            'isPathBased': false,
+            'startOffset': res.position,
+          },
+        ),
+      );
     }
   }
-}
 
+  String _historySubtitle(HistoryItem item) {
+    final timestamp = item.timestamp;
+    final time =
+        '${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}';
+    return 'Viewed ${timestamp.day}/${timestamp.month} · $time';
+  }
+}
 
 class _GatewayAnalysisCard extends StatelessWidget {
   const _GatewayAnalysisCard({required this.vm});
@@ -218,10 +257,12 @@ class _GatewayAnalysisCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: tokens.surface1,
-        border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+        color: tokens.surface1.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(DS.radius(20)),
+        border: Border.all(color: tokens.border.withValues(alpha: 0.55)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,7 +270,13 @@ class _GatewayAnalysisCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('GATEWAY ANALYSIS', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              Text(
+                'Connection overview',
+                style: AppTextStyles.titleLarge.copyWith(
+                  color: tokens.textPrimary,
+                  fontWeight: AppTextStyles.titleFontWeight,
+                ),
+              ),
               _BlinkingDot(isOnline: vm.isConnected),
             ],
           ),
@@ -240,9 +287,20 @@ class _GatewayAnalysisCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('LINK STATUS', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
+                    Text(
+                      'Connection',
+                      style: AppTextStyles.caption.copyWith(
+                        color: tokens.textMuted,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text(vm.isConnected ? 'ESTABLISHED' : 'SEVERED', style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text(
+                      vm.isConnected ? 'Connected' : 'Disconnected',
+                      style: AppTextStyles.bodyLarge.copyWith(
+                        color: tokens.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -250,11 +308,22 @@ class _GatewayAnalysisCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('UPSTREAM', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
+                    Text(
+                      'Server address',
+                      style: AppTextStyles.caption.copyWith(
+                        color: tokens.textMuted,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: Text(vm.targetIp.toUpperCase(), style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
+                      child: Text(
+                        vm.targetIp.toUpperCase(),
+                        style: AppTextStyles.body.copyWith(
+                          color: tokens.textPrimary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -275,9 +344,23 @@ class _GatewayAnalysisCard extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _legend(context, 'STATIONS', '${vm.stations.length} ACTIVE', tokens.textPrimary)),
+              Expanded(
+                child: _legend(
+                  context,
+                  'Streams',
+                  '${vm.stations.length} active',
+                  tokens.textPrimary,
+                ),
+              ),
               const SizedBox(width: 16),
-              Expanded(child: _legend(context, 'LATENCY', 'OPTIMAL', tokens.textSecondary)),
+              Expanded(
+                child: _legend(
+                  context,
+                  'Network',
+                  'Ready',
+                  tokens.textSecondary,
+                ),
+              ),
             ],
           ),
         ],
@@ -285,199 +368,31 @@ class _GatewayAnalysisCard extends StatelessWidget {
     );
   }
 
-  Widget _legend(BuildContext context, String label, String value, Color color) {
+  Widget _legend(
+    BuildContext context,
+    String label,
+    String value,
+    Color color,
+  ) {
     final tokens = context.tokens;
     return Row(
       children: [
         Container(width: 8, height: 8, color: color),
         const SizedBox(width: 8),
-        Expanded(child: Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10))),
-        Text(value, style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: tokens.textPrimary)),
+        Expanded(
+          child: Text(
+            label,
+            style: AppTextStyles.caption.copyWith(color: tokens.textMuted),
+          ),
+        ),
+        Text(
+          value,
+          style: AppTextStyles.caption.copyWith(
+            fontWeight: FontWeight.w500,
+            color: tokens.textPrimary,
+          ),
+        ),
       ],
-    );
-  }
-}
-
-class _QuickActionCard extends StatefulWidget {
-
-  const _QuickActionCard({required this.label, required this.icon, required this.onTap});
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  State<_QuickActionCard> createState() => _QuickActionCardState();
-}
-
-class _QuickActionCardState extends State<_QuickActionCard> {
-  bool _isPressed = false;
-  bool _isFocused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final isActive = _isPressed || _isFocused;
-    return Focus(
-      onFocusChange: (v) => setState(() => _isFocused = v),
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) {
-          setState(() => _isPressed = false);
-          widget.onTap();
-        },
-        onTapCancel: () => setState(() => _isPressed = false),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          color: isActive ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.surface2,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(widget.icon, color: tokens.textPrimary, size: 24),
-              const SizedBox(height: 8),
-              Text(
-                widget.label,
-                style: GoogleFonts.dmMono(color: tokens.textSecondary, fontSize: 9, letterSpacing: 1),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StationTile extends StatefulWidget {
-
-  const _StationTile({required this.station, required this.isFirst, required this.onTap});
-  final BroadcastStation station;
-  final bool isFirst;
-  final VoidCallback onTap;
-
-  @override
-  State<_StationTile> createState() => _StationTileState();
-}
-
-class _StationTileState extends State<_StationTile> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final title = widget.station.name.toUpperCase();
-    final nowPlaying = widget.station.nowPlaying;
-    final itemTitle = nowPlaying != null ? nowPlaying.item.title.toUpperCase() : 'AWAITING SIGNAL';
-
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: Container(
-        decoration: BoxDecoration(
-          color: _pressed ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.surface1,
-          border: Border(
-            bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)), 
-            top: widget.isFirst ? BorderSide(color: tokens.border.withValues(alpha: 0.15)) : BorderSide.none
-          ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(color: tokens.surface2, border: Border.all(color: tokens.border.withValues(alpha: 0.15))),
-              child: Icon(LucideIcons.radio, color: tokens.textSecondary, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
-                  ),
-                  const SizedBox(height: 3),
-                  Text('LIVE: $itemTitle', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 9, letterSpacing: 1), maxLines: 1, overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
-            Icon(LucideIcons.chevronRight, color: tokens.textMuted, size: 16),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ViewHistoryTile extends StatefulWidget {
-
-  const _ViewHistoryTile({required this.item, required this.isFirst, required this.onTap});
-  final HistoryItem item;
-  final bool isFirst;
-  final VoidCallback onTap;
-
-  @override
-  State<_ViewHistoryTile> createState() => _ViewHistoryTileState();
-}
-
-class _ViewHistoryTileState extends State<_ViewHistoryTile> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final title = widget.item.media.title.toUpperCase();
-    final time = '${widget.item.timestamp.day}/${widget.item.timestamp.month} ${widget.item.timestamp.hour}:${widget.item.timestamp.minute.toString().padLeft(2, '0')}';
-
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: Container(
-        decoration: BoxDecoration(
-          color: _pressed ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.surface1,
-          border: Border(
-            bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)), 
-            top: widget.isFirst ? BorderSide(color: tokens.border.withValues(alpha: 0.15)) : BorderSide.none
-          ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(color: tokens.surface2, border: Border.all(color: tokens.border.withValues(alpha: 0.15))),
-              child: Icon(widget.item.media.isVideo ? LucideIcons.video : LucideIcons.music, color: tokens.textSecondary, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 3),
-                  Text('VIEWED: $time', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 9, letterSpacing: 1)),
-                ],
-              ),
-            ),
-            Icon(LucideIcons.play, color: tokens.textMuted, size: 16),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -488,13 +403,23 @@ class _EmptySignalsPlaceholder extends StatelessWidget {
     final tokens = context.tokens;
     return Container(
       padding: const EdgeInsets.all(40),
-      decoration: BoxDecoration(border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
+      decoration: BoxDecoration(
+        border: Border.symmetric(
+          horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15)),
+        ),
+      ),
       child: Center(
         child: Column(
           children: [
             Icon(LucideIcons.radioTower, size: 40, color: tokens.textMuted),
             const SizedBox(height: 12),
-            Text('NO LIVE BROADCASTS', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 4)),
+            Text(
+              'NO LIVE BROADCASTS',
+              style: AppTextStyles.caption.copyWith(
+                color: tokens.textMuted,
+                letterSpacing: 0.8,
+              ),
+            ),
           ],
         ),
       ),
@@ -510,13 +435,17 @@ class _BlinkingDot extends StatefulWidget {
   State<_BlinkingDot> createState() => _BlinkingDotState();
 }
 
-class _BlinkingDotState extends State<_BlinkingDot> with SingleTickerProviderStateMixin {
+class _BlinkingDotState extends State<_BlinkingDot>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -528,7 +457,9 @@ class _BlinkingDotState extends State<_BlinkingDot> with SingleTickerProviderSta
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    if (!widget.isOnline) return Container(width: 8, height: 8, color: tokens.textDisabled);
+    if (!widget.isOnline) {
+      return Container(width: 8, height: 8, color: tokens.textDisabled);
+    }
     return FadeTransition(
       opacity: _ctrl,
       child: Container(

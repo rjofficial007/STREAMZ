@@ -11,6 +11,7 @@ abstract final class AppIcons {
   static const film = LucideIcons.film;
   static const search = LucideIcons.search;
   static const relay = LucideIcons.smartphoneNfc;
+  static const settings = LucideIcons.settings2;
   static const download = LucideIcons.download;
   static const listPlus = LucideIcons.listPlus;
   static const arrowUp = LucideIcons.arrowBigUp;

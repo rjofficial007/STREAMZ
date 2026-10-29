@@ -10,27 +10,27 @@ const String kModernWebInterfaceHtml = r"""
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>STREAMZ // STUDIO</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,100;0,300;0,700;0,900;1,100;1,700&family=DM+Mono:ital,wght@0,300;0,400;1,300&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
     --black: #000000;
     --white: #ffffff;
     --accent: #ffffff;
-    --white-dim: rgba(255,255,255,0.04);
-    --white-mid: rgba(255,255,255,0.12);
-    --white-border: rgba(255,255,255,0.15);
-    --white-text: rgba(255,255,255,0.6);
-    --white-muted: rgba(255,255,255,0.3);
-    --surface: #0a0a0a;
-    --surface-2: #111111;
-    --font-display: 'Barlow Condensed', sans-serif;
-    --font-mono: 'DM Mono', monospace;
-    --font-body: 'Barlow', sans-serif;
+    --white-dim: rgba(235,240,255,0.04);
+    --white-mid: rgba(235,240,255,0.09);
+    --white-border: rgba(220,228,245,0.12);
+    --white-text: rgba(241,243,248,0.72);
+    --white-muted: rgba(190,198,214,0.48);
+    --surface: #080a10;
+    --surface-2: #10131b;
+    --font-display: 'Manrope', sans-serif;
+    --font-mono: 'Manrope', sans-serif;
+    --font-body: 'Manrope', sans-serif;
     --transition-snap: 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background-color: var(--black);
+    background: linear-gradient(180deg, #10182a 0%, #060910 8%, #010102 22%, #000000 100%);
     color: var(--white);
     font-family: var(--font-body);
     font-weight: 300;
@@ -39,7 +39,7 @@ const String kModernWebInterfaceHtml = r"""
     height: 100dvh; /* For modern mobile browsers */
     display: flex;
     flex-direction: column;
-    cursor: crosshair;
+    cursor: default;
     -webkit-font-smoothing: antialiased;
   }
   ::-webkit-scrollbar { width: 4px; }
@@ -67,8 +67,8 @@ const String kModernWebInterfaceHtml = r"""
   .brand-title {
     font-family: var(--font-display);
     font-size: 24px;
-    font-weight: 900;
-    letter-spacing: 4px;
+    font-weight: 500;
+    letter-spacing: 0.8px;
     color: var(--white);
     text-transform: uppercase;
   }
@@ -78,8 +78,8 @@ const String kModernWebInterfaceHtml = r"""
     padding: 4px 10px;
     font-family: var(--font-mono);
     font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 2px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
     margin-left: 16px;
     white-space: nowrap;
   }
@@ -92,14 +92,14 @@ const String kModernWebInterfaceHtml = r"""
     color: var(--white-text);
     font-family: var(--font-mono);
     font-size: 11px;
-    letter-spacing: 2px;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
     cursor: crosshair;
     transition: all var(--transition-snap);
     outline: none;
   }
   .nav-btn:hover, .nav-btn:focus { background: var(--white-dim); color: var(--white); }
-  .nav-btn.active { background: var(--white); color: var(--black); font-weight: 700; }
+  .nav-btn.active { background: var(--white); color: var(--black); font-weight: 500; }
   
   .search-container { display: flex; align-items: center; min-width: 300px; background: var(--black); position: relative; }
   .search-box {
@@ -108,7 +108,7 @@ const String kModernWebInterfaceHtml = r"""
     color: var(--white);
     font-family: var(--font-mono);
     font-size: 11px;
-    letter-spacing: 1px;
+    letter-spacing: 0.2px;
     width: 100%;
     height: 100%;
     padding: 0 40px;
@@ -173,7 +173,7 @@ const String kModernWebInterfaceHtml = r"""
   .card-title {
     font-family: var(--font-mono);
     font-size: 10px;
-    letter-spacing: 1px;
+    letter-spacing: 0.2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -181,13 +181,13 @@ const String kModernWebInterfaceHtml = r"""
     text-transform: uppercase;
     flex-grow: 1;
   }
-  .card:hover .card-title, .card:focus .card-title { color: var(--black); font-weight: 700; }
+  .card:hover .card-title, .card:focus .card-title { color: var(--black); font-weight: 500; }
   .action-btn {
     color: var(--white-muted);
     text-decoration: none;
     font-family: var(--font-mono);
     font-size: 9px;
-    letter-spacing: 2px;
+    letter-spacing: 0.5px;
     outline: none;
     text-transform: uppercase;
     margin-left: 12px;
@@ -209,14 +209,14 @@ const String kModernWebInterfaceHtml = r"""
     outline: none;
   }
   .list-item:hover, .list-item:focus { background: var(--white); color: var(--black); }
-  .list-index { font-family: var(--font-mono); width: 80px; font-size: 10px; color: var(--white-muted); letter-spacing: 2px; }
+  .list-index { font-family: var(--font-mono); width: 80px; font-size: 10px; color: var(--white-muted); letter-spacing: 0.5px; }
   .list-item:hover .list-index, .list-item:focus .list-index { color: var(--black); }
   .list-art { width: 40px; height: 40px; object-fit: cover; margin-right: 32px; filter: grayscale(1) opacity(0.5); border: 1px solid var(--white-border); }
   .list-item:hover .list-art { filter: grayscale(0) opacity(1); border-color: var(--black); }
-  .list-title { flex-grow: 1; font-family: var(--font-mono); font-size: 13px; font-weight: 400; letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; }
-  .list-meta { font-family: var(--font-mono); font-size: 10px; width: 140px; text-align: right; margin-right: 48px; color: var(--white-text); letter-spacing: 1px; }
+  .list-title { flex-grow: 1; font-family: var(--font-mono); font-size: 13px; font-weight: 400; letter-spacing: 0.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; }
+  .list-meta { font-family: var(--font-mono); font-size: 10px; width: 140px; text-align: right; margin-right: 48px; color: var(--white-text); letter-spacing: 0.2px; }
   .list-item:hover .list-meta { color: var(--black); }
-  .list-download-icon { color: var(--white-text); text-decoration: none; font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; outline: none; text-transform: uppercase; border: 1px solid var(--white-border); padding: 4px 8px; }
+  .list-download-icon { color: var(--white-text); text-decoration: none; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.5px; outline: none; text-transform: uppercase; border: 1px solid var(--white-border); padding: 4px 8px; }
   .list-item:hover .list-download-icon { color: var(--black); font-weight: bold; border-color: var(--black); }
 
   /* ================== PLAYER CONSOLE ================== */
@@ -241,8 +241,8 @@ const String kModernWebInterfaceHtml = r"""
   .lcd-art { width: 64px; height: 64px; border: 1px solid var(--white-border); overflow: hidden; background: var(--black); }
   .lcd-art img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(1); }
   .lcd-data { display: flex; flex-direction: column; justify-content: center; flex-grow: 1; overflow: hidden; }
-  .lcd-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 4px; color: var(--white-muted); margin-bottom: 8px; text-transform: uppercase; }
-  .lcd-title { font-family: var(--font-display); font-size: 32px; font-weight: 700; color: var(--white); line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 1px; }
+  .lcd-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.8px; color: var(--white-muted); margin-bottom: 8px; text-transform: uppercase; }
+  .lcd-title { font-family: var(--font-display); font-size: 32px; font-weight: 500; color: var(--white); line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 0.2px; }
   .lcd-progress-wrapper { height: 4px; background: rgba(255,255,255,0.1); margin-top: 16px; width: 100%; position: relative; display: none; cursor: crosshair; }
   .lcd-progress-bar { height: 100%; width: 0%; background: var(--white); pointer-events: none; }
 
@@ -255,7 +255,7 @@ const String kModernWebInterfaceHtml = r"""
     color: var(--white-text);
     font-family: var(--font-mono);
     font-size: 12px;
-    letter-spacing: 2px;
+    letter-spacing: 0.5px;
     cursor: crosshair;
     display: flex;
     align-items: center;
@@ -265,7 +265,7 @@ const String kModernWebInterfaceHtml = r"""
     text-transform: uppercase;
   }
   .hw-btn:hover, .hw-btn:focus { background: var(--white-dim); color: var(--white); }
-  .hw-btn.play { width: 140px; background: var(--white); color: var(--black); font-weight: 700; }
+  .hw-btn.play { width: 140px; background: var(--white); color: var(--black); font-weight: 500; }
   .hw-btn.play:hover, .hw-btn.play:focus { background: rgba(255,255,255,0.9); }
 
   /* ================== FULLSCREEN PLAYER ================== */
@@ -329,13 +329,25 @@ const String kModernWebInterfaceHtml = r"""
   }
   .video-container:hover .vid-controls-overlay { opacity: 1; }
 
+  .playback-error { position: fixed; inset: 0; z-index: 4000; display: grid; place-items: center; padding: 24px; background: rgba(0,0,0,0.78); }
+  .playback-error[hidden] { display: none; }
+  .playback-error-card { width: min(100%, 560px); padding: 28px; color: var(--white); background: rgba(16,18,24,0.98); border: 1px solid var(--white-border); border-radius: 18px; box-shadow: 0 24px 80px rgba(0,0,0,0.55); font-family: var(--font-body); }
+  .playback-error-kicker { display: block; margin-bottom: 10px; color: var(--white-muted); font-size: 11px; letter-spacing: 1.4px; }
+  .playback-error-title { margin: 0 0 12px; font-size: clamp(22px, 3vw, 30px); font-weight: 600; }
+  .playback-error-message { margin: 0; color: var(--white-text); font-size: 15px; line-height: 1.55; }
+  .playback-error-status { margin-top: 14px; color: var(--white); font-size: 13px; }
+  .playback-error-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+  .playback-error-actions button { min-height: 46px; padding: 0 18px; border: 1px solid var(--white-border); border-radius: 12px; color: var(--white); background: #151821; font: 600 13px var(--font-body); cursor: pointer; }
+  .playback-error-actions button:first-child { color: #05070b; background: var(--white); }
+  .playback-error-actions button:focus-visible { outline: 3px solid #8cb2ff; outline-offset: 3px; }
+
   .empty-state {
     padding: 160px 20px;
     text-align: center;
     color: var(--white-muted);
     font-family: var(--font-mono);
     font-size: 14px;
-    letter-spacing: 8px;
+    letter-spacing: 0.8px;
     text-transform: uppercase;
     border: 1px dashed var(--white-border);
     margin-top: 40px;
@@ -388,7 +400,7 @@ const String kModernWebInterfaceHtml = r"""
 
     /* List View adjustments */
     .list-item { padding: 16px 12px; }
-    .list-index { width: 40px; font-size: 8px; letter-spacing: 1px; }
+    .list-index { width: 40px; font-size: 8px; letter-spacing: 0.2px; }
     .list-art { width: 32px; height: 32px; margin-right: 12px; }
     .list-title { font-size: 10px; }
     .list-meta { display: none; } /* Hidden for space */
@@ -419,6 +431,262 @@ const String kModernWebInterfaceHtml = r"""
     .lcd-title { font-size: 16px; }
   }
 
+
+  /* Shared STREAMZ premium surface and type treatment. */
+  :root {
+    --white-dim: rgba(235,240,255,0.055);
+    --white-mid: rgba(235,240,255,0.09);
+    --white-border: rgba(220,228,245,0.14);
+    --white-text: rgba(241,243,248,0.82);
+    --white-muted: rgba(190,198,214,0.62);
+    --surface: rgba(6,9,16,0.88);
+    --surface-2: rgba(14,18,27,0.92);
+  }
+  .top-dashboard, .player-console, .bottom-navbar {
+    background: var(--surface);
+    border-color: var(--white-border);
+    backdrop-filter: blur(22px);
+  }
+  .branding { border-right: 0; padding-inline: clamp(20px, 3vw, 40px); }
+  .brand-title { font-weight: 400; letter-spacing: -0.4px; text-transform: none; }
+  .nav-btn {
+    border: 0;
+    border-radius: 12px;
+    margin: 8px 3px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    letter-spacing: 0;
+    text-transform: none;
+    cursor: pointer;
+  }
+  .nav-btn.active { background: var(--white-dim); color: var(--white); }
+  .search-container {
+    min-width: min(300px, 25vw);
+    margin: 10px;
+    border: 1px solid var(--white-border);
+    border-radius: 14px;
+    background: var(--surface-2);
+  }
+  .search-box { font-family: var(--font-body); font-size: 14px; letter-spacing: 0; text-transform: none; }
+  .content-area { padding: clamp(20px, 4vw, 56px); }
+  .page-header { margin-bottom: clamp(28px, 5vw, 56px); border-color: var(--white-border); }
+  .page-title { font-weight: 300; letter-spacing: -0.045em; line-height: 1; text-transform: none; }
+  .page-meta { font-family: var(--font-body); text-transform: none; }
+  .grid-container { gap: 14px; border: 0; background: transparent; }
+  .card {
+    aspect-ratio: 0.86;
+    border: 1px solid var(--white-border);
+    border-radius: 18px;
+    background: var(--surface-2);
+    cursor: pointer;
+    transition: transform var(--transition-snap), border-color var(--transition-snap), background var(--transition-snap);
+  }
+  .card:hover, .card:focus { background: var(--surface-2); border-color: rgba(243,244,246,0.56); transform: translateY(-2px); }
+  .card-poster-wrap { border: 0; }
+  .card-poster { filter: opacity(0.86) grayscale(0.12); }
+  .card:hover .card-poster, .card:focus .card-poster { filter: opacity(1) grayscale(0); }
+  .card-info { height: 22%; padding: 0 14px; }
+  .card-title { font-family: var(--font-body); font-size: 13px; letter-spacing: -0.1px; text-transform: none; }
+  .card:hover .card-title, .card:focus .card-title { color: var(--white); font-weight: 500; }
+  .action-btn, .list-download-icon {
+    border: 1px solid var(--white-border);
+    border-radius: 99px;
+    font-family: var(--font-body);
+    font-size: 12px;
+    letter-spacing: 0;
+    padding: 6px 12px;
+    text-transform: none;
+    cursor: pointer;
+  }
+  .card:hover .action-btn, .card:focus .action-btn { color: var(--white); border-color: var(--white-border); font-weight: 500; }
+  .list-container { border-color: var(--white-border); }
+  .list-item {
+    margin-block: 4px;
+    padding: 12px 16px;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    cursor: pointer;
+  }
+  .list-item:hover, .list-item:focus { background: var(--white-dim); color: var(--white); border-color: var(--white-border); }
+  .list-index, .list-title, .list-meta { font-family: var(--font-body); text-transform: none; }
+  .list-title { font-size: 14px; }
+  .list-item:hover .list-index, .list-item:focus .list-index,
+  .list-item:hover .list-meta, .list-item:focus .list-meta { color: var(--white-text); }
+  .list-art, .lcd-art { border-radius: 12px; }
+  .list-item:hover .list-art, .list-item:focus .list-art { border-color: var(--white-border); }
+  .list-download-icon { color: var(--white-text); }
+  .list-item:hover .list-download-icon, .list-item:focus .list-download-icon { color: var(--white); border-color: var(--white-border); font-weight: 500; }
+  .now-playing-lcd { border-color: var(--white-border); }
+  .lcd-title { font-weight: 500; letter-spacing: -0.3px; text-transform: none; }
+  .lcd-label { font-family: var(--font-body); text-transform: none; letter-spacing: 0; }
+  .hw-btn {
+    margin: 10px 5px;
+    border: 1px solid var(--white-border);
+    border-radius: 14px;
+    font-family: var(--font-body);
+    letter-spacing: 0;
+    text-transform: none;
+    cursor: pointer;
+  }
+  .hw-btn.play { background: var(--white); border-radius: 14px; }
+  .empty-state {
+    margin: 40px auto 0;
+    max-width: 720px;
+    padding: clamp(40px, 8vw, 96px) 24px;
+    border: 1px solid var(--white-border);
+    border-radius: 20px;
+    font-family: var(--font-body);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .status-badge { border-radius: 99px; font-family: var(--font-body); }
+  @media (max-width: 768px) {
+    .content-area { padding: 16px; }
+    .search-container { min-height: 48px; margin: 4px 8px; }
+    .search-box { padding-inline: 42px 14px; }
+    .grid-container { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .card { aspect-ratio: 0.82; }
+    .card-info { padding-inline: 10px; }
+    .card-title { font-size: 12px; text-align: left; }
+    .list-item { padding: 12px 10px; }
+    .list-index { width: 34px; font-size: 10px; }
+    .list-title { font-size: 13px; }
+    .bottom-navbar { height: 64px; padding: 5px 8px; }
+    .bottom-navbar .nav-btn { margin: 2px; border-radius: 12px; font-size: 12px; }
+    .lcd-title { font-size: 20px; }
+    .hw-btn { margin: 4px; font-size: 12px; }
+  }
+  @media (max-width: 380px) {
+    .grid-container { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  /* Shared Flutter premium dark-glow visual language. */
+  :root {
+    --black: #020202;
+    --white: #f1f2f5;
+    --accent: #f3f4f6;
+    --white-dim: rgba(235, 240, 255, 0.055);
+    --white-mid: rgba(235, 240, 255, 0.09);
+    --white-border: rgba(220, 228, 245, 0.1);
+    --white-text: rgba(241, 243, 248, 0.82);
+    --white-muted: rgba(190, 198, 214, 0.68);
+    --surface: rgba(5, 7, 12, 0.58);
+    --surface-2: rgba(14, 18, 27, 0.9);
+  }
+  body {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-color: #060606;
+    background-image:
+      radial-gradient(ellipse 78% 42% at 50% -10%, rgba(12, 58, 168, 0.42) 0%, rgba(12, 58, 168, 0.14) 38%, transparent 76%),
+      linear-gradient(180deg, #0a0a0c 0%, #060606 50%, #020202 100%);
+    font-family: 'Manrope', sans-serif;
+    font-weight: 400;
+  }
+  button, input { font: inherit; }
+  button, a { -webkit-tap-highlight-color: transparent; }
+  button { color: inherit; }
+  .top-dashboard {
+    height: 72px;
+    border: 0;
+    background: rgba(5, 7, 12, 0.34);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+  }
+  .brand-title { font-weight: 600; letter-spacing: -0.3px; }
+  .nav-btn, .hw-btn {
+    min-height: 44px;
+    font-family: 'Manrope', sans-serif;
+    font-size: 13px;
+    text-transform: none;
+    cursor: pointer;
+  }
+  .nav-btn.active {
+    background: rgba(243, 244, 246, 0.12);
+    color: var(--white);
+  }
+  .search-container { background: rgba(14, 18, 27, 0.72); }
+  .search-box { min-height: 48px; font-size: 14px; }
+  .content-area { max-width: 1600px; width: 100%; margin-inline: auto; }
+  .page-header { border: 0; padding-bottom: 0; align-items: center; }
+  .page-meta { font-size: 12px; }
+  .grid-container { gap: 16px; }
+  .card {
+    border-radius: 18px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  }
+  .card-title { min-width: 0; font-size: 13px; }
+  .action-btn, .list-download-icon {
+    min-height: 36px;
+    border-radius: 999px;
+    font-size: 12px;
+  }
+  .list-container { border: 0; gap: 8px; }
+  .list-item { min-height: 64px; border-radius: 14px; }
+  .list-index, .list-meta { font-size: 12px; }
+  .list-art, .lcd-art { border-radius: 12px; }
+  .player-console {
+    background: rgba(5, 7, 12, 0.62);
+    border-top: 1px solid rgba(220, 228, 245, 0.08);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+  }
+  .lcd-label { font-size: 12px; }
+  .hw-btn { border-radius: 14px; }
+  .hw-btn.play { border-radius: 14px; }
+  .window-btn { cursor: pointer; border-radius: 0 0 0 12px; }
+  video { cursor: default; }
+  .lcd-label#vid-time { font-size: 12px !important; }
+  .list-download-icon { cursor: pointer !important; }
+  .empty-state {
+    border: 1px solid var(--white-border);
+    border-radius: 20px;
+    font-size: 14px;
+  }
+  .status-badge { font-size: 12px; }
+  :where(button, input, a, .card, .list-item):focus-visible {
+    outline: 2px solid #8eaeff;
+    outline-offset: 3px;
+  }
+  @media (max-width: 768px) {
+    .top-dashboard { height: 56px; }
+    .content-area { padding: 16px; }
+    .page-header {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+    .page-title { font-size: clamp(30px, 9vw, 56px); }
+    .page-meta { text-align: left; padding: 0; }
+    .grid-container { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .card { aspect-ratio: 0.82; }
+    .list-item { gap: 10px; padding: 12px; }
+    .list-index { width: auto; min-width: 42px; font-size: 12px; }
+    .list-art { margin-right: 4px; }
+    .list-title { font-size: 14px; }
+    .bottom-navbar {
+      height: calc(64px + env(safe-area-inset-bottom, 0px));
+      padding: 5px 8px env(safe-area-inset-bottom, 0px);
+      border: 0;
+      background: rgba(5, 7, 12, 0.7);
+    }
+    .bottom-navbar .nav-btn { min-width: 44px; min-height: 44px; }
+    .lcd-label { font-size: 12px; }
+  }
+  @media (max-width: 380px) {
+    .grid-container { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -487,9 +755,22 @@ const String kModernWebInterfaceHtml = r"""
       <div class="lcd-progress-wrapper" id="vid-progress" style="display:block;flex-grow:1;margin:0;">
         <div class="lcd-progress-bar" id="vid-progress-bar"></div>
       </div>
-      <div class="lcd-label" id="vid-time" style="margin:0;font-size:11px;letter-spacing:1px;color:var(--white);">00:00 / 00:00</div>
+      <div class="lcd-label" id="vid-time" style="margin:0;font-size:11px;letter-spacing:0.2px;color:var(--white);">00:00 / 00:00</div>
     </div>
   </div>
+</div>
+
+<div class="playback-error" id="playbackError" role="alert" aria-live="assertive" hidden>
+  <section class="playback-error-card" aria-labelledby="playbackErrorTitle">
+    <span class="playback-error-kicker">PLAYBACK DIAGNOSTIC</span>
+    <h2 class="playback-error-title" id="playbackErrorTitle"></h2>
+    <p class="playback-error-message" id="playbackErrorMessage"></p>
+    <p class="playback-error-status" id="playbackErrorStatus"></p>
+    <div class="playback-error-actions">
+      <button type="button" id="playbackErrorRetry" onclick="retryBrowserPlayback()">TRY AGAIN</button>
+      <button type="button" onclick="closePlayer()">BACK TO LIBRARY</button>
+    </div>
+  </section>
 </div>
 
 <script>
@@ -509,6 +790,13 @@ const String kModernWebInterfaceHtml = r"""
   let currentMediaTitle = '';
   let currentMediaType = '';
   let lastTelemetryTime = 0;
+  let activePlaybackItem = null;
+  let activePlaybackWantsResume = false;
+  let activePlaybackPosition = 0;
+  let activePlaybackUrl = '';
+  let playbackIssueKind = '';
+  let playbackRetryAttempt = 0;
+  let playbackRetryTimer = null;
 
   const fallbacks = {
     video: '/assets/images/video_thumbnail.png',
@@ -558,7 +846,8 @@ const String kModernWebInterfaceHtml = r"""
     if (action === 'scroll_down') { document.querySelector('.content-area').scrollTop += 400; return; }
     if (action === 'scroll_up')   { document.querySelector('.content-area').scrollTop -= 400; return; }
     if (action === 'back')        { closePlayer(); return; }
-    const focusable = Array.from(document.querySelectorAll('[tabindex="0"], input, button'));
+    const focusable = Array.from(document.querySelectorAll('[tabindex="0"], input, button'))
+      .filter((element) => !element.closest('[hidden]') && element.getClientRects().length > 0);
     if (!focusable.length) return;
     let idx = focusable.indexOf(document.activeElement);
     if (action === 'enter') { document.activeElement?.click(); return; }
@@ -576,11 +865,11 @@ const String kModernWebInterfaceHtml = r"""
     const active = isFS ? vid : (aud.src ? aud : null);
     
     if (action === 'station_pause') {
-      if (active) { active.pause(); updatePlayBtn(true); }
+      if (active) { activePlaybackWantsResume = false; active.pause(); updatePlayBtn(true); }
       return;
     }
     if (action === 'station_resume') {
-      if (active) { active.play(); updatePlayBtn(false); }
+      if (active) { requestBrowserPlay(active); updatePlayBtn(false); }
       return;
     }
     if (action === 'station_stop') {
@@ -590,8 +879,9 @@ const String kModernWebInterfaceHtml = r"""
 
     if (!active) return;
     
-    if (action === 'play' || action === 'pause' || action === 'toggle_play') { 
-      active.paused ? active.play() : active.pause(); 
+    if (action === 'play' || action === 'pause' || action === 'toggle_play') {
+      if (active.paused) requestBrowserPlay(active);
+      else { activePlaybackWantsResume = false; active.pause(); }
       updatePlayBtn(active.paused); 
     }
     if (action === 'seek')    active.currentTime += (value || 0);
@@ -808,8 +1098,131 @@ const String kModernWebInterfaceHtml = r"""
   const aud = document.getElementById('audioPlayer');
   const vid = document.getElementById('videoPlayer');
 
+  function activePlaybackElement() {
+    return activePlaybackItem?.type === 'audio' ? aud : vid;
+  }
+
+  function hidePlaybackError() {
+    document.getElementById('playbackError').hidden = true;
+    document.getElementById('playbackErrorStatus').innerText = '';
+  }
+
+  function beginBrowserPlayback(item, isPath, startPaused) {
+    clearTimeout(playbackRetryTimer);
+    playbackRetryTimer = null;
+    activePlaybackItem = item;
+    activePlaybackWantsResume = !startPaused;
+    activePlaybackPosition = 0;
+    activePlaybackUrl = isPath
+      ? '/api/file?path=' + encodeURIComponent(item.id)
+      : '/stream/' + item.id;
+    playbackIssueKind = '';
+    playbackRetryAttempt = 0;
+    hidePlaybackError();
+  }
+
+  function playbackIssueDetails(media, error) {
+    // ponytail: browsers expose only a small media error code and free-form
+    // play() errors. Add response-status mapping if the host stream API exposes it.
+    const code = media.error?.code;
+    const detail = `${error?.name || ''} ${error?.message || ''}`.toLowerCase();
+    if (detail.includes('notallowed') || detail.includes('autoplay') || detail.includes('user gesture')) {
+      return ['device', 'Playback was blocked by this browser', 'Press Try Again to allow playback. Check browser autoplay or media permissions if it keeps happening.'];
+    }
+    if (code === 2 || detail.includes('network') || detail.includes('connection') || !navigator.onLine) {
+      return ['connection', 'Connection interrupted', 'The media host or Wi-Fi stopped responding. STREAMZ will retry and resume near the last position. Check that the host is still running on the same network.'];
+    }
+    if (code === 3 || code === 4 || detail.includes('decode') || detail.includes('codec') || detail.includes('not supported')) {
+      return ['codec', 'This media may not be supported', 'The file format or codec may not be supported by this browser or device. Try another file or a device with broader codec support.'];
+    }
+    return ['unknown', 'Playback stopped unexpectedly', 'Retry playback. If it keeps failing, try another file to check whether this browser or device supports its format.'];
+  }
+
+  function showBrowserPlaybackIssue(media, error) {
+    if (!activePlaybackItem || media !== activePlaybackElement()) return;
+    if (Number.isFinite(media.currentTime)) {
+      activePlaybackPosition = Math.max(activePlaybackPosition, media.currentTime);
+    }
+    const [kind, title, message] = playbackIssueDetails(media, error);
+    playbackIssueKind = kind;
+    const panel = document.getElementById('playbackError');
+    const wasHidden = panel.hidden;
+    document.getElementById('playbackErrorTitle').innerText = title;
+    document.getElementById('playbackErrorMessage').innerText = message;
+    panel.hidden = false;
+    if (wasHidden) document.getElementById('playbackErrorRetry').focus();
+    const status = document.getElementById('playbackErrorStatus');
+    if (kind === 'connection' && activePlaybackWantsResume && !playbackRetryTimer) {
+      const seconds = Math.min(2 ** (playbackRetryAttempt + 1), 30);
+      status.innerText = `Reconnecting · retry ${playbackRetryAttempt + 1} in ${seconds}s`;
+      playbackRetryTimer = setTimeout(() => {
+        playbackRetryTimer = null;
+        retryBrowserPlayback(true);
+      }, seconds * 1000);
+    } else {
+      status.innerText = '';
+    }
+  }
+
+  function requestBrowserPlay(media) {
+    activePlaybackWantsResume = true;
+    const result = media.play();
+    if (result && typeof result.catch === 'function') {
+      result.catch((error) => showBrowserPlaybackIssue(media, error));
+    }
+  }
+
+  function retryBrowserPlayback(automatic = false) {
+    const item = activePlaybackItem;
+    if (!item) return;
+    clearTimeout(playbackRetryTimer);
+    playbackRetryTimer = null;
+    const media = activePlaybackElement();
+    if (Number.isFinite(media.currentTime)) {
+      activePlaybackPosition = Math.max(activePlaybackPosition, media.currentTime);
+    }
+    if (!automatic) playbackRetryAttempt = 0;
+    playbackRetryAttempt++;
+    document.getElementById('playbackError').hidden = false;
+    document.getElementById('playbackErrorStatus').innerText =
+      `Reopening stream · attempt ${playbackRetryAttempt}`;
+    const position = activePlaybackPosition;
+    media.pause();
+    media.addEventListener('loadedmetadata', () => {
+      if (activePlaybackItem !== item) return;
+      if (!item.isBroadcast && position > 0 && Number.isFinite(media.duration) && media.duration > 0) {
+        media.currentTime = Math.min(position, Math.max(0, media.duration - 0.5));
+      }
+      if (activePlaybackWantsResume) requestBrowserPlay(media);
+      else document.getElementById('playbackErrorStatus').innerText = 'Stream is ready. Press Play to continue.';
+    }, { once: true });
+    media.src = activePlaybackUrl;
+    media.load();
+  }
+
+  aud.addEventListener('error', (event) => showBrowserPlaybackIssue(aud, event));
+  vid.addEventListener('error', (event) => showBrowserPlaybackIssue(vid, event));
+  [aud, vid].forEach((media) => media.addEventListener('playing', () => {
+    if (media !== activePlaybackElement()) return;
+    clearTimeout(playbackRetryTimer);
+    playbackRetryTimer = null;
+    playbackRetryAttempt = 0;
+    playbackIssueKind = '';
+    activePlaybackWantsResume = true;
+    activePlaybackPosition = media.currentTime || activePlaybackPosition;
+    hidePlaybackError();
+  }));
+  window.addEventListener('offline', () => {
+    const media = activePlaybackItem ? activePlaybackElement() : null;
+    if (media && activePlaybackWantsResume) showBrowserPlaybackIssue(media, new Error('network offline'));
+  });
+  window.addEventListener('online', () => {
+    if (playbackIssueKind === 'connection' && activePlaybackItem) retryBrowserPlayback(true);
+  });
+
   aud.addEventListener('timeupdate', () => {
     if (!aud.duration) return;
+    activePlaybackPosition = Math.max(activePlaybackPosition, aud.currentTime);
     document.getElementById('np-progress-bar').style.width = (aud.currentTime / aud.duration * 100) + '%';
     sendTelemetry(false, aud);
   });
@@ -820,6 +1233,7 @@ const String kModernWebInterfaceHtml = r"""
 
   vid.addEventListener('timeupdate', () => {
     if (!vid.duration) return;
+    activePlaybackPosition = Math.max(activePlaybackPosition, vid.currentTime);
     document.getElementById('vid-progress-bar').style.width = (vid.currentTime / vid.duration * 100) + '%';
     const m = Math.floor(vid.currentTime/60), s = Math.floor(vid.currentTime%60).toString().padStart(2,'0');
     const dm = Math.floor(vid.duration/60),  ds = Math.floor(vid.duration%60).toString().padStart(2,'0');
@@ -838,11 +1252,12 @@ const String kModernWebInterfaceHtml = r"""
     currentSessionId  = 'SESSION_' + Date.now();
     currentMediaTitle = item.title;
     currentMediaType  = item.type;
+    beginBrowserPlayback(item, isPath, startPaused);
     const url = isPath ? '/api/file?path=' + encodeURIComponent(item.id) : '/stream/' + item.id;
 
     if (item.type === 'audio') {
       aud.src = url;
-      if (!startPaused) aud.play();
+      if (!startPaused) requestBrowserPlay(aud);
       document.getElementById('lcd-status-label').innerText = item.isBroadcast ? 'STATUS // LIVE' : 'STATUS // BROADCASTING';
       document.getElementById('np-title').innerText     = item.title;
       document.getElementById('np-progress').style.display = 'block';
@@ -879,7 +1294,7 @@ const String kModernWebInterfaceHtml = r"""
       document.getElementById('vid-progress-bar').style.background = item.isBroadcast ? 'orange' : 'var(--white)';
       document.getElementById('vid-time').innerText = item.isBroadcast ? 'LIVE BROADCAST' : '00:00 / 00:00';
 
-      if (!startPaused) vid.play();
+      if (!startPaused) requestBrowserPlay(vid);
       updatePlayBtn(startPaused);
     } else if (item.type === 'image') {
       img.src = url;
@@ -888,6 +1303,13 @@ const String kModernWebInterfaceHtml = r"""
   }
 
   function closePlayer() {
+    clearTimeout(playbackRetryTimer);
+    playbackRetryTimer = null;
+    activePlaybackWantsResume = false;
+    activePlaybackItem = null;
+    activePlaybackUrl = '';
+    playbackIssueKind = '';
+    hidePlaybackError();
     if (document.fullscreenElement || document.webkitFullscreenElement) {
       if (document.exitFullscreen) document.exitFullscreen();
       else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
@@ -909,8 +1331,8 @@ const String kModernWebInterfaceHtml = r"""
     const isFS = document.getElementById('fsOverlay').classList.contains('active');
     const active = isFS ? vid : aud;
     if (!active.src) return;
-    if (active.paused) { active.play(); updatePlayBtn(false); }
-    else               { active.pause(); updatePlayBtn(true); }
+    if (active.paused) { requestBrowserPlay(active); updatePlayBtn(false); }
+    else { activePlaybackWantsResume = false; active.pause(); updatePlayBtn(true); }
   }
 
   function updatePlayBtn(isPaused) {

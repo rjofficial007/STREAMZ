@@ -12,12 +12,16 @@ import 'package:provider/provider.dart';
 import 'package:streamz/core/di/service_locator.dart';
 import 'package:streamz/core/navigation/app_router.dart';
 import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/core/theme/theme_service.dart';
 import 'package:streamz/core/util/lifecycle_broadcaster.dart';
 import 'package:streamz/domain/services/download_service.dart';
+import 'package:streamz/domain/services/platform_service.dart';
+import 'package:streamz/domain/services/queue_service.dart';
 import 'package:streamz/domain/services/remote_command_service.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
 import 'package:streamz/presentation/server/server_viewmodel.dart';
+import 'package:streamz/presentation/shared/app_launch_splash.dart';
 import 'package:window_manager/window_manager.dart';
 
 Future<void> main() async {
@@ -30,7 +34,7 @@ Future<void> main() async {
       fullScreen: true,
       titleBarStyle: TitleBarStyle.hidden,
       center: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: Color(0xFF060606),
       skipTaskbar: false,
     );
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -42,14 +46,17 @@ Future<void> main() async {
 
   MediaKit.ensureInitialized();
 
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent, 
-    statusBarIconBrightness: Brightness.light, 
-    systemNavigationBarColor: Colors.transparent,
-    systemNavigationBarIconBrightness: Brightness.light,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+  );
 
   await setupServiceLocator();
+  final isAndroidTV = await sl<PlatformService>().isAndroidTV();
 
   runApp(
     MultiProvider(
@@ -57,10 +64,11 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: sl<ThemeService>()),
         ChangeNotifierProvider.value(value: sl<DownloadService>()),
         ChangeNotifierProvider.value(value: sl<RemoteCommandService>()),
+        ChangeNotifierProvider.value(value: sl<QueueService>()),
         ChangeNotifierProvider.value(value: sl<ServerViewModel>()),
         ChangeNotifierProvider.value(value: sl<ClientViewModel>()),
       ],
-      child: const StreamzApp(),
+      child: StreamzApp(isAndroidTV: isAndroidTV),
     ),
   );
 }
@@ -68,7 +76,9 @@ Future<void> main() async {
 // FIX: Must be StatefulWidget so we can register WidgetsBindingObserver.
 // This is the only correct way to get AppLifecycleState callbacks at app root.
 class StreamzApp extends StatefulWidget {
-  const StreamzApp({super.key});
+  const StreamzApp({super.key, required this.isAndroidTV});
+
+  final bool isAndroidTV;
 
   @override
   State<StreamzApp> createState() => _StreamzAppState();
@@ -104,18 +114,45 @@ class _StreamzAppState extends State<StreamzApp> with WidgetsBindingObserver {
     return MaterialApp.router(
       title: 'STREAMZ',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.themeFor(themeService.currentTheme),
+      theme: AppTheme.themeFor(
+        themeService.currentTheme,
+        scaffoldTopColor: themeService.glowColor.color,
+        cornerRadius: themeService.cornerRadius,
+      ),
       routerConfig: appRouter,
-      scrollBehavior: const MaterialScrollBehavior().copyWith(dragDevices: {PointerDeviceKind.mouse, PointerDeviceKind.touch, PointerDeviceKind.stylus, PointerDeviceKind.trackpad}),
+      builder: (context, child) {
+        final topColor = themeService.glowColor.color;
+        return AppBackdrop(
+          topColor: topColor,
+          child: AppLaunchSplash(
+            topColor: topColor,
+            child: TVDeviceScope(
+              isTelevision: widget.isAndroidTV,
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
+        );
+      },
+      scrollBehavior: const MaterialScrollBehavior().copyWith(
+        dragDevices: {
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.touch,
+          PointerDeviceKind.stylus,
+          PointerDeviceKind.trackpad,
+        },
+      ),
       // [CRITICAL TV FIX]: Spread WidgetsApp.defaultShortcuts FIRST.
       // Omitting this deletes the native D-Pad Up/Down/Left/Right bindings.
       shortcuts: {
         ...WidgetsApp.defaultShortcuts,
-        const SingleActivator(LogicalKeyboardKey.select): const ActivateIntent(),
+        const SingleActivator(LogicalKeyboardKey.select):
+            const ActivateIntent(),
         const SingleActivator(LogicalKeyboardKey.enter): const ActivateIntent(),
-        const SingleActivator(LogicalKeyboardKey.numpadEnter): const ActivateIntent(),
+        const SingleActivator(LogicalKeyboardKey.numpadEnter):
+            const ActivateIntent(),
         // Amazon Fire TV & certain Android TV "OK" buttons
-        const SingleActivator(LogicalKeyboardKey.gameButtonA): const ActivateIntent(),
+        const SingleActivator(LogicalKeyboardKey.gameButtonA):
+            const ActivateIntent(),
       },
     );
   }

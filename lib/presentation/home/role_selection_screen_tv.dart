@@ -1,21 +1,16 @@
 // presentation/home/role_selection_screen_tv.dart
-// ============================================================================
-// STREAMZ — TV Role Selection (NOC Dashboard)
-// ============================================================================
 
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
-import 'package:streamz/core/theme/theme_service.dart';
-import 'package:streamz/presentation/shared/noc_decorations.dart';
+import 'package:streamz/presentation/shared/app_brand_icon.dart';
 
 class RoleSelectionScreenTV extends StatefulWidget {
   const RoleSelectionScreenTV({super.key});
@@ -33,7 +28,8 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final isAutoGrantPlatform = kIsWeb ||
+      final isAutoGrantPlatform =
+          kIsWeb ||
           defaultTargetPlatform == TargetPlatform.windows ||
           defaultTargetPlatform == TargetPlatform.macOS ||
           defaultTargetPlatform == TargetPlatform.linux;
@@ -65,172 +61,129 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final themeService = context.watch<ThemeService>();
-
     final size = MediaQuery.sizeOf(context);
 
-    return Scaffold(
-      backgroundColor: tokens.background,
-      body: Stack(
-        children: [
-          // Background Grid
-          Positioned.fill(
-            child: NocGridBackground(
-              spacing: (size.width * 0.04).clamp(30.0, 60.0),
-              color: tokens.borderSubtle,
-            ),
-          ),
-
-          if (!themeService.reducedMotion)
-            Positioned.fill(
-              child: NocScanningLine(
-                color: tokens.accent.withValues(alpha: 0.03),
-                reducedMotion: themeService.reducedMotion,
-              ),
-            ),
-
-          // Main Content
-          SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(context),
-                Expanded(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1400),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: _TVActionCard(
-                              label: 'HOST SERVER',
-                              subLabel: 'BROADCAST ENGINE',
-                              code: 'SRV-01',
-                              icon: LucideIcons.hardDrive,
-                              onTap: _handleServerTap,
-                              autofocus: true,
-                            ),
+    return AppScaffold(
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(context),
+            Expanded(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: DS.contentMaxWidth,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 36),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _TVActionCard(
+                            label: 'Host server',
+                            subLabel: 'Share your library on this network',
+                            icon: LucideIcons.hardDrive,
+                            onTap: _handleServerTap,
+                            autofocus: true,
                           ),
-                          const SizedBox(width: DS.s40),
-                          Expanded(
-                            child: _TVActionCard(
-                              label: 'JOIN NODE',
-                              subLabel: 'SYNCHRONIZE',
-                              code: 'NOD-02',
-                              icon: LucideIcons.wifiHigh,
-                              onTap: _handleClientTap,
-                            ),
+                        ),
+                        SizedBox(width: (size.width * 0.025).clamp(24.0, 48.0)),
+                        Expanded(
+                          child: _TVActionCard(
+                            label: 'Join a server',
+                            subLabel: 'Connect to a shared library',
+                            icon: LucideIcons.wifiHigh,
+                            onTap: _handleClientTap,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                _buildFooter(context),
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context) {
-    final platform = defaultTargetPlatform.toString().split('.').last.toUpperCase();
     final tokens = context.tokens;
     final size = MediaQuery.sizeOf(context);
-    final horizontalPad = (size.width * 0.05).clamp(24.0, 80.0);
-    final verticalPad = (size.height * 0.04).clamp(16.0, 40.0);
+    final horizontalPad = (size.width * 0.05).clamp(32.0, 88.0);
+    final verticalPad = (size.height * 0.035).clamp(20.0, 40.0);
 
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: horizontalPad, vertical: verticalPad),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        horizontalPad,
+        verticalPad,
+        horizontalPad,
+        0,
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          AppBrandIcon(
+            size: (size.height * 0.085).clamp(44.0, 64.0).toDouble(),
+          ),
+          SizedBox(width: (size.width * 0.015).clamp(16.0, 28.0)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'STREAMZ NOC // SYSTEM ANALYSIS',
-                  style: GoogleFonts.barlowCondensed(
+                  'STREAMZ',
+                  style: AppTextStyles.style(
                     color: tokens.textPrimary,
-                    fontSize: (size.width * 0.02).clamp(20.0, 32.0),
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 4,
+                    fontSize: (size.width * 0.03).clamp(32.0, 52.0),
+                    fontWeight: FontWeight.w300,
+                    letterSpacing: 0.5,
+                    height: 1,
                   ),
                 ),
-                const SizedBox(height: DS.s8),
-                Container(height: 2, width: (size.width * 0.1).clamp(100.0, 200.0), color: tokens.accent),
+                const SizedBox(height: 8),
+                Text(
+                  'Your media, shared simply.',
+                  style: AppTextStyles.style(
+                    color: tokens.textSecondary,
+                    fontSize: (size.width * 0.011).clamp(14.0, 18.0),
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
               ],
             ),
           ),
-          _StatusModule(label: 'PLATFORM', value: platform),
-          SizedBox(width: (size.width * 0.03).clamp(16.0, 48.0)),
-          const _StatusModule(label: 'STATUS', value: 'READY'),
-          SizedBox(width: (size.width * 0.03).clamp(16.0, 48.0)),
-          const _StatusModule(label: 'VERSION', value: 'v2.0.4-PROD'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooter(BuildContext context) {
-    final tokens = context.tokens;
-    final size = MediaQuery.sizeOf(context);
-    final horizontalPad = (size.width * 0.05).clamp(24.0, 80.0);
-    final verticalPad = (size.height * 0.04).clamp(16.0, 40.0);
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: horizontalPad, vertical: verticalPad),
-      child: Row(
-        children: [
-          Text(
-            'CORE ARCHITECTURE: BRUTALIST // UDP_DISCOVERY // HTTP_STREAM',
-            style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: (size.width * 0.008).clamp(9.0, 12.0), letterSpacing: 2),
+          Focus(
+            onKeyEvent: (_, event) => handleTVSelectKey(
+              event,
+              () => context.push('/settings'),
+            ),
+            child: IconButton(
+              tooltip: 'Appearance settings',
+              onPressed: () => context.push('/settings'),
+              icon: const Icon(LucideIcons.settings2),
+            ),
           ),
-          const Spacer(),
-          const _BlinkingDotTV(),
         ],
       ),
-    );
-  }
-}
-
-class _StatusModule extends StatelessWidget {
-  const _StatusModule({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
-        const SizedBox(height: 4),
-        Text(value, style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
-      ],
     );
   }
 }
 
 class _TVActionCard extends StatefulWidget {
-
   const _TVActionCard({
     required this.label,
     required this.subLabel,
-    required this.code,
     required this.icon,
     required this.onTap,
     this.autofocus = false,
   });
+
   final String label;
   final String subLabel;
-  final String code;
   final IconData icon;
   final VoidCallback onTap;
   final bool autofocus;
@@ -245,168 +198,89 @@ class _TVActionCardState extends State<_TVActionCard> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final bgColor = _isFocused ? tokens.surface3 : tokens.surface1;
-    final borderColor = _isFocused ? tokens.accent : tokens.border;
     final size = MediaQuery.sizeOf(context);
 
     return Focus(
       autofocus: widget.autofocus,
-      onFocusChange: (v) {
-        setState(() => _isFocused = v);
-        if (v) handleTVFocusScroll(v, context);
+      onFocusChange: (focused) {
+        setState(() => _isFocused = focused);
+        if (focused) handleTVFocusScroll(focused, context);
       },
-      onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: _isFocused ? 1.02 : 1.0,
-          duration: const Duration(milliseconds: 150),
-          child: Container(
-            height: (size.height * 0.5).clamp(280.0, 450.0),
-            decoration: BoxDecoration(
-              color: bgColor,
-              border: Border.all(color: borderColor, width: _isFocused ? 4 : 1),
-              boxShadow: _isFocused
-                  ? [
-                      BoxShadow(
-                        color: tokens.accent.withValues(alpha: 0.2),
-                        blurRadius: 20,
-                        spreadRadius: 5,
-                      )
-                    ]
-                  : [],
-            ),
-            child: Stack(
-              children: [
-                // Inner Grid for Card
-                Positioned.fill(
-                  child: NocGridBackground(
-                    spacing: 20,
-                    color: _isFocused ? tokens.accent.withValues(alpha: 0.05) : tokens.borderSubtle,
-                  ),
+      onKeyEvent: (_, event) => handleTVSelectKey(event, widget.onTap),
+      child: AnimatedScale(
+        scale: _isFocused ? 1.02 : 1,
+        duration: const Duration(milliseconds: 180),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(DS.radius(24)),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              height: (size.height * 0.43).clamp(250.0, 380.0),
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: _isFocused
+                    ? tokens.surface2.withValues(alpha: 0.96)
+                    : tokens.surface1.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(DS.radius(24)),
+                border: Border.all(
+                  color: _isFocused
+                      ? tokens.focusColor.withValues(alpha: 0.82)
+                      : tokens.border.withValues(alpha: 0.72),
+                  width: _isFocused ? 2 : 1,
                 ),
-
-                // Corner Brackets
-                _buildCorner(context, Alignment.topLeft),
-                _buildCorner(context, Alignment.topRight),
-                _buildCorner(context, Alignment.bottomLeft),
-                _buildCorner(context, Alignment.bottomRight),
-
-                // Content
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'SYS_TYPE // ${widget.code}',
-                        style: GoogleFonts.dmMono(
-                          color: _isFocused ? tokens.textPrimary : tokens.textMuted,
-                          fontSize: (size.width * 0.008).clamp(9.0, 12.0),
-                          letterSpacing: 2,
+                boxShadow: _isFocused
+                    ? [
+                        BoxShadow(
+                          color: tokens.accent.withValues(alpha: 0.08),
+                          blurRadius: 36,
+                          spreadRadius: 2,
                         ),
-                      ),
-                      SizedBox(height: (size.height * 0.04).clamp(16.0, 40.0)),
-                      Icon(
-                        widget.icon,
-                        color: _isFocused ? tokens.textPrimary : tokens.textSecondary,
-                        size: (size.width * 0.05).clamp(40.0, 80.0),
-                      ),
-                      SizedBox(height: (size.height * 0.04).clamp(16.0, 40.0)),
-                      Text(
-                        widget.label,
-                        style: GoogleFonts.barlowCondensed(
-                          color: tokens.textPrimary,
-                          fontSize: (size.width * 0.025).clamp(24.0, 48.0),
-                          letterSpacing: 4,
-                          fontWeight: FontWeight.w900,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: DS.s8),
-                      Text(
-                        widget.subLabel,
-                        style: GoogleFonts.dmMono(
-                          color: _isFocused ? tokens.textPrimary : tokens.textMuted,
-                          fontSize: (size.width * 0.009).clamp(10.0, 14.0),
-                          letterSpacing: 2,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                      ]
+                    : const [],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 68,
+                    height: 68,
+                    decoration: BoxDecoration(
+                      color: tokens.surface3.withValues(alpha: 0.78),
+                      borderRadius: BorderRadius.circular(DS.radius(22)),
+                    ),
+                    child: Icon(
+                      widget.icon,
+                      color: tokens.textPrimary,
+                      size: 30,
+                    ),
                   ),
-                ),
-              ],
+                  SizedBox(height: (size.height * 0.035).clamp(20.0, 32.0)),
+                  Text(
+                    widget.label,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.style(
+                      color: tokens.textPrimary,
+                      fontSize: (size.width * 0.022).clamp(24.0, 40.0),
+                      fontWeight: AppTextStyles.titleFontWeight,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.subLabel,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.style(
+                      color: tokens.textSecondary,
+                      fontSize: (size.width * 0.010).clamp(14.0, 18.0),
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildCorner(BuildContext context, Alignment alignment) {
-    final tokens = context.tokens;
-    return Align(
-      alignment: alignment,
-      child: Container(
-        width: 24,
-        height: 24,
-        margin: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          border: Border(
-            top: alignment == Alignment.topLeft || alignment == Alignment.topRight ? BorderSide(color: _isFocused ? tokens.accent : tokens.borderStrong, width: 3) : BorderSide.none,
-            bottom: alignment == Alignment.bottomLeft || alignment == Alignment.bottomRight ? BorderSide(color: _isFocused ? tokens.accent : tokens.borderStrong, width: 3) : BorderSide.none,
-            left: alignment == Alignment.topLeft || alignment == Alignment.bottomLeft ? BorderSide(color: _isFocused ? tokens.accent : tokens.borderStrong, width: 3) : BorderSide.none,
-            right: alignment == Alignment.topRight || alignment == Alignment.bottomRight ? BorderSide(color: _isFocused ? tokens.accent : tokens.borderStrong, width: 3) : BorderSide.none,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BlinkingDotTV extends StatefulWidget {
-  const _BlinkingDotTV();
-
-  @override
-  State<_BlinkingDotTV> createState() => _BlinkingDotTVState();
-}
-
-class _BlinkingDotTVState extends State<_BlinkingDotTV> with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return FadeTransition(
-      opacity: _ctrl,
-      child: Row(
-        children: [
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: tokens.success,
-              boxShadow: [BoxShadow(color: tokens.success, blurRadius: 10)],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            'SYSTEM ONLINE',
-            style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2),
-          ),
-        ],
       ),
     );
   }

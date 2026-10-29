@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 /// StreamzThemeExtension — Custom Design Tokens for the STREAMZ Visual System.
 class StreamzThemeExtension extends ThemeExtension<StreamzThemeExtension> {
-
   const StreamzThemeExtension({
     required this.background,
     required this.surface1,
@@ -27,7 +26,8 @@ class StreamzThemeExtension extends ThemeExtension<StreamzThemeExtension> {
     required this.textDisabled,
     required this.focusColor,
     required this.focusShadow,
-    this.borderRadius = 0.0,
+    this.scaffoldTopColor = const Color(0xFF0C3AA8),
+    this.borderRadius = 18.0,
     this.useGradient = false,
   });
   final Color background;
@@ -51,13 +51,14 @@ class StreamzThemeExtension extends ThemeExtension<StreamzThemeExtension> {
   final Color textDisabled;
   final Color focusColor;
   final Color focusShadow;
+  final Color scaffoldTopColor;
 
   // Structural & Texture Tokens for "Total Transformation"
   final double borderRadius;
   final bool useGradient;
 
   @override
-  ThemeExtension<StreamzThemeExtension> copyWith({
+  StreamzThemeExtension copyWith({
     Color? background,
     Color? surface1,
     Color? surface2,
@@ -79,36 +80,41 @@ class StreamzThemeExtension extends ThemeExtension<StreamzThemeExtension> {
     Color? textDisabled,
     Color? focusColor,
     Color? focusShadow,
+    Color? scaffoldTopColor,
     double? borderRadius,
     bool? useGradient,
   }) => StreamzThemeExtension(
-      background: background ?? this.background,
-      surface1: surface1 ?? this.surface1,
-      surface2: surface2 ?? this.surface2,
-      surface3: surface3 ?? this.surface3,
-      surface4: surface4 ?? this.surface4,
-      primary: primary ?? this.primary,
-      accent: accent ?? this.accent,
-      border: border ?? this.border,
-      borderSubtle: borderSubtle ?? this.borderSubtle,
-      borderStrong: borderStrong ?? this.borderStrong,
-      success: success ?? this.success,
-      warning: warning ?? this.warning,
-      error: error ?? this.error,
-      telemetry: telemetry ?? this.telemetry,
-      broadcast: broadcast ?? this.broadcast,
-      textPrimary: textPrimary ?? this.textPrimary,
-      textSecondary: textSecondary ?? this.textSecondary,
-      textMuted: textMuted ?? this.textMuted,
-      textDisabled: textDisabled ?? this.textDisabled,
-      focusColor: focusColor ?? this.focusColor,
-      focusShadow: focusShadow ?? this.focusShadow,
-      borderRadius: borderRadius ?? this.borderRadius,
-      useGradient: useGradient ?? this.useGradient,
-    );
+    background: background ?? this.background,
+    surface1: surface1 ?? this.surface1,
+    surface2: surface2 ?? this.surface2,
+    surface3: surface3 ?? this.surface3,
+    surface4: surface4 ?? this.surface4,
+    primary: primary ?? this.primary,
+    accent: accent ?? this.accent,
+    border: border ?? this.border,
+    borderSubtle: borderSubtle ?? this.borderSubtle,
+    borderStrong: borderStrong ?? this.borderStrong,
+    success: success ?? this.success,
+    warning: warning ?? this.warning,
+    error: error ?? this.error,
+    telemetry: telemetry ?? this.telemetry,
+    broadcast: broadcast ?? this.broadcast,
+    textPrimary: textPrimary ?? this.textPrimary,
+    textSecondary: textSecondary ?? this.textSecondary,
+    textMuted: textMuted ?? this.textMuted,
+    textDisabled: textDisabled ?? this.textDisabled,
+    focusColor: focusColor ?? this.focusColor,
+    focusShadow: focusShadow ?? this.focusShadow,
+    scaffoldTopColor: scaffoldTopColor ?? this.scaffoldTopColor,
+    borderRadius: borderRadius ?? this.borderRadius,
+    useGradient: useGradient ?? this.useGradient,
+  );
 
   @override
-  ThemeExtension<StreamzThemeExtension> lerp(ThemeExtension<StreamzThemeExtension>? other, double t) {
+  ThemeExtension<StreamzThemeExtension> lerp(
+    ThemeExtension<StreamzThemeExtension>? other,
+    double t,
+  ) {
     if (other is! StreamzThemeExtension) return this;
     return StreamzThemeExtension(
       background: Color.lerp(background, other.background, t)!,
@@ -132,6 +138,11 @@ class StreamzThemeExtension extends ThemeExtension<StreamzThemeExtension> {
       textDisabled: Color.lerp(textDisabled, other.textDisabled, t)!,
       focusColor: Color.lerp(focusColor, other.focusColor, t)!,
       focusShadow: Color.lerp(focusShadow, other.focusShadow, t)!,
+      scaffoldTopColor: Color.lerp(
+        scaffoldTopColor,
+        other.scaffoldTopColor,
+        t,
+      )!,
       borderRadius: borderRadius + (other.borderRadius - borderRadius) * t,
       useGradient: t < 0.5 ? useGradient : other.useGradient,
     );

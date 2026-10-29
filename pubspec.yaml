@@ -58,8 +58,8 @@ dependencies:
   logger: ^2.5.0
   intl: ^0.20.2
   crypto: ^3.0.7          # Used by ThumbnailCache for MD5 cache key hashing
+  convert: ^3.1.2         # Used by MediaScanner for legacy path IDs
   path_provider: ^2.1.5   # Used by ThumbnailCache for app cache directory
-  convert: ^3.1.2         # Used by MediaScanner for hex encoding
   path: ^1.9.1
 
 dev_dependencies:

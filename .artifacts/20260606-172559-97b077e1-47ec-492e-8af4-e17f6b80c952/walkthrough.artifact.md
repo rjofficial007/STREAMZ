@@ -1,5 +1,7 @@
 # Walkthrough - Liquid Glass UI for SamsungFileManagerScreen
 
+> Historical walkthrough from June 2026. Its change and verification claims describe that task's recorded state, not a fresh review. Use the [current architecture](../../docs/ARCHITECTURE.md), [UI component guide](../../docs/UI_COMPONENTS.md), and [README](../../README.md) for current platform behavior and design.
+
 I have successfully applied a high-end "Liquid Glass" aesthetic to the `SamsungFileManagerScreen`. This transition moves the UI from a stark Brutalist design to a modern, translucent, and vibrant look using the `liquid_glass_easy` package.
 
 ## Changes Overview

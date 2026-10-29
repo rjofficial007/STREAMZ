@@ -8,27 +8,27 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
-
+import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/domain/models/download_task.dart';
 import 'package:streamz/domain/services/download_service.dart';
+import 'package:streamz/presentation/shared/app_bottom_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHOW HELPER
 // ─────────────────────────────────────────────────────────────────────────────
 
 void showDownloadsSheet(BuildContext context) {
-  final tokens = context.tokens;
-  showModalBottomSheet(
+  showAppBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: tokens.background,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-    builder: (_) => ChangeNotifierProvider.value(value: context.read<DownloadService>(), child: const _DownloadsSheet()),
+    builder: (_) => ChangeNotifierProvider.value(
+      value: context.read<DownloadService>(),
+      child: const _DownloadsSheet(),
+    ),
   );
 }
 
@@ -47,8 +47,8 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
   String _activeFilter = 'All';
   final _filters = ['All', 'Video', 'Audio', 'Image'];
 
-  int _totalBytes = 64 * 1024 * 1024 * 1024;
-  int _freeBytes = 22 * 1024 * 1024 * 1024;
+  int? _totalBytes;
+  int? _freeBytes;
 
   @override
   void initState() {
@@ -60,7 +60,14 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
     if (kIsWeb) return;
     try {
       if (defaultTargetPlatform == TargetPlatform.windows) {
-        final res = await Process.run('wmic', ['logicaldisk', 'where', 'DeviceID="C:"', 'get', 'FreeSpace,Size', '/Value']);
+        final res = await Process.run('wmic', [
+          'logicaldisk',
+          'where',
+          'DeviceID="C:"',
+          'get',
+          'FreeSpace,Size',
+          '/Value',
+        ]);
         var free = 0;
         var total = 0;
         for (final line in res.stdout.toString().split('\n')) {
@@ -71,14 +78,16 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
             total = int.tryParse(line.split('=')[1].trim()) ?? 0;
           }
         }
-        if (total > 0 && mounted) {
+        if (res.exitCode == 0 && total > 0 && free >= 0 && mounted) {
           setState(() {
             _totalBytes = total;
             _freeBytes = free;
           });
         }
       } else {
-        final path = defaultTargetPlatform == TargetPlatform.android ? '/storage/emulated/0' : '/';
+        final path = defaultTargetPlatform == TargetPlatform.android
+            ? '/storage/emulated/0'
+            : '/';
         final res = await Process.run('df', ['-k', path]);
         final lines = res.stdout.toString().split('\n');
         if (lines.length > 1) {
@@ -86,7 +95,7 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
           if (parts.length >= 4) {
             final totalK = int.tryParse(parts[1]) ?? 0;
             final freeK = int.tryParse(parts[3]) ?? 0;
-            if (totalK > 0 && mounted) {
+            if (res.exitCode == 0 && totalK > 0 && freeK >= 0 && mounted) {
               setState(() {
                 _totalBytes = totalK * 1024;
                 _freeBytes = freeK * 1024;
@@ -108,10 +117,16 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
         backgroundColor: tokens.surface1,
         shape: RoundedRectangleBorder(
           side: BorderSide(color: tokens.border.withValues(alpha: 0.15)),
-          borderRadius: BorderRadius.zero,
+          borderRadius: BorderRadius.circular(DS.radius(12)),
         ),
-        title: Text('DELETE FILE', style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontSize: 18)),
-        content: Text("CONFIRM REMOVAL OF '${task.title.toUpperCase()}'?", style: Theme.of(ctx).textTheme.labelMedium?.copyWith(fontSize: 12)),
+        title: Text(
+          'DELETE FILE',
+          style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontSize: 18),
+        ),
+        content: Text(
+          "CONFIRM REMOVAL OF '${task.title.toUpperCase()}'?",
+          style: Theme.of(ctx).textTheme.labelMedium?.copyWith(fontSize: 12),
+        ),
         actions: [
           TextButton(
             onPressed: () => context.pop(),
@@ -122,7 +137,12 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
               ctx.read<DownloadService>().delete(task);
               context.pop();
             },
-            child: Text('DELETE', style: Theme.of(ctx).textTheme.labelSmall?.copyWith(color: tokens.error)),
+            child: Text(
+              'DELETE',
+              style: Theme.of(
+                ctx,
+              ).textTheme.labelSmall?.copyWith(color: tokens.error),
+            ),
           ),
         ],
       ),
@@ -134,82 +154,62 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
     final tokens = context.tokens;
     final svc = context.watch<DownloadService>();
     final all = svc.tasks;
-    final filtered = _activeFilter == 'All' ? all : all.where((d) => d.type.toLowerCase() == _activeFilter.toLowerCase()).toList();
+    final filtered = _activeFilter == 'All'
+        ? all
+        : all
+              .where((d) => d.type.toLowerCase() == _activeFilter.toLowerCase())
+              .toList();
     final active = filtered.where((d) => d.isActive).toList();
     final completed = filtered.where((d) => d.isCompleted).toList();
 
-    final totalGB = _totalBytes / (1024 * 1024 * 1024);
-    final freeGB = _freeBytes / (1024 * 1024 * 1024);
-    final usedGB = totalGB - freeGB;
-    final progress = totalGB > 0 ? usedGB / totalGB : 0.0;
+    final totalGB = _totalBytes == null
+        ? null
+        : _totalBytes! / (1024 * 1024 * 1024);
+    final freeGB = _freeBytes == null
+        ? null
+        : _freeBytes! / (1024 * 1024 * 1024);
+    final usedGB = totalGB == null || freeGB == null
+        ? null
+        : (totalGB - freeGB).clamp(0.0, totalGB);
+    final progress = totalGB == null || usedGB == null || totalGB == 0
+        ? null
+        : usedGB / totalGB;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.85,
       minChildSize: 0.5,
       maxChildSize: 0.95,
       expand: false,
-      builder: (_, scrollCtrl) => DecoratedBox(
-        decoration: BoxDecoration(
-          color: tokens.background,
-          border: Border(top: BorderSide(color: tokens.border.withValues(alpha: 0.15), width: 1)),
-        ),
+      builder: (_, scrollCtrl) => ColoredBox(
+        color: tokens.surface1,
         child: Column(
           children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: DS.s24, vertical: DS.s16),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            AppSheetHeader(
+              title: 'Download center',
+              subtitle: 'Manage active transfers and saved files',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Row(
-                    children: [
-                      Icon(LucideIcons.download, color: tokens.accent, size: 20),
-                      const SizedBox(width: DS.s12),
-                      Text('DOWNLOAD CENTER', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18, letterSpacing: 1.0)),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      if (completed.isNotEmpty)
-                        Actions(
-                          actions: {
-                            ActivateIntent: CallbackAction<ActivateIntent>(
-                              onInvoke: (_) {
-                                context.read<DownloadService>().clearCompleted();
-                                return null;
-                              },
-                            ),
-                          },
-                          child: Focus(
-                            child: TextButton(
-                              onPressed: () => context.read<DownloadService>().clearCompleted(),
-                              child: Text('CLEAR DONE', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: tokens.textMuted, fontSize: 10)),
-                            ),
-                          ),
-                        ),
-                      Actions(
-                        actions: {
-                          ActivateIntent: CallbackAction<ActivateIntent>(
-                            onInvoke: (_) {
-                              context.pop();
-                              return null;
-                            },
-                          ),
-                        },
-                        child: Focus(
-                          onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => context.pop()),
-                          child: IconButton(
-                            icon: Icon(LucideIcons.x, color: tokens.textPrimary, size: 24),
-                            onPressed: () => context.pop(),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                          ),
+                  if (completed.isNotEmpty)
+                    TextButton(
+                      onPressed: () => context
+                          .read<DownloadService>()
+                          .clearCompleted(),
+                      child: Text(
+                        'CLEAR DONE',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: tokens.textMuted,
                         ),
                       ),
-                    ],
+                    ),
+                  IconButton(
+                    tooltip: 'Close download center',
+                    icon: Icon(
+                      LucideIcons.x,
+                      color: tokens.textPrimary,
+                      size: 20,
+                    ),
+                    onPressed: () => context.pop(),
                   ),
                 ],
               ),
@@ -219,29 +219,61 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
             Expanded(
               child: ListView(
                 controller: scrollCtrl,
-                padding: const EdgeInsets.fromLTRB(0, 0, 0, 60),
+                padding: const EdgeInsets.fromLTRB(
+                  DS.s16,
+                  0,
+                  DS.s16,
+                  DS.s48,
+                ),
                 children: [
                   // Storage card
-                  BrutalistBlock(
+                  AppPanel(
                     padding: const EdgeInsets.all(DS.s16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('STORAGE ALLOCATION', style: Theme.of(context).textTheme.labelSmall),
+                        Text(
+                          'STORAGE ALLOCATION',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
                         const SizedBox(height: DS.s12),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Text('${usedGB.toStringAsFixed(1)} GB', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontSize: 32, height: 1.0)),
+                            Text(
+                              usedGB == null
+                                  ? 'Storage unavailable'
+                                  : '${usedGB.toStringAsFixed(1)} GB',
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(
+                                    fontSize: usedGB == null ? 18 : 32,
+                                    height: 1.0,
+                                  ),
+                            ),
                             const SizedBox(width: DS.s8),
-                            Text('OF ${totalGB.toStringAsFixed(1)} GB', style: Theme.of(context).textTheme.labelSmall),
+                            Text(
+                              totalGB == null
+                                  ? ''
+                                  : 'OF ${totalGB.toStringAsFixed(1)} GB',
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
                           ],
                         ),
                         const SizedBox(height: DS.s16),
-                        LinearProgressIndicator(value: progress.clamp(0.0, 1.0), backgroundColor: tokens.surface2, valueColor: AlwaysStoppedAnimation(tokens.accent), minHeight: 4),
-                        const SizedBox(height: DS.s8),
-                        Text('${freeGB.toStringAsFixed(1)} GB AVAILABLE', style: Theme.of(context).textTheme.labelSmall),
+                        if (progress != null) ...[
+                          LinearProgressIndicator(
+                            value: progress.clamp(0.0, 1.0),
+                            backgroundColor: tokens.surface2,
+                            valueColor: AlwaysStoppedAnimation(tokens.accent),
+                            minHeight: 4,
+                          ),
+                          const SizedBox(height: DS.s8),
+                          Text(
+                            '${freeGB!.toStringAsFixed(1)} GB AVAILABLE',
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -255,7 +287,11 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
                           .map(
                             (f) => Padding(
                               padding: const EdgeInsets.only(right: DS.s8),
-                              child: _FilterChip(label: f, isActive: _activeFilter == f, onTap: () => setState(() => _activeFilter = f)),
+                              child: _FilterChip(
+                                label: f,
+                                isActive: _activeFilter == f,
+                                onTap: () => setState(() => _activeFilter = f),
+                              ),
                             ),
                           )
                           .toList(),
@@ -265,29 +301,54 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
 
                   // Active transfers
                   if (active.isNotEmpty) ...[
-                    Text('ACTIVE TRANSFERS', style: Theme.of(context).textTheme.labelSmall),
+                    Text(
+                      'ACTIVE TRANSFERS',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
                     const SizedBox(height: DS.s8),
-                    ...active.map((t) => _ActiveCard(task: t, onDelete: () => _confirmDelete(context, t))),
+                    ...active.map(
+                      (t) => _ActiveCard(
+                        task: t,
+                        onDelete: () => _confirmDelete(context, t),
+                      ),
+                    ),
                     const SizedBox(height: DS.s24),
                   ],
 
                   // Completed
                   if (completed.isNotEmpty) ...[
-                    Text('ARCHIVED', style: Theme.of(context).textTheme.labelSmall),
+                    Text(
+                      'ARCHIVED',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
                     const SizedBox(height: DS.s8),
-                    ...completed.map((t) => _CompletedCard(task: t, onDelete: () => _confirmDelete(context, t))),
+                    ...completed.map(
+                      (t) => _CompletedCard(
+                        task: t,
+                        onDelete: () => _confirmDelete(context, t),
+                      ),
+                    ),
                   ],
 
                   // Empty
-                  if (all.isEmpty)
+                  if (filtered.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 60),
                       child: Center(
                         child: Column(
                           children: [
-                            Icon(LucideIcons.download, size: 48, color: tokens.border.withValues(alpha: 0.15)),
+                            Icon(
+                              LucideIcons.download,
+                              size: 48,
+                              color: tokens.border.withValues(alpha: 0.15),
+                            ),
                             const SizedBox(height: DS.s16),
-                            Text('NO DOWNLOADS FOUND', style: Theme.of(context).textTheme.labelSmall),
+                            Text(
+                              all.isEmpty
+                                  ? 'NO DOWNLOADS FOUND'
+                                  : 'NO ${_activeFilter.toUpperCase()} DOWNLOADS',
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
                           ],
                         ),
                       ),
@@ -307,8 +368,11 @@ class _DownloadsSheetState extends State<_DownloadsSheet> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _FilterChip extends StatefulWidget {
-
-  const _FilterChip({required this.label, required this.isActive, required this.onTap});
+  const _FilterChip({
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
   final String label;
   final bool isActive;
   final VoidCallback onTap;
@@ -342,14 +406,31 @@ class _FilterChipState extends State<_FilterChip> {
           onTap: widget.onTap,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: DS.s16, vertical: DS.s8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: DS.s16,
+              vertical: DS.s8,
+            ),
             decoration: BoxDecoration(
-              color: widget.isActive ? tokens.accent : (_isFocused ? tokens.surface3 : Colors.transparent),
-              border: Border.all(color: widget.isActive ? tokens.accent : (_isFocused ? tokens.accent : tokens.border.withValues(alpha: 0.15)), width: _isFocused ? 2 : 1),
+              color: widget.isActive
+                  ? tokens.accent
+                  : (_isFocused ? tokens.surface3 : Colors.transparent),
+              borderRadius: BorderRadius.circular(DS.radiusLg),
+              border: Border.all(
+                color: widget.isActive
+                    ? tokens.accent
+                    : (_isFocused
+                          ? tokens.accent
+                          : tokens.border.withValues(alpha: 0.15)),
+                width: _isFocused ? 2 : 1,
+              ),
             ),
             child: Text(
               widget.label.toUpperCase(),
-              style: GoogleFonts.dmMono(color: widget.isActive ? tokens.background : tokens.textPrimary, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 1),
+              style: AppTextStyles.caption.copyWith(
+                color: widget.isActive ? tokens.background : tokens.textPrimary,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.2,
+              ),
             ),
           ),
         ),
@@ -363,7 +444,6 @@ class _FilterChipState extends State<_FilterChip> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ActiveCard extends StatelessWidget {
-
   const _ActiveCard({required this.task, required this.onDelete});
   final DownloadTask task;
   final VoidCallback onDelete;
@@ -378,7 +458,7 @@ class _ActiveCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    return BrutalistBlock(
+    return AppPanel(
       padding: const EdgeInsets.all(DS.s12),
       child: Column(
         children: [
@@ -390,14 +470,23 @@ class _ActiveCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(task.title.toUpperCase(), style: Theme.of(context).textTheme.labelMedium?.copyWith(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(
+                      task.title.toUpperCase(),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelMedium?.copyWith(fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 4),
                     ValueListenableBuilder<double>(
                       valueListenable: task.progressNotifier,
                       builder: (_, prog, _) => Text(
                         '${(prog * task.totalBytes / 1024 / 1024).toStringAsFixed(1)} MB'
                         ' / ${(task.totalBytes / 1024 / 1024).toStringAsFixed(1)} MB',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(fontSize: 9),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.labelSmall,
                       ),
                     ),
                   ],
@@ -415,7 +504,11 @@ class _ActiveCard extends StatelessWidget {
                 child: Focus(
                   onKeyEvent: (_, ev) => handleTVSelectKey(ev, onDelete),
                   child: IconButton(
-                    icon: Icon(LucideIcons.x, color: tokens.textMuted, size: 16),
+                    icon: Icon(
+                      LucideIcons.x,
+                      color: tokens.textMuted,
+                      size: 16,
+                    ),
                     onPressed: onDelete,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -427,7 +520,12 @@ class _ActiveCard extends StatelessWidget {
           const SizedBox(height: DS.s12),
           ValueListenableBuilder<double>(
             valueListenable: task.progressNotifier,
-            builder: (_, prog, _) => LinearProgressIndicator(value: prog.clamp(0.0, 1.0), backgroundColor: tokens.surface2, valueColor: AlwaysStoppedAnimation(tokens.accent), minHeight: 2),
+            builder: (_, prog, _) => LinearProgressIndicator(
+              value: prog.clamp(0.0, 1.0),
+              backgroundColor: tokens.surface2,
+              valueColor: AlwaysStoppedAnimation(tokens.accent),
+              minHeight: 2,
+            ),
           ),
         ],
       ),
@@ -440,7 +538,6 @@ class _ActiveCard extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CompletedCard extends StatelessWidget {
-
   const _CompletedCard({required this.task, required this.onDelete});
   final DownloadTask task;
   final VoidCallback onDelete;
@@ -451,18 +548,29 @@ class _CompletedCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        color: tokens.surface1,
+        color: tokens.surface2.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(DS.radiusMd),
         border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
       ),
       child: ListTile(
         dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: DS.s16, vertical: 0),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: DS.s16,
+          vertical: 0,
+        ),
         leading: Icon(LucideIcons.check, color: tokens.accent, size: 18),
-        title: Text(task.title.toUpperCase(), style: Theme.of(context).textTheme.labelMedium?.copyWith(fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+        title: Text(
+          task.title.toUpperCase(),
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(fontSize: 12),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         subtitle: Text(
           '${task.type.toUpperCase()} // '
           '${(task.totalBytes / 1024 / 1024).toStringAsFixed(1)} MB',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(fontSize: 9),
+          style: Theme.of(context).textTheme.labelSmall,
         ),
         trailing: Actions(
           actions: {

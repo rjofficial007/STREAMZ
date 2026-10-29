@@ -7,6 +7,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/presentation/shared/app_back_button.dart';
 
 class QRScannerScreen extends StatefulWidget {
   const QRScannerScreen({super.key});
@@ -16,7 +17,10 @@ class QRScannerScreen extends StatefulWidget {
 }
 
 class _QRScannerScreenState extends State<QRScannerScreen> {
-  final _controller = MobileScannerController(detectionSpeed: DetectionSpeed.noDuplicates, facing: CameraFacing.back);
+  final _controller = MobileScannerController(
+    detectionSpeed: DetectionSpeed.noDuplicates,
+    facing: CameraFacing.back,
+  );
   bool _isFlashOn = false;
 
   @override
@@ -28,10 +32,10 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final scanWindowSize = MediaQuery.sizeOf(context).width * 0.75;
+    final size = MediaQuery.sizeOf(context);
+    final scanWindowSize = (size.width * 0.75).clamp(0.0, size.height * 0.56);
 
-    return Scaffold(
-      backgroundColor: tokens.background,
+    return AppScaffold(
       body: Stack(
         children: [
           MobileScanner(
@@ -48,7 +52,12 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           // Overlay with cutout
           Container(
             decoration: ShapeDecoration(
-              shape: _ScannerOverlayShape(borderColor: tokens.accent, borderWidth: 2.0, overlayColor: tokens.background.withValues(alpha: 0.88), cutOutSize: scanWindowSize),
+              shape: _ScannerOverlayShape(
+                borderColor: tokens.accent,
+                borderWidth: 2.0,
+                overlayColor: tokens.background.withValues(alpha: 0.88),
+                cutOutSize: scanWindowSize,
+              ),
             ),
           ),
           // Controls
@@ -60,22 +69,10 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Actions(
-                        actions: {
-                          ActivateIntent: CallbackAction<ActivateIntent>(
-                            onInvoke: (_) {
-                              context.pop();
-                              return null;
-                            },
-                          ),
-                        },
-                        child: Focus(
-                          onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => context.pop()),
-                          child: IconButton(
-                            icon: Icon(LucideIcons.x, color: tokens.textPrimary, size: 24),
-                            onPressed: () => context.pop(),
-                          ),
-                        ),
+                      AppBackButton(
+                        onPressed: () => context.pop(),
+                        color: tokens.textPrimary,
+                        iconSize: 24,
                       ),
                       Actions(
                         actions: {
@@ -93,7 +90,13 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                             setState(() => _isFlashOn = !_isFlashOn);
                           }),
                           child: IconButton(
-                            icon: Icon(_isFlashOn ? LucideIcons.zap : LucideIcons.zapOff, color: _isFlashOn ? tokens.accent : tokens.textPrimary, size: 24),
+                            icon: Icon(
+                              _isFlashOn ? LucideIcons.zap : LucideIcons.zapOff,
+                              color: _isFlashOn
+                                  ? tokens.accent
+                                  : tokens.textPrimary,
+                              size: 24,
+                            ),
                             onPressed: () {
                               _controller.toggleTorch();
                               setState(() => _isFlashOn = !_isFlashOn);
@@ -106,18 +109,37 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.all(DS.s24),
-                  margin: const EdgeInsets.only(bottom: 40, left: DS.s16, right: DS.s16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: DS.s24,
+                    vertical: DS.s20,
+                  ),
+                  margin: const EdgeInsets.only(
+                    bottom: 40,
+                    left: DS.s16,
+                    right: DS.s16,
+                  ),
                   decoration: BoxDecoration(
-                    color: tokens.background,
-                    border: Border.all(color: tokens.border.withValues(alpha: 0.15)),
+                    color: tokens.surface1.withValues(alpha: 0.96),
+                    borderRadius: BorderRadius.circular(DS.radius(20)),
+                    border: Border.all(
+                      color: tokens.border.withValues(alpha: 0.65),
+                    ),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('SCAN QR SIGNAL', style: Theme.of(context).textTheme.labelMedium?.copyWith(fontSize: 14)),
+                      Text(
+                        'Scan QR code',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.titleMedium?.copyWith(fontSize: 18),
+                      ),
                       const SizedBox(height: DS.s8),
-                      Text('ALIGN QR CODE WITHIN THE FRAME', textAlign: TextAlign.center, style: Theme.of(context).textTheme.labelSmall),
+                      Text(
+                        'Align the code within the frame',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
                     ],
                   ),
                 ),
@@ -131,8 +153,12 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 }
 
 class _ScannerOverlayShape extends ShapeBorder {
-
-  const _ScannerOverlayShape({this.borderColor = Colors.white, this.borderWidth = 1.0, this.overlayColor = const Color(0x88000000), this.cutOutSize = 250.0});
+  const _ScannerOverlayShape({
+    this.borderColor = Colors.white,
+    this.borderWidth = 1.0,
+    this.overlayColor = const Color(0x88000000),
+    this.cutOutSize = 250.0,
+  });
   final Color borderColor;
   final double borderWidth;
   final Color overlayColor;
@@ -157,7 +183,13 @@ class _ScannerOverlayShape extends ShapeBorder {
       ..lineTo(rect.right, rect.bottom)
       ..lineTo(rect.left, rect.bottom)
       ..moveTo(rect.left + rect.width / 2, rect.top + rect.height / 2)
-      ..addRect(Rect.fromCenter(center: Offset(rect.width / 2, rect.height / 2), width: cutOutSize, height: cutOutSize));
+      ..addRect(
+        Rect.fromCenter(
+          center: Offset(rect.width / 2, rect.height / 2),
+          width: cutOutSize,
+          height: cutOutSize,
+        ),
+      );
   }
 
   @override
@@ -177,12 +209,33 @@ class _ScannerOverlayShape extends ShapeBorder {
         ..drawLine(b, c, paint);
     }
 
-    corner(Offset(center.dx - half, center.dy - half + cLen), Offset(center.dx - half, center.dy - half), Offset(center.dx - half + cLen, center.dy - half));
-    corner(Offset(center.dx + half - cLen, center.dy - half), Offset(center.dx + half, center.dy - half), Offset(center.dx + half, center.dy - half + cLen));
-    corner(Offset(center.dx - half, center.dy + half - cLen), Offset(center.dx - half, center.dy + half), Offset(center.dx - half + cLen, center.dy + half));
-    corner(Offset(center.dx + half - cLen, center.dy + half), Offset(center.dx + half, center.dy + half), Offset(center.dx + half, center.dy + half - cLen));
+    corner(
+      Offset(center.dx - half, center.dy - half + cLen),
+      Offset(center.dx - half, center.dy - half),
+      Offset(center.dx - half + cLen, center.dy - half),
+    );
+    corner(
+      Offset(center.dx + half - cLen, center.dy - half),
+      Offset(center.dx + half, center.dy - half),
+      Offset(center.dx + half, center.dy - half + cLen),
+    );
+    corner(
+      Offset(center.dx - half, center.dy + half - cLen),
+      Offset(center.dx - half, center.dy + half),
+      Offset(center.dx - half + cLen, center.dy + half),
+    );
+    corner(
+      Offset(center.dx + half - cLen, center.dy + half),
+      Offset(center.dx + half, center.dy + half),
+      Offset(center.dx + half, center.dy + half - cLen),
+    );
   }
 
   @override
-  ShapeBorder scale(double t) => _ScannerOverlayShape(borderColor: borderColor, borderWidth: borderWidth * t, overlayColor: overlayColor, cutOutSize: cutOutSize * t);
+  ShapeBorder scale(double t) => _ScannerOverlayShape(
+    borderColor: borderColor,
+    borderWidth: borderWidth * t,
+    overlayColor: overlayColor,
+    cutOutSize: cutOutSize * t,
+  );
 }

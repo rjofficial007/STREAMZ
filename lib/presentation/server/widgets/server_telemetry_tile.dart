@@ -1,16 +1,18 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'dart:typed_data';
 
+import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/domain/models/stream_session.dart';
 import 'package:streamz/presentation/server/server_dashboard.dart';
+import 'package:streamz/presentation/shared/app_bottom_sheet.dart';
 
 /// _TelemetryTile displays real-time playback status for a single connected node.
 /// It supports drag-and-drop for session "teleporting" (handing off playback).
 class ServerTelemetryTile extends StatefulWidget {
-
   const ServerTelemetryTile({
     super.key,
     required this.session,
@@ -29,49 +31,97 @@ class ServerTelemetryTile extends StatefulWidget {
 
 class _ServerTelemetryTileState extends State<ServerTelemetryTile> {
   bool _isFocused = false;
+  Uint8List? _snapshotBytes;
+
+  @override
+  void initState() {
+    super.initState();
+    _decodeSnapshot(widget.session.snapshot);
+  }
+
+  @override
+  void didUpdateWidget(covariant ServerTelemetryTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.session.snapshot != widget.session.snapshot) {
+      _decodeSnapshot(widget.session.snapshot);
+    }
+  }
+
+  void _decodeSnapshot(String? snapshot) {
+    if (snapshot == null) {
+      _snapshotBytes = null;
+      return;
+    }
+    try {
+      _snapshotBytes = base64Decode(snapshot);
+    } on FormatException {
+      _snapshotBytes = null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     // Ensure progress is a valid double between 0 and 1.
-    final safeProgress = widget.session.progress.isFinite 
-        ? widget.session.progress.clamp(0.0, 1.0) 
+    final safeProgress = widget.session.progress.isFinite
+        ? widget.session.progress.clamp(0.0, 1.0)
         : 0.0;
 
     final tile = AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       decoration: BoxDecoration(
-        color: widget.isTarget 
-            ? tokens.accent.withValues(alpha: 0.2) 
-            : (_isFocused ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.surface1.withValues(alpha: 0.4)),
-        border: Border(
-          bottom: BorderSide(color: widget.isTarget || _isFocused ? tokens.accent : tokens.border.withValues(alpha: 0.15)),
-          top: widget.isFirst 
-              ? BorderSide(color: widget.isTarget || _isFocused ? tokens.accent : tokens.border.withValues(alpha: 0.15)) 
-              : BorderSide.none,
+        color: widget.isTarget
+            ? tokens.accent.withValues(alpha: 0.2)
+            : (_isFocused
+                  ? tokens.surface3
+                  : tokens.surface1.withValues(alpha: 0.92)),
+        borderRadius: BorderRadius.circular(DS.radiusMd),
+        border: Border.all(
+          color: widget.isTarget || _isFocused
+              ? tokens.focusColor
+              : tokens.border.withValues(alpha: widget.isFirst ? 0.7 : 0.55),
+          width: widget.isTarget || _isFocused ? DS.focusWidth : 1,
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: DS.s16,
+        vertical: widget.isMobile ? DS.s12 : DS.s16,
+      ),
       child: Row(
         children: [
           // Session Preview (Snapshot or Icon)
           Container(
-            width: 44,
-            height: 44,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               color: tokens.surface2,
-              border: Border.all(color: widget.isTarget || _isFocused ? tokens.accent : tokens.border.withValues(alpha: 0.15)),
+              borderRadius: BorderRadius.circular(DS.radiusMd),
+              border: Border.all(
+                color: widget.isTarget || _isFocused
+                    ? tokens.accent
+                    : tokens.border.withValues(alpha: 0.15),
+              ),
             ),
-            child: widget.session.snapshot != null
-                ? Image.memory(
-                    base64Decode(widget.session.snapshot!),
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
+            child: _snapshotBytes != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(DS.radiusMd),
+                    child: Image.memory(
+                      _snapshotBytes!,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                      errorBuilder: (_, _, _) => Icon(
+                        LucideIcons.imageOff,
+                        color: tokens.textMuted,
+                        size: 20,
+                      ),
+                    ),
                   )
                 : Icon(
-                    widget.session.mediaType == 'video' 
-                        ? LucideIcons.film 
-                        : (widget.session.mediaType == 'audio' ? LucideIcons.activity : LucideIcons.download),
+                    widget.session.mediaType == 'video'
+                        ? LucideIcons.film
+                        : (widget.session.mediaType == 'audio'
+                              ? LucideIcons.activity
+                              : LucideIcons.download),
                     color: tokens.textSecondary,
                     size: 20,
                   ),
@@ -83,126 +133,86 @@ class _ServerTelemetryTileState extends State<ServerTelemetryTile> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.session.title.toUpperCase(),
+                  widget.session.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.barlowCondensed(
-                    color: tokens.textPrimary, 
-                    fontSize: 16, 
-                    fontWeight: FontWeight.bold, 
-                    letterSpacing: 1
+                  style: AppTextStyles.bodyLarge.copyWith(
+                    color: tokens.textPrimary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
-                  'NODE: ${widget.session.clientId.toUpperCase()}', 
-                  style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 9, letterSpacing: 1)
+                  'Connected device · ${widget.session.clientId}',
+                  style: AppTextStyles.caption.copyWith(
+                    color: tokens.textMuted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 if (safeProgress > 0) ...[
                   const SizedBox(height: 6),
-                  Stack(
-                    children: [
-                      Container(height: 1, color: tokens.surface2),
-                      FractionallySizedBox(
-                        widthFactor: safeProgress,
-                        child: Container(height: 1, color: tokens.telemetry),
-                      ),
-                    ],
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(DS.radiusSm),
+                    child: LinearProgressIndicator(
+                      value: safeProgress,
+                      minHeight: 3,
+                      backgroundColor: tokens.surface2,
+                      valueColor: AlwaysStoppedAnimation(tokens.telemetry),
+                    ),
                   ),
                 ],
               ],
             ),
           ),
           // Remote Control Trigger
-          _BrutalistIconButton(
-            icon: LucideIcons.gamepad2,
-            onTap: () => showModalBottomSheet(
+          IconButton(
+            tooltip: 'Open remote controls',
+            style: IconButton.styleFrom(
+              backgroundColor: tokens.surface2,
+              foregroundColor: tokens.textSecondary,
+              minimumSize: const Size(48, 48),
+            ),
+            icon: const Icon(LucideIcons.gamepad2),
+            onPressed: () => showAppBottomSheet(
               context: context,
-              backgroundColor: tokens.background,
-              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
               isScrollControlled: true,
-              builder: (_) => UniversalRemoteSheet(targetId: widget.session.clientId),
+              builder: (_) =>
+                  UniversalRemoteSheet(targetId: widget.session.clientId),
             ),
           ),
         ],
       ),
     );
 
-    return Draggable<String>(
-      data: widget.session.clientId,
-      feedback: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: 200,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: tokens.surface1,
-            border: Border.all(color: tokens.accent),
-          ),
-          child: Text(
-            widget.session.title.toUpperCase(), 
-            style: GoogleFonts.dmMono(color: tokens.accent, fontSize: 10)
-          ),
-        ),
-      ),
-      child: Focus(
-        onFocusChange: (v) {
-          setState(() => _isFocused = v);
-          handleTVFocusScroll(v, context);
-        },
-        child: tile,
-      ),
-    );
-  }
-}
-
-/// Private helper icon button with Brutalist styling.
-class _BrutalistIconButton extends StatefulWidget {
-  const _BrutalistIconButton({required this.icon, required this.onTap});
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  State<_BrutalistIconButton> createState() => _BrutalistIconButtonState();
-}
-
-class _BrutalistIconButtonState extends State<_BrutalistIconButton> {
-  bool _isFocused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            widget.onTap();
-            return null;
-          },
-        ),
-      },
-      child: Focus(
-        onFocusChange: (v) {
-          setState(() => _isFocused = v);
-          handleTVFocusScroll(v, context);
-        },
-        onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-        child: InkWell(
-          onTap: widget.onTap,
-          onHover: (v) => setState(() => _isFocused = v),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.all(8),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: DS.s16, vertical: DS.s4),
+      child: Draggable<String>(
+        data: widget.session.clientId,
+        feedback: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 240,
+            padding: const EdgeInsets.all(DS.s16),
             decoration: BoxDecoration(
-              color: _isFocused ? tokens.textPrimary : Colors.transparent,
-              border: Border.all(color: _isFocused ? tokens.textPrimary : Colors.transparent),
+              color: tokens.surface1,
+              borderRadius: BorderRadius.circular(DS.radiusMd),
+              border: Border.all(color: tokens.borderStrong),
             ),
-            child: Icon(
-              widget.icon, 
-              color: _isFocused ? tokens.background : tokens.textPrimary, 
-              size: 20
+            child: Text(
+              widget.session.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.body.copyWith(color: tokens.textPrimary),
             ),
           ),
+        ),
+        child: Focus(
+          onFocusChange: (v) {
+            setState(() => _isFocused = v);
+            handleTVFocusScroll(v, context);
+          },
+          child: tile,
         ),
       ),
     );

@@ -9,11 +9,9 @@ import 'package:streamz/presentation/client/client_viewmodel.dart';
 /// TVContentRail displays a horizontal list of media items.
 /// Optimized for D-pad navigation with scale and focus effects.
 class TVContentRail extends StatelessWidget {
-
   const TVContentRail({
     super.key,
     required this.title,
-    required this.subTitle,
     required this.items,
     this.showProgress = false,
     required this.railIndex,
@@ -22,7 +20,6 @@ class TVContentRail extends StatelessWidget {
     required this.vm,
   });
   final String title;
-  final String subTitle;
   final List<MediaItem> items;
   final bool showProgress;
   final int railIndex;
@@ -35,6 +32,10 @@ class TVContentRail extends StatelessWidget {
     final tokens = context.tokens;
     final size = MediaQuery.sizeOf(context);
     final sidePadding = (size.width * 0.03).clamp(16.0, 48.0);
+    final cardW = (size.width * 0.22).clamp(DS.railCardWTV, 420.0);
+    final cardH = cardW * 9 / 16;
+    final audioCardSize = (cardW * 0.64).clamp(DS.railCardWTVSq, 250.0);
+    final listHeight = (cardH > audioCardSize ? cardH : audioCardSize) + 56;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -42,25 +43,19 @@ class TVContentRail extends StatelessWidget {
         // Rail Header
         Padding(
           padding: EdgeInsets.symmetric(horizontal: sidePadding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: AppTextStyles.barlowBold((size.width * 0.012).clamp(14.0, 22.0), spacing: 2, color: tokens.textPrimary),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subTitle, 
-                style: AppTextStyles.mono(8, spacing: 1, color: tokens.textMuted),
-              ),
-            ],
+          child: Text(
+            title,
+            style: AppTextStyles.heading(
+              (size.width * 0.014).clamp(18.0, 26.0),
+              spacing: -0.3,
+              color: tokens.textPrimary,
+            ),
           ),
         ),
         const SizedBox(height: 16),
         // Horizontal List
         SizedBox(
-          height: DS.railCardHTV + 60,
+          height: listHeight,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.symmetric(horizontal: sidePadding),
@@ -73,6 +68,8 @@ class TVContentRail extends StatelessWidget {
                 vm: vm,
                 showProgress: showProgress,
                 onFocus: () => onRailFocus(railIndex),
+                cardW: items[i].isAudio ? audioCardSize : cardW,
+                cardH: items[i].isAudio ? audioCardSize : cardH,
               ),
             ),
           ),
@@ -83,19 +80,22 @@ class TVContentRail extends StatelessWidget {
 }
 
 class _TVContentCard extends StatefulWidget {
-
   const _TVContentCard({
-    required this.item, 
-    required this.allItems, 
-    required this.vm, 
-    this.showProgress = false, 
-    required this.onFocus
+    required this.item,
+    required this.allItems,
+    required this.vm,
+    this.showProgress = false,
+    required this.onFocus,
+    required this.cardW,
+    required this.cardH,
   });
   final MediaItem item;
   final List<MediaItem> allItems;
   final ClientViewModel vm;
   final bool showProgress;
   final VoidCallback onFocus;
+  final double cardW;
+  final double cardH;
 
   @override
   State<_TVContentCard> createState() => _TVContentCardState();
@@ -105,17 +105,19 @@ class _TVContentCardState extends State<_TVContentCard> {
   bool _focused = false;
 
   void _play() {
-    context.push('/tv-player', extra: {
-      'items': widget.allItems,
-      'startIndex': widget.allItems.indexOf(widget.item),
-    });
+    context.push(
+      '/tv-player',
+      extra: {
+        'items': widget.allItems,
+        'startIndex': widget.allItems.indexOf(widget.item),
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    final cardW = widget.item.isAudio ? DS.railCardWTVSq : DS.railCardWTV;
-    final cardH = widget.item.isAudio ? DS.railCardWTVSq : DS.railCardHTV;
+    final size = MediaQuery.sizeOf(context);
 
     return Focus(
       onFocusChange: (v) {
@@ -136,52 +138,61 @@ class _TVContentCardState extends State<_TVContentCard> {
               scale: _focused ? 1.05 : 1.0,
               duration: const Duration(milliseconds: 150),
               child: Container(
-                width: cardW,
-                height: cardH,
+                width: widget.cardW,
+                height: widget.cardH,
                 decoration: BoxDecoration(
                   color: tokens.surface2,
+                  borderRadius: BorderRadius.circular(DS.radius(16)),
                   border: Border.all(
-                    color: _focused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15), 
-                    width: _focused ? 3 : 1
+                    color: _focused
+                        ? tokens.textPrimary
+                        : tokens.border.withValues(alpha: 0.55),
+                    width: _focused ? 3 : 1,
                   ),
                 ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    NetworkImageFade(
-                      url: widget.vm.thumbnailUrl(widget.item.id),
-                      fit: BoxFit.cover,
-                    ),
-                    // Progress Indicator (if item is partially watched)
-                    if (widget.showProgress && widget.item.watchProgress > 0)
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: 3,
-                        child: Container(
-                          color: tokens.surface3,
-                          child: FractionallySizedBox(
-                            alignment: Alignment.centerLeft,
-                            widthFactor: widget.item.watchProgress.clamp(0.0, 1.0),
-                            child: Container(color: tokens.accent),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(DS.radius(15)),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      NetworkImageFade(
+                        url: widget.vm.thumbnailUrl(widget.item.id),
+                        fit: BoxFit.cover,
+                      ),
+                      // Progress Indicator (if item is partially watched)
+                      if (widget.showProgress && widget.item.watchProgress > 0)
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          height: 3,
+                          child: Container(
+                            color: tokens.surface3,
+                            child: FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: widget.item.watchProgress.clamp(
+                                0.0,
+                                1.0,
+                              ),
+                              child: Container(color: tokens.accent),
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 12),
-            // Card Title (Brutalist Typography)
+            // Card title
             SizedBox(
-              width: cardW,
+              width: widget.cardW,
               child: Text(
-                widget.item.title.toUpperCase(),
-                style: AppTextStyles.mono(
-                  10,
+                widget.item.title,
+                style: AppTextStyles.text(
+                  (size.width * 0.008).clamp(16.0, 22.0),
                   color: _focused ? tokens.textPrimary : tokens.textSecondary,
-                  weight: _focused ? FontWeight.bold : FontWeight.normal,
+                  weight: FontWeight.w500,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

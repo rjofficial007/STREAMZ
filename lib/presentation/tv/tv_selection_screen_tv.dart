@@ -7,14 +7,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/domain/models/broadcast_station.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
-import 'package:streamz/presentation/shared/noc_decorations.dart';
+import 'package:streamz/presentation/shared/app_list_tile_card.dart';
+import 'package:streamz/presentation/shared/app_state_view.dart';
 
 class TVSelectionScreenTV extends StatefulWidget {
   const TVSelectionScreenTV({super.key});
@@ -24,15 +25,24 @@ class TVSelectionScreenTV extends StatefulWidget {
 }
 
 class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
-  Future<void> _tuneIn(BuildContext context, ClientViewModel vm, BroadcastStation station) async {
+  Future<void> _tuneIn(
+    BuildContext context,
+    ClientViewModel vm,
+    BroadcastStation station,
+  ) async {
     final res = await vm.joinStation(station.id);
     if (res != null && context.mounted) {
-      unawaited(context.push('/player', extra: {
-        'items': res.playlist,
-        'startIndex': res.itemIndex,
-        'isPathBased': false,
-        'startOffset': res.position,
-      }));
+      unawaited(
+        context.push(
+          '/player',
+          extra: {
+            'items': res.playlist,
+            'startIndex': res.itemIndex,
+            'isPathBased': false,
+            'startOffset': res.position,
+          },
+        ),
+      );
     }
   }
 
@@ -43,24 +53,20 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
     final size = MediaQuery.sizeOf(context);
     final horizontalPad = (size.width * 0.05).clamp(24.0, 80.0);
 
-    return Scaffold(
-      backgroundColor: tokens.background,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: NocGridBackground(
-              spacing: (size.width * 0.04).clamp(30.0, 60.0),
-              color: tokens.borderSubtle,
-            ),
-          ),
-          SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(context, vm),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: horizontalPad),
+    return AppScaffold(
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(context, vm),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: horizontalPad),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: DS.contentMaxWidth,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -73,7 +79,8 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
                                 subLabel: 'LARGE SCREEN DASHBOARD',
                                 code: 'TV-01',
                                 icon: LucideIcons.tv,
-                                onTap: () => context.push('/client/tv/home'),
+                                onTap: () =>
+                                    context.push('/client/tv/home'),
                                 autofocus: true,
                               ),
                             ),
@@ -84,7 +91,8 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
                                 subLabel: 'RAW ASSET NAVIGATION',
                                 code: 'TV-02',
                                 icon: LucideIcons.folderOpen,
-                                onTap: () => context.push('/client/tv/files'),
+                                onTap: () =>
+                                    context.push('/client/tv/files'),
                               ),
                             ),
                             const SizedBox(width: DS.s24),
@@ -103,29 +111,49 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
                             ),
                           ],
                         ),
-                        SizedBox(height: (size.height * 0.05).clamp(24.0, 48.0)),
+                        SizedBox(
+                          height: (size.height * 0.05).clamp(24.0, 48.0),
+                        ),
                         Text(
-                          'LIVE SIGNALS // DETECTED BROADCASTS',
-                          style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: (size.width * 0.008).clamp(9.0, 12.0), letterSpacing: 2),
+                          'Live streams',
+                          style: AppTextStyles.heading(
+                            (size.width * 0.016).clamp(20.0, 30.0),
+                            spacing: -0.3,
+                            color: tokens.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: DS.s4),
+                        Text(
+                          'Join a live broadcast on your network.',
+                          style: AppTextStyles.supporting.copyWith(
+                            color: tokens.textMuted,
+                          ),
                         ),
                         const SizedBox(height: DS.s16),
                         if (vm.stations.isEmpty)
-                          _buildEmptySignals(context)
+                          _buildEmptySignals()
                         else
                           GridView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: size.width > 1200 ? 2 : 1,
-                              childAspectRatio: size.width > 1200 ? 4 : 5,
-                              crossAxisSpacing: DS.s24,
-                              mainAxisSpacing: DS.s16,
-                            ),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: size.width > 1200 ? 2 : 1,
+                                  childAspectRatio: size.width > 1200
+                                      ? 4
+                                      : 5,
+                                  crossAxisSpacing: DS.s24,
+                                  mainAxisSpacing: DS.s16,
+                                ),
                             itemCount: vm.stations.length,
                             itemBuilder: (context, index) {
                               final station = vm.stations[index];
-                              return _StationTileTV(
-                                station: station,
+                              return AppListTileCard(
+                                title: station.name,
+                                subtitle: station.nowPlaying == null
+                                    ? 'Waiting for a track'
+                                    : 'Now playing · ${station.nowPlaying!.item.title}',
+                                icon: LucideIcons.radio,
                                 onTap: () => _tuneIn(context, vm, station),
                               );
                             },
@@ -135,11 +163,11 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
                     ),
                   ),
                 ),
-                _buildFooter(context),
-              ],
+              ),
             ),
-          ),
-        ],
+            _buildFooter(context),
+          ],
+        ),
       ),
     );
   }
@@ -151,7 +179,10 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
     final verticalPad = (size.height * 0.04).clamp(16.0, 40.0);
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: horizontalPad, vertical: verticalPad),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPad,
+        vertical: verticalPad,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -161,15 +192,19 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
               children: [
                 Text(
                   'TV INTERFACE // SESSION ANALYSIS',
-                  style: GoogleFonts.barlowCondensed(
+                  style: AppTextStyles.style(
                     color: tokens.textPrimary,
                     fontSize: (size.width * 0.02).clamp(20.0, 32.0),
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 4,
+                    fontWeight: AppTextStyles.titleFontWeight,
+                    letterSpacing: 0.8,
                   ),
                 ),
                 const SizedBox(height: DS.s8),
-                Container(height: 2, width: (size.width * 0.1).clamp(100.0, 200.0), color: tokens.accent),
+                Container(
+                  height: 2,
+                  width: (size.width * 0.1).clamp(100.0, 200.0),
+                  color: tokens.accent,
+                ),
               ],
             ),
           ),
@@ -177,7 +212,10 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
           SizedBox(width: (size.width * 0.03).clamp(16.0, 48.0)),
           _StatusModule(label: 'HOST IP', value: vm.targetIp.toUpperCase()),
           SizedBox(width: (size.width * 0.03).clamp(16.0, 48.0)),
-          _StatusModule(label: 'ASSETS', value: '${vm.remoteMedia.length} INDEXED'),
+          _StatusModule(
+            label: 'ASSETS',
+            value: '${vm.remoteMedia.length} INDEXED',
+          ),
         ],
       ),
     );
@@ -190,12 +228,19 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
     final verticalPad = (size.height * 0.04).clamp(16.0, 40.0);
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: horizontalPad, vertical: verticalPad),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPad,
+        vertical: verticalPad,
+      ),
       child: Row(
         children: [
           Text(
             'SIGNAL ANALYSIS: OPTIMAL // LATENCY: LOW // ENCRYPTION: NONE',
-            style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: (size.width * 0.008).clamp(9.0, 12.0), letterSpacing: 2),
+            style: AppTextStyles.style(
+              color: tokens.textMuted,
+              fontSize: (size.width * 0.008).clamp(9.0, 12.0),
+              letterSpacing: 0.5,
+            ),
           ),
           const Spacer(),
           const _BlinkingDotTV(),
@@ -204,28 +249,11 @@ class _TVSelectionScreenTVState extends State<TVSelectionScreenTV> {
     );
   }
 
-  Widget _buildEmptySignals(BuildContext context) {
-    final tokens = context.tokens;
-    return Container(
-      padding: const EdgeInsets.all(DS.s48),
-      decoration: BoxDecoration(
-        color: tokens.surface1,
-        border: Border.all(color: tokens.borderSubtle),
-      ),
-      child: Center(
-        child: Column(
-          children: [
-            Icon(LucideIcons.radioTower, size: 48, color: tokens.textMuted),
-            const SizedBox(height: DS.s16),
-            Text(
-              'NO LIVE BROADCASTS DETECTED',
-              style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 14, letterSpacing: 4),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _buildEmptySignals() => const AppStateView(
+    title: 'No live broadcasts',
+    description: 'Active broadcasts from your network will appear here.',
+    icon: LucideIcons.radioTower,
+  );
 }
 
 class _StatusModule extends StatelessWidget {
@@ -239,16 +267,27 @@ class _StatusModule extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
+        Text(
+          label,
+          style: AppTextStyles.caption.copyWith(
+            color: tokens.textMuted,
+            letterSpacing: 0.2,
+          ),
+        ),
         const SizedBox(height: 4),
-        Text(value, style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(
+          value,
+          style: AppTextStyles.bodyLarge.copyWith(
+            color: tokens.textPrimary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }
 }
 
 class _TVModeCard extends StatefulWidget {
-
   const _TVModeCard({
     required this.label,
     required this.subLabel,
@@ -277,7 +316,9 @@ class _TVModeCardState extends State<_TVModeCard> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final bgColor = _isFocused ? tokens.surface3 : tokens.surface1;
-    final borderColor = _isFocused ? (widget.isWarning ? tokens.error : tokens.accent) : tokens.border;
+    final borderColor = _isFocused
+        ? (widget.isWarning ? tokens.error : tokens.accent)
+        : tokens.border;
     final size = MediaQuery.sizeOf(context);
 
     return Focus(
@@ -296,175 +337,69 @@ class _TVModeCardState extends State<_TVModeCard> {
             height: (size.height * 0.3).clamp(180.0, 300.0),
             decoration: BoxDecoration(
               color: bgColor,
+              borderRadius: BorderRadius.circular(DS.radius(24)),
               border: Border.all(color: borderColor, width: _isFocused ? 4 : 1),
               boxShadow: _isFocused
                   ? [
                       BoxShadow(
-                        color: (widget.isWarning ? tokens.error : tokens.accent).withValues(alpha: 0.2),
+                        color: (widget.isWarning ? tokens.error : tokens.accent)
+                            .withValues(alpha: 0.2),
                         blurRadius: 20,
                         spreadRadius: 5,
-                      )
+                      ),
                     ]
                   : [],
             ),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: NocGridBackground(
-                    spacing: 20,
-                    color: _isFocused ? (widget.isWarning ? tokens.error : tokens.accent).withValues(alpha: 0.05) : tokens.borderSubtle,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'SYS_TYPE // ${widget.code}',
+                    style: AppTextStyles.style(
+                      color: _isFocused
+                          ? tokens.textPrimary
+                          : tokens.textMuted,
+                      fontSize: (size.width * 0.008).clamp(9.0, 12.0),
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                ),
-                _buildCorner(context, Alignment.topLeft, borderColor),
-                _buildCorner(context, Alignment.topRight, borderColor),
-                _buildCorner(context, Alignment.bottomLeft, borderColor),
-                _buildCorner(context, Alignment.bottomRight, borderColor),
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'SYS_TYPE // ${widget.code}',
-                        style: GoogleFonts.dmMono(
-                          color: _isFocused ? tokens.textPrimary : tokens.textMuted,
-                          fontSize: (size.width * 0.008).clamp(9.0, 12.0),
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      SizedBox(height: (size.height * 0.02).clamp(12.0, 24.0)),
-                      Icon(
-                        widget.icon,
-                        color: _isFocused ? (widget.isWarning ? tokens.error : tokens.textPrimary) : tokens.textSecondary,
-                        size: (size.width * 0.035).clamp(32.0, 56.0),
-                      ),
-                      SizedBox(height: (size.height * 0.02).clamp(12.0, 24.0)),
-                      Text(
-                        widget.label,
-                        style: GoogleFonts.barlowCondensed(
-                          color: tokens.textPrimary,
-                          fontSize: (size.width * 0.018).clamp(20.0, 32.0),
-                          letterSpacing: 4,
-                          fontWeight: FontWeight.w900,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: DS.s4),
-                      Text(
-                        widget.subLabel,
-                        style: GoogleFonts.dmMono(
-                          color: _isFocused ? tokens.textPrimary : tokens.textMuted,
-                          fontSize: (size.width * 0.008).clamp(9.0, 12.0),
-                          letterSpacing: 1,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                  SizedBox(height: (size.height * 0.02).clamp(12.0, 24.0)),
+                  Icon(
+                    widget.icon,
+                    color: _isFocused
+                        ? (widget.isWarning
+                              ? tokens.error
+                              : tokens.textPrimary)
+                        : tokens.textSecondary,
+                    size: (size.width * 0.035).clamp(32.0, 56.0),
                   ),
-                ),
-              ],
+                  SizedBox(height: (size.height * 0.02).clamp(12.0, 24.0)),
+                  Text(
+                    widget.label,
+                    style: AppTextStyles.style(
+                      color: tokens.textPrimary,
+                      fontSize: (size.width * 0.018).clamp(20.0, 32.0),
+                      letterSpacing: 0.8,
+                      fontWeight: AppTextStyles.titleFontWeight,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: DS.s4),
+                  Text(
+                    widget.subLabel,
+                    style: AppTextStyles.style(
+                      color: _isFocused
+                          ? tokens.textPrimary
+                          : tokens.textMuted,
+                      fontSize: (size.width * 0.008).clamp(9.0, 12.0),
+                      letterSpacing: 0.2,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCorner(BuildContext context, Alignment alignment, Color color) => Align(
-      alignment: alignment,
-      child: Container(
-        width: 16,
-        height: 16,
-        margin: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border(
-            top: alignment == Alignment.topLeft || alignment == Alignment.topRight ? BorderSide(color: color, width: 2) : BorderSide.none,
-            bottom: alignment == Alignment.bottomLeft || alignment == Alignment.bottomRight ? BorderSide(color: color, width: 2) : BorderSide.none,
-            left: alignment == Alignment.topLeft || alignment == Alignment.bottomLeft ? BorderSide(color: color, width: 2) : BorderSide.none,
-            right: alignment == Alignment.topRight || alignment == Alignment.bottomRight ? BorderSide(color: color, width: 2) : BorderSide.none,
-          ),
-        ),
-      ),
-    );
-}
-
-class _StationTileTV extends StatefulWidget {
-
-  const _StationTileTV({required this.station, required this.onTap});
-  final BroadcastStation station;
-  final VoidCallback onTap;
-
-  @override
-  State<_StationTileTV> createState() => _StationTileTVState();
-}
-
-class _StationTileTVState extends State<_StationTileTV> {
-  bool _isFocused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final title = widget.station.name.toUpperCase();
-    final nowPlaying = widget.station.nowPlaying;
-    final itemTitle = nowPlaying != null ? nowPlaying.item.title.toUpperCase() : 'AWAITING SIGNAL';
-
-    return Focus(
-      onFocusChange: (v) {
-        setState(() => _isFocused = v);
-        if (v) handleTVFocusScroll(v, context);
-      },
-      onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: _isFocused ? tokens.surface3 : tokens.surface1,
-            border: Border.all(color: _isFocused ? tokens.accent : tokens.borderSubtle, width: _isFocused ? 2 : 1),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: tokens.surface2,
-                  border: Border.all(color: _isFocused ? tokens.accent : tokens.borderSubtle),
-                ),
-                child: Icon(LucideIcons.radio, color: _isFocused ? tokens.textPrimary : tokens.textSecondary, size: 20),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.barlowCondensed(
-                        color: tokens.textPrimary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'LIVE: $itemTitle',
-                      style: GoogleFonts.dmMono(
-                        color: _isFocused ? tokens.textPrimary : tokens.textMuted,
-                        fontSize: 10,
-                        letterSpacing: 1,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              if (_isFocused) Icon(LucideIcons.chevronRight, color: tokens.accent, size: 20),
-            ],
           ),
         ),
       ),
@@ -479,13 +414,17 @@ class _BlinkingDotTV extends StatefulWidget {
   State<_BlinkingDotTV> createState() => _BlinkingDotTVState();
 }
 
-class _BlinkingDotTVState extends State<_BlinkingDotTV> with SingleTickerProviderStateMixin {
+class _BlinkingDotTVState extends State<_BlinkingDotTV>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -512,7 +451,11 @@ class _BlinkingDotTVState extends State<_BlinkingDotTV> with SingleTickerProvide
           const SizedBox(width: 12),
           Text(
             'SIGNAL ESTABLISHED',
-            style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 2),
+            style: AppTextStyles.caption.copyWith(
+              color: tokens.textPrimary,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.5,
+            ),
           ),
         ],
       ),

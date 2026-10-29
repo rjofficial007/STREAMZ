@@ -9,18 +9,21 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background/flutter_background.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/presentation/shared/app_back_button.dart';
 
 /// True when this platform needs no runtime permissions.
 bool get _isAutoGrantPlatform =>
-    kIsWeb || (defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.linux);
+    kIsWeb ||
+    (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.linux);
 
 class PermissionScreen extends StatefulWidget {
   const PermissionScreen({super.key});
@@ -39,7 +42,9 @@ class _PermissionScreenState extends State<PermissionScreen> {
   void initState() {
     super.initState();
     if (_isAutoGrantPlatform) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _autoGrantAndProceed());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _autoGrantAndProceed(),
+      );
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) => _checkCurrentState());
     }
@@ -112,7 +117,10 @@ class _PermissionScreenState extends State<PermissionScreen> {
           notificationTitle: 'VOIDCAST — Uplink Active',
           notificationText: 'Broadcasting on local network.',
           notificationImportance: AndroidNotificationImportance.normal,
-          notificationIcon: AndroidResource(name: 'ic_launcher', defType: 'mipmap'),
+          notificationIcon: AndroidResource(
+            name: 'ic_launcher',
+            defType: 'mipmap',
+          ),
           enableWifiLock: true,
         );
         final ok = await FlutterBackground.initialize(androidConfig: config);
@@ -131,10 +139,16 @@ class _PermissionScreenState extends State<PermissionScreen> {
     final tokens = context.tokens;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('$permission ACCESS DENIED. OPEN DEVICE SETTINGS TO ENABLE $feature.', style: GoogleFonts.dmMono(color: tokens.background, fontWeight: FontWeight.bold, fontSize: 11)),
+        content: Text(
+          '$permission ACCESS DENIED. OPEN DEVICE SETTINGS TO ENABLE $feature.',
+          style: AppTextStyles.caption.copyWith(
+            color: tokens.background,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         backgroundColor: tokens.textPrimary,
         duration: const Duration(seconds: 4),
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DS.radius(12))),
       ),
     );
   }
@@ -148,10 +162,18 @@ class _PermissionScreenState extends State<PermissionScreen> {
     if (!_photos && !_isAutoGrantPlatform) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('MEDIA STORAGE ACCESS IS MANDATORY.', style: GoogleFonts.dmMono(color: tokens.background, fontWeight: FontWeight.bold, fontSize: 11)),
+          content: Text(
+            'MEDIA STORAGE ACCESS IS MANDATORY.',
+            style: AppTextStyles.caption.copyWith(
+              color: tokens.background,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           backgroundColor: tokens.textPrimary,
           duration: const Duration(seconds: 3),
-          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DS.radius(12)),
+          ),
         ),
       );
       return;
@@ -171,34 +193,35 @@ class _PermissionScreenState extends State<PermissionScreen> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     if (_isAutoGrantPlatform) {
-      return Scaffold(
-        backgroundColor: tokens.background,
-        body: Center(child: CircularProgressIndicator(color: tokens.accent, strokeWidth: 2)),
+      return AppScaffold(
+        body: Center(
+          child: CircularProgressIndicator(
+            color: tokens.accent,
+            strokeWidth: 2,
+          ),
+        ),
       );
     }
 
     final isMobile = DS.isMobile(context);
 
-    return Scaffold(
-      backgroundColor: tokens.background,
+    return AppScaffold(
       body: SafeArea(
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            _buildSliverAppBar(isMobile),
-            _buildBody(isMobile),
+            _buildAppSliverAppBar(isMobile),
+            AppContentSliver(sliver: _buildBody(isMobile)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSliverAppBar(bool isMobile) {
+  Widget _buildAppSliverAppBar(bool isMobile) {
     final tokens = context.tokens;
-    return SliverAppBar(
-      backgroundColor: tokens.surface1,
+    return AppSliverAppBar(
       floating: true,
-      elevation: 0,
       pinned: true,
       titleSpacing: 0,
       leading: Actions(
@@ -212,24 +235,17 @@ class _PermissionScreenState extends State<PermissionScreen> {
         },
         child: Focus(
           onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => context.pop()),
-          child: IconButton(
-            icon: Icon(LucideIcons.chevronLeft, size: 20, color: tokens.textPrimary),
-            onPressed: () => context.pop(),
-          ),
+          child: AppBackButton(onPressed: () => context.pop()),
         ),
       ),
       title: Text(
-        'AUTHORIZATION',
-        style: GoogleFonts.barlowCondensed(
-          color: tokens.textPrimary, 
-          fontSize: isMobile ? 20 : 24, 
-          fontWeight: FontWeight.w900, 
-          letterSpacing: 4
+        'Permissions',
+        style: AppTextStyles.style(
+          color: tokens.textPrimary,
+          fontSize: isMobile ? 20 : 24,
+          fontWeight: AppTextStyles.titleFontWeight,
+          letterSpacing: -0.2,
         ),
-      ),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(color: tokens.border.withValues(alpha: 0.15), height: 1),
       ),
     );
   }
@@ -238,41 +254,35 @@ class _PermissionScreenState extends State<PermissionScreen> {
     final tokens = context.tokens;
     return SliverList(
       delegate: SliverChildListDelegate([
-        _AuthAnalysisCard(isMobile: isMobile, photos: _photos, audio: _audio, background: _background),
-        
-        DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))), 
-            color: tokens.border.withValues(alpha: 0.15)
-          ),
-          child: GridView.count(
-            crossAxisCount: 3,
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 1,
-            crossAxisSpacing: 1,
-            children: [
-              _QuickActionCard(
-                label: 'FILESYSTEM',
-                icon: LucideIcons.folderOpen,
-                isActive: _photos,
-                onTap: _requestPhotos,
-              ),
-              _QuickActionCard(
-                label: 'AUDIO',
-                icon: LucideIcons.music,
-                isActive: _audio,
-                onTap: _requestAudio,
-              ),
-              _QuickActionCard(
-                label: 'PERSISTENCE',
-                icon: LucideIcons.zap,
-                isActive: _background,
-                onTap: _requestBackground,
-              ),
-            ],
-          ),
+        _AuthAnalysisCard(
+          isMobile: isMobile,
+          photos: _photos,
+          audio: _audio,
+          background: _background,
+        ),
+
+        AppActionGrid(
+          padding: const EdgeInsets.all(16),
+          children: [
+            AppActionCard(
+              label: 'Photos & video',
+              icon: LucideIcons.folderOpen,
+              isActive: _photos,
+              onTap: _requestPhotos,
+            ),
+            AppActionCard(
+              label: 'Audio',
+              icon: LucideIcons.music,
+              isActive: _audio,
+              onTap: _requestAudio,
+            ),
+            AppActionCard(
+              label: 'Background',
+              icon: LucideIcons.zap,
+              isActive: _background,
+              onTap: _requestBackground,
+            ),
+          ],
         ),
 
         Padding(
@@ -280,51 +290,64 @@ class _PermissionScreenState extends State<PermissionScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-               const _ArchitectureTile(
-                title: 'STORAGE PERMISSION',
-                subtitle: 'REQUIRED FOR MEDIA INDEXING',
+              const _ArchitectureTile(
+                title: 'Media library',
+                subtitle: 'Allow access to scan videos and photos',
                 icon: LucideIcons.database,
                 isFirst: true,
               ),
               const _ArchitectureTile(
-                title: 'AUDIO ENGINE',
-                subtitle: 'REQUIRED FOR MUSIC STREAMING',
+                title: 'Music library',
+                subtitle: 'Allow access to scan audio',
                 icon: LucideIcons.activity,
               ),
               const _ArchitectureTile(
-                title: 'BACKGROUND MODULE',
-                subtitle: 'KEEP BROADCAST ENGINE ACTIVE',
+                title: 'Background activity',
+                subtitle: 'Keep sharing active while the app is minimized',
                 icon: LucideIcons.cpu,
               ),
-
 
               GestureDetector(
                 onTap: _proceed,
                 child: Container(
                   height: 64,
                   decoration: BoxDecoration(
-                    color: _photos ? tokens.textPrimary : tokens.surface2,
-                    border: Border.all(color: _photos ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15)),
+                    color: _photos ? tokens.surface3 : tokens.surface2,
+                    borderRadius: BorderRadius.circular(DS.radius(16)),
+                    border: Border.all(
+                      color: _photos
+                          ? tokens.focusColor.withValues(alpha: 0.85)
+                          : tokens.border.withValues(alpha: 0.55),
+                    ),
                   ),
                   child: Center(
-                    child: _proceeding 
-                      ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: tokens.background, strokeWidth: 2))
-                      : Text(
-                        'INITIALIZE BROADCAST ENGINE', 
-                        style: GoogleFonts.dmMono(
-                          color: _photos ? tokens.background : tokens.textMuted, 
-                          fontWeight: FontWeight.bold, 
-                          letterSpacing: 2,
-                          fontSize: isMobile ? 12 : 14,
-                        ),
-                      ),
+                    child: _proceeding
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: tokens.background,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            'Continue',
+                            style: AppTextStyles.style(
+                              color: _photos
+                                  ? tokens.background
+                                  : tokens.textMuted,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.5,
+                              fontSize: isMobile ? 12 : 14,
+                            ),
+                          ),
                   ),
                 ),
               ),
             ],
           ),
         ),
-          
+
         const SizedBox(height: 100),
       ]),
     );
@@ -332,8 +355,12 @@ class _PermissionScreenState extends State<PermissionScreen> {
 }
 
 class _AuthAnalysisCard extends StatelessWidget {
-  
-  const _AuthAnalysisCard({required this.isMobile, required this.photos, required this.audio, required this.background});
+  const _AuthAnalysisCard({
+    required this.isMobile,
+    required this.photos,
+    required this.audio,
+    required this.background,
+  });
   final bool isMobile;
   final bool photos;
   final bool audio;
@@ -349,10 +376,12 @@ class _AuthAnalysisCard extends StatelessWidget {
     final progress = granted / 3;
 
     return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: EdgeInsets.all(isMobile ? 20 : 24),
       decoration: BoxDecoration(
-        color: tokens.surface1,
-        border: Border.symmetric(horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15))),
+        color: tokens.surface1.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(DS.radius(20)),
+        border: Border.all(color: tokens.border.withValues(alpha: 0.55)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,7 +389,13 @@ class _AuthAnalysisCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('AUTHORIZATION ANALYSIS', style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              Text(
+                'Permissions overview',
+                style: AppTextStyles.titleLarge.copyWith(
+                  color: tokens.textPrimary,
+                  fontWeight: AppTextStyles.titleFontWeight,
+                ),
+              ),
               _BlinkingDot(isOnline: photos),
             ],
           ),
@@ -371,9 +406,21 @@ class _AuthAnalysisCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('MANDATORY AUTH', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
+                    Text(
+                      'MANDATORY AUTH',
+                      style: AppTextStyles.caption.copyWith(
+                        color: tokens.textMuted,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text(photos ? 'GRANTED' : 'REQUIRED', style: GoogleFonts.dmMono(color: photos ? tokens.success : tokens.error, fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text(
+                      photos ? 'GRANTED' : 'REQUIRED',
+                      style: AppTextStyles.body.copyWith(
+                        color: photos ? tokens.success : tokens.error,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -381,9 +428,21 @@ class _AuthAnalysisCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('TOTAL MODULES', style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)),
+                    Text(
+                      'TOTAL MODULES',
+                      style: AppTextStyles.caption.copyWith(
+                        color: tokens.textMuted,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text('$granted / 3', style: GoogleFonts.dmMono(color: tokens.textPrimary, fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text(
+                      '$granted / 3',
+                      style: AppTextStyles.body.copyWith(
+                        color: tokens.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -394,7 +453,7 @@ class _AuthAnalysisCard extends StatelessWidget {
             children: [
               Container(height: 8, color: tokens.surface2),
               FractionallySizedBox(
-                widthFactor: progress.clamp(0.01, 1.0), 
+                widthFactor: progress.clamp(0.01, 1.0),
                 child: Container(height: 8, color: tokens.accent),
               ),
             ],
@@ -402,9 +461,23 @@ class _AuthAnalysisCard extends StatelessWidget {
           SizedBox(height: isMobile ? 16 : 20),
           Row(
             children: [
-              Expanded(child: _legend(context, 'CORE', photos ? 'READY' : 'WAITING', tokens.textPrimary)),
+              Expanded(
+                child: _legend(
+                  context,
+                  'CORE',
+                  photos ? 'READY' : 'WAITING',
+                  tokens.textPrimary,
+                ),
+              ),
               const SizedBox(width: 16),
-              Expanded(child: _legend(context, 'EXTENSIONS', audio ? 'ACTIVE' : 'OPTIONAL', tokens.textSecondary)),
+              Expanded(
+                child: _legend(
+                  context,
+                  'EXTENSIONS',
+                  audio ? 'ACTIVE' : 'OPTIONAL',
+                  tokens.textSecondary,
+                ),
+              ),
             ],
           ),
         ],
@@ -412,85 +485,42 @@ class _AuthAnalysisCard extends StatelessWidget {
     );
   }
 
-  Widget _legend(BuildContext context, String label, String value, Color color) {
+  Widget _legend(
+    BuildContext context,
+    String label,
+    String value,
+    Color color,
+  ) {
     final tokens = context.tokens;
     return Row(
       children: [
         Container(width: 8, height: 8, color: color),
         const SizedBox(width: 8),
-        Expanded(child: Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10))),
-        Text(value, style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: tokens.textPrimary)),
+        Expanded(
+          child: Text(
+            label,
+            style: AppTextStyles.caption.copyWith(color: tokens.textMuted),
+          ),
+        ),
+        Text(
+          value,
+          style: AppTextStyles.caption.copyWith(
+            fontWeight: FontWeight.w500,
+            color: tokens.textPrimary,
+          ),
+        ),
       ],
     );
   }
 }
 
-class _QuickActionCard extends StatefulWidget {
-
-  const _QuickActionCard({required this.label, required this.icon, required this.onTap, this.isActive = false});
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool isActive;
-
-  @override
-  State<_QuickActionCard> createState() => _QuickActionCardState();
-}
-
-class _QuickActionCardState extends State<_QuickActionCard> {
-  bool _isPressed = false;
-  bool _isFocused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    final active = _isPressed || _isFocused;
-    return Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            widget.onTap();
-            return null;
-          },
-        ),
-      },
-      child: Focus(
-        onFocusChange: (v) {
-          setState(() => _isFocused = v);
-          if (v) handleTVFocusScroll(v, context);
-        },
-        onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-        child: GestureDetector(
-          onTapDown: (_) => setState(() => _isPressed = true),
-          onTapUp: (_) {
-            setState(() => _isPressed = false);
-            widget.onTap();
-          },
-          onTapCancel: () => setState(() => _isPressed = false),
-          child: Container(
-            color: active ? tokens.textPrimary.withValues(alpha: 0.1) : tokens.background,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(widget.icon, color: widget.isActive ? tokens.success : (active ? tokens.textPrimary : tokens.textMuted), size: 24),
-                const SizedBox(height: 8),
-                Text(
-                  widget.label,
-                  style: GoogleFonts.dmMono(color: active ? tokens.textPrimary : tokens.textSecondary, fontSize: 9, letterSpacing: 1),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ArchitectureTile extends StatefulWidget {
-
-  const _ArchitectureTile({required this.title, required this.subtitle, required this.icon, this.isFirst = false});
+  const _ArchitectureTile({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    this.isFirst = false,
+  });
   final String title;
   final String subtitle;
   final IconData icon;
@@ -513,10 +543,14 @@ class _ArchitectureTileState extends State<_ArchitectureTile> {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: _focused ? tokens.textPrimary.withValues(alpha: 0.05) : tokens.surface1,
+          color: _focused
+              ? tokens.textPrimary.withValues(alpha: 0.05)
+              : tokens.surface1,
           border: Border(
-            bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)), 
-            top: widget.isFirst ? BorderSide(color: tokens.border.withValues(alpha: 0.15)) : BorderSide.none
+            bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)),
+            top: widget.isFirst
+                ? BorderSide(color: tokens.border.withValues(alpha: 0.15))
+                : BorderSide.none,
           ),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -525,8 +559,19 @@ class _ArchitectureTileState extends State<_ArchitectureTile> {
             Container(
               width: 44,
               height: 44,
-              decoration: BoxDecoration(color: tokens.surface2, border: Border.all(color: _focused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15))),
-              child: Icon(widget.icon, color: _focused ? tokens.textPrimary : tokens.textSecondary, size: 20),
+              decoration: BoxDecoration(
+                color: tokens.surface2,
+                border: Border.all(
+                  color: _focused
+                      ? tokens.textPrimary
+                      : tokens.border.withValues(alpha: 0.15),
+                ),
+              ),
+              child: Icon(
+                widget.icon,
+                color: _focused ? tokens.textPrimary : tokens.textSecondary,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -535,14 +580,29 @@ class _ArchitectureTileState extends State<_ArchitectureTile> {
                 children: [
                   Text(
                     widget.title.toUpperCase(),
-                    style: GoogleFonts.barlowCondensed(color: tokens.textPrimary, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    style: AppTextStyles.title.copyWith(
+                      color: tokens.textPrimary,
+                      fontWeight: AppTextStyles.titleFontWeight,
+                      letterSpacing: 0.2,
+                    ),
                   ),
                   const SizedBox(height: 3),
-                  Text(widget.subtitle, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 9, letterSpacing: 1)),
+                  Text(
+                    widget.subtitle,
+                    style: AppTextStyles.caption.copyWith(
+                      color: tokens.textMuted,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
                 ],
               ),
             ),
-            if (_focused) Icon(LucideIcons.chevronRight, color: tokens.textPrimary, size: 16),
+            if (_focused)
+              Icon(
+                LucideIcons.chevronRight,
+                color: tokens.textPrimary,
+                size: 16,
+              ),
           ],
         ),
       ),
@@ -558,13 +618,17 @@ class _BlinkingDot extends StatefulWidget {
   State<_BlinkingDot> createState() => _BlinkingDotState();
 }
 
-class _BlinkingDotState extends State<_BlinkingDot> with SingleTickerProviderStateMixin {
+class _BlinkingDotState extends State<_BlinkingDot>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -576,7 +640,9 @@ class _BlinkingDotState extends State<_BlinkingDot> with SingleTickerProviderSta
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    if (!widget.isOnline) return Container(width: 8, height: 8, color: tokens.textDisabled);
+    if (!widget.isOnline) {
+      return Container(width: 8, height: 8, color: tokens.textDisabled);
+    }
     return FadeTransition(
       opacity: _ctrl,
       child: Container(

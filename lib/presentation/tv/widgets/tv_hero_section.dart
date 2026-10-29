@@ -5,6 +5,7 @@ import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/domain/models/media_item.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
 
 /// TVHeroSection displays featured content with a high-contrast layout.
 /// It features large typography and a "Signal Strength" decorative bar.
@@ -52,12 +53,15 @@ class _TVHeroSectionState extends State<TVHeroSection> {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: tokens.surface1,
+            borderRadius: BorderRadius.circular(DS.radius(24)),
             border: Border.all(
-              color: _focused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15), 
-              width: _focused ? 4 : 1
+              color: _focused ? tokens.focusColor : tokens.border.withValues(alpha: 0.55),
+              width: _focused ? 3 : 1,
             ),
           ),
-          child: Stack(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(DS.radius(23)),
+            child: Stack(
             fit: StackFit.expand,
             children: [
               // Hero Thumbnail with low opacity for background effect
@@ -76,13 +80,13 @@ class _TVHeroSectionState extends State<TVHeroSection> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
-                      'FEATURED_SIGNAL // 0${_index + 1}',
-                      style: AppTextStyles.mono(12, spacing: 4, weight: FontWeight.bold, color: tokens.accent),
+                      'Featured',
+                      style: AppTextStyles.text(14, weight: FontWeight.w500, color: tokens.textSecondary),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      item.title.toUpperCase(),
-                      style: AppTextStyles.barlowBlack((size.width * 0.04).clamp(32.0, 64.0), spacing: -1, color: tokens.textPrimary).copyWith(height: 0.9),
+                      item.title,
+                      style: AppTextStyles.display((size.width * 0.04).clamp(32.0, 64.0), spacing: -1, color: tokens.textPrimary).copyWith(height: 0.9),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -90,14 +94,14 @@ class _TVHeroSectionState extends State<TVHeroSection> {
                     Row(
                       children: [
                         _HeroBtn(
-                          label: 'INITIATE PLAYBACK', 
+                          label: 'Play now', 
                           icon: AppIcons.play, 
                           isFocused: _focused, 
                           onTap: _play
                         ),
                         const SizedBox(width: 16),
                         _HeroBtn(
-                          label: 'SIGNAL_INFO', 
+                          label: 'Details', 
                           icon: Icons.info_outline, 
                           isFocused: false, 
                           onTap: () {}
@@ -107,22 +111,8 @@ class _TVHeroSectionState extends State<TVHeroSection> {
                   ],
                 ),
               ),
-              // Signal Strength Bar (Brutalist Decoration)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: 4,
-                child: Row(
-                  children: List.generate(20, (i) => Expanded(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      color: i < 15 ? tokens.accent : tokens.surface3,
-                    ),
-                  )),
-                ),
-              ),
             ],
+            ),
           ),
         ),
       ),
@@ -149,8 +139,9 @@ class _HeroBtn extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: isFocused ? tokens.textPrimary : Colors.transparent,
-        border: Border.all(color: tokens.textPrimary, width: 1),
+        color: isFocused ? tokens.textPrimary : tokens.surface3,
+        borderRadius: BorderRadius.circular(DS.radius(14)),
+        border: Border.all(color: isFocused ? tokens.textPrimary : tokens.borderStrong, width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -163,7 +154,7 @@ class _HeroBtn extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             label,
-            style: AppTextStyles.mono(10, weight: FontWeight.bold, spacing: 2, color: isFocused ? tokens.background : tokens.textPrimary),
+            style: AppTextStyles.text(14, weight: FontWeight.w500, color: isFocused ? tokens.background : tokens.textPrimary),
           ),
         ],
       ),

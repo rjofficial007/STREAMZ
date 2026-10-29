@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/presentation/server/server_viewmodel.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
 
-/// ServerEngineCard provides a high-level summary of the server's operational status.
-/// It includes IP address, uptime status, connected nodes, and real-time bandwidth.
+/// Compact server controls and live connection metrics for the dashboard.
 class ServerEngineCard extends StatefulWidget {
-  const ServerEngineCard({super.key, required this.state, required this.isMobile});
+  const ServerEngineCard({
+    super.key,
+    required this.state,
+    required this.isMobile,
+  });
   final ServerViewModel state;
   final bool isMobile;
 
@@ -21,12 +25,12 @@ class _ServerEngineCardState extends State<ServerEngineCard> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     return Container(
+      margin: const EdgeInsets.all(16),
       padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
       decoration: BoxDecoration(
-        color: tokens.surface1.withValues(alpha: 0.4),
-        border: Border.symmetric(
-          horizontal: BorderSide(color: tokens.border.withValues(alpha: 0.15)),
-        ),
+        color: tokens.surface1.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(DS.radius(20)),
+        border: Border.all(color: tokens.border.withValues(alpha: 0.55)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -35,83 +39,80 @@ class _ServerEngineCardState extends State<ServerEngineCard> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'ENGINE ANALYSIS',
-                style: GoogleFonts.barlowCondensed(
-                  color: tokens.textPrimary, 
-                  fontSize: 18, 
-                  fontWeight: FontWeight.bold, 
-                  letterSpacing: 1
+                'Server',
+                style: AppTextStyles.titleLarge.copyWith(
+                  color: tokens.textPrimary,
+                  fontWeight: AppTextStyles.titleFontWeight,
                 ),
               ),
-              ServerBlinkingDot(isOnline: widget.state.isRunning),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ServerBlinkingDot(isOnline: widget.state.isRunning),
+                  const SizedBox(width: 8),
+                  Text(
+                    widget.state.isInitializing
+                        ? 'Starting'
+                        : widget.state.isRunning
+                        ? 'Running'
+                        : 'Stopped',
+                    style: AppTextStyles.body.copyWith(
+                      color: widget.state.isRunning
+                          ? tokens.success
+                          : tokens.textMuted,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
           SizedBox(height: widget.isMobile ? 16 : 24),
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'IP ADDRESS', 
-                      style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)
-                    ),
-                    const SizedBox(height: 4),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        widget.state.serverIp.toUpperCase(),
-                        style: GoogleFonts.dmMono(
-                          color: tokens.textPrimary, 
-                          fontSize: 14, 
-                          fontWeight: FontWeight.bold
-                        ),
-                      ),
-                    ),
-                  ],
+              Text(
+                'Server address',
+                style: AppTextStyles.caption.copyWith(
+                  color: tokens.textMuted,
                 ),
               ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'UPTIME', 
-                      style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10, letterSpacing: 1)
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'LIVE',
-                      style: GoogleFonts.dmMono(
-                        color: tokens.textPrimary, 
-                        fontSize: 14, 
-                        fontWeight: FontWeight.bold
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  widget.state.serverIp.toUpperCase(),
+                  style: AppTextStyles.body.copyWith(
+                    color: tokens.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-            ],
-          ),
-          SizedBox(height: widget.isMobile ? 20 : 24),
-          // Operational Health Bar
-          Stack(
-            children: [
-              Container(height: 8, color: tokens.surface2),
-              if (widget.state.isRunning)
-                FractionallySizedBox(
-                  widthFactor: 1.0,
-                  child: Container(height: 8, color: tokens.accent),
-                ),
             ],
           ),
           SizedBox(height: widget.isMobile ? 16 : 20),
           Row(
             children: [
-              Expanded(child: _legend(context, 'NODES', widget.state.connectedClients.toString(), tokens.accent)),
+              Expanded(
+                child: _legend(
+                  context,
+                  'NODES',
+                  widget.state.connectedClients.toString(),
+                  tokens.accent,
+                ),
+              ),
               const SizedBox(width: 16),
-              Expanded(child: _legend(context, 'SPEED', '${widget.state.currentSpeedMb.toStringAsFixed(1)} MB/S', tokens.telemetry)),
+              Expanded(
+                child: ValueListenableBuilder<double>(
+                  valueListenable: widget.state.speedUpdates,
+                  builder: (context, speed, _) => _legend(
+                    context,
+                    'SPEED',
+                    '${speed.toStringAsFixed(1)} MB/S',
+                    tokens.telemetry,
+                  ),
+                ),
+              ),
             ],
           ),
 
@@ -126,7 +127,9 @@ class _ServerEngineCardState extends State<ServerEngineCard> {
                     ActivateIntent: CallbackAction<ActivateIntent>(
                       onInvoke: (_) {
                         if (!widget.state.isInitializing) {
-                          widget.state.isRunning ? widget.state.stopServer() : widget.state.startServer();
+                          widget.state.isRunning
+                              ? widget.state.stopServer()
+                              : widget.state.startServer();
                         }
                         return null;
                       },
@@ -138,31 +141,49 @@ class _ServerEngineCardState extends State<ServerEngineCard> {
                       handleTVFocusScroll(v, context);
                     },
                     onKeyEvent: (_, ev) => handleTVSelectKey(
-                      ev, 
-                      widget.state.isInitializing ? null : () => widget.state.isRunning ? widget.state.stopServer() : widget.state.startServer()
+                      ev,
+                      widget.state.isInitializing
+                          ? null
+                          : () => widget.state.isRunning
+                                ? widget.state.stopServer()
+                                : widget.state.startServer(),
                     ),
                     child: InkWell(
-                      onTap: widget.state.isInitializing 
-                          ? null 
-                          : () => widget.state.isRunning ? widget.state.stopServer() : widget.state.startServer(),
+                      onTap: widget.state.isInitializing
+                          ? null
+                          : () => widget.state.isRunning
+                                ? widget.state.stopServer()
+                                : widget.state.startServer(),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                          color: _btnFocused ? tokens.textPrimary : Colors.transparent,
-                          border: Border.all(color: tokens.textPrimary),
+                          color: _btnFocused
+                              ? tokens.surface3
+                              : tokens.surface2,
+                          borderRadius: BorderRadius.circular(DS.radius(14)),
+                          border: Border.all(
+                            color: _btnFocused
+                                ? tokens.focusColor
+                                : tokens.borderStrong,
+                          ),
                         ),
                         child: Center(
                           child: widget.state.isInitializing
-                              ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                              : Text(
-                                  widget.state.isRunning ? 'STOP ENGINE' : 'START ENGINE',
-                                  style: GoogleFonts.dmMono(
-                                    color: _btnFocused ? tokens.background : tokens.textPrimary, 
-                                    fontSize: 11, 
-                                    fontWeight: FontWeight.bold, 
-                                    letterSpacing: 2
+                              ? const SizedBox(
+                                  height: 16,
+                                  width: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
                                   ),
+                                )
+                              : Text(
+                                  widget.state.isRunning
+                                      ? 'Stop server'
+                                      : 'Start server',
+                                  style: AppTextStyles.caption.copyWith(color: _btnFocused
+                                        ? tokens.background
+                                        : tokens.textPrimary, fontWeight: FontWeight.w500, letterSpacing: 0.5),
                                 ),
                         ),
                       ),
@@ -177,18 +198,30 @@ class _ServerEngineCardState extends State<ServerEngineCard> {
     );
   }
 
-  Widget _legend(BuildContext context, String label, String value, Color color) {
+  Widget _legend(
+    BuildContext context,
+    String label,
+    String value,
+    Color color,
+  ) {
     final tokens = context.tokens;
     return Row(
       children: [
-        Container(width: 8, height: 8, color: color),
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(label, style: GoogleFonts.dmMono(color: tokens.textMuted, fontSize: 10)),
+          child: Text(
+            label,
+            style: AppTextStyles.caption.copyWith(color: tokens.textMuted),
+          ),
         ),
         Text(
           value,
-          style: GoogleFonts.dmMono(fontSize: 10, fontWeight: FontWeight.bold, color: tokens.textPrimary),
+          style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w500, color: tokens.textPrimary),
         ),
       ],
     );
@@ -204,13 +237,17 @@ class ServerBlinkingDot extends StatefulWidget {
   State<ServerBlinkingDot> createState() => _ServerBlinkingDotState();
 }
 
-class _ServerBlinkingDotState extends State<ServerBlinkingDot> with SingleTickerProviderStateMixin {
+class _ServerBlinkingDotState extends State<ServerBlinkingDot>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -222,7 +259,13 @@ class _ServerBlinkingDotState extends State<ServerBlinkingDot> with SingleTicker
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    if (!widget.isOnline) return Container(width: 8, height: 8, color: tokens.textMuted.withValues(alpha: 0.3));
+    if (!widget.isOnline) {
+      return Container(
+        width: 8,
+        height: 8,
+        color: tokens.textMuted.withValues(alpha: 0.3),
+      );
+    }
     return FadeTransition(
       opacity: _ctrl,
       child: Container(

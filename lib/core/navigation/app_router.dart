@@ -16,8 +16,8 @@ import 'package:streamz/presentation/mobile/mobile_selection_screen.dart';
 import 'package:streamz/presentation/mobile/modern_mobile_ui.dart';
 import 'package:streamz/presentation/player/player_screen.dart';
 import 'package:streamz/presentation/server/server_dashboard.dart';
+import 'package:streamz/presentation/settings/app_settings_screen.dart';
 import 'package:streamz/presentation/shared/remote_input_relay_screen.dart';
-import 'package:streamz/presentation/shared/theme_settings_screen.dart';
 import 'package:streamz/presentation/tv/tv_file_manager.dart';
 import 'package:streamz/presentation/tv/tv_home_screen.dart';
 import 'package:streamz/presentation/tv/tv_player_screen.dart';
@@ -35,16 +35,16 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const RoleSelectionScreen(),
     ),
     GoRoute(
+      path: '/settings',
+      builder: (context, state) => const AppSettingsScreen(),
+    ),
+    GoRoute(
       path: '/server',
       builder: (context, state) => const ServerDashboard(),
     ),
     GoRoute(
       path: '/server/permissions',
       builder: (context, state) => const PermissionScreen(),
-    ),
-    GoRoute(
-      path: '/settings',
-      builder: (context, state) => const ThemeSettingsScreen(),
     ),
     GoRoute(
       path: '/client/connect',

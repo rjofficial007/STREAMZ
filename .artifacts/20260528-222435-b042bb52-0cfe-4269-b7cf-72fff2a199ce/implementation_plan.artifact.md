@@ -1,5 +1,7 @@
 # Implementation Plan - STREAMZ STATION BROADCASTS
 
+> Historical planning artifact from May 2026. It records a proposal from that task and is not a statement of current implementation status. Use the [current architecture](../../docs/ARCHITECTURE.md), [UI component guide](../../docs/UI_COMPONENTS.md), and [README](../../README.md) as the source of truth.
+
 This feature transforms the local media server into a professional broadcasting station. Users can create "Stations" (playlists) that play linearly in the background on the server. Clients "Tune In" to these stations and watch/listen to the same content at the same time, with perfect synchronization.
 
 ## Proposed Changes

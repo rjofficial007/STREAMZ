@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:streamz/core/constants/app_text_styles.dart';
+import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
 import 'package:streamz/presentation/server/server_viewmodel.dart';
+import 'package:streamz/presentation/shared/app_back_button.dart';
 import 'package:streamz/widget/remote_trackpad.dart';
 
 class RemoteInputRelayScreen extends StatefulWidget {
@@ -30,7 +33,11 @@ class _RemoteInputRelayScreenState extends State<RemoteInputRelayScreen> {
 
   void _sendText(String text) {
     if (widget.isServerMode) {
-      context.read<ServerViewModel>().broadcastCommand('nav', 'text', value: text);
+      context.read<ServerViewModel>().broadcastCommand(
+        'nav',
+        'text',
+        value: text,
+      );
     } else {
       context.read<ClientViewModel>().sendText(text);
     }
@@ -43,157 +50,193 @@ class _RemoteInputRelayScreenState extends State<RemoteInputRelayScreen> {
   }
 
   @override
+  void dispose() {
+    _textCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final clientVM = !widget.isServerMode ? context.watch<ClientViewModel>() : null;
-    final serverVM = widget.isServerMode ? context.watch<ServerViewModel>() : null;
+    final targetLabel = widget.isServerMode
+        ? '${context.select<ServerViewModel, int>((vm) => vm.connectedClients)} connected devices'
+        : context.select<ClientViewModel, String>((vm) => vm.targetIp);
 
-    final targetLabel = widget.isServerMode 
-        ? 'TARGET: ALL_CONNECTED_NODES (${serverVM?.connectedClients ?? 0})'
-        : 'TARGET: ${clientVM?.targetIp}';
-
-    return Scaffold(
-      backgroundColor: DS.bg,
+    return AppScaffold(
       appBar: AppBar(
-        backgroundColor: DS.surface1,
         title: Text(
-          widget.isServerMode ? 'SERVER_REMOTE_RELAY' : 'REMOTE_RELAY',
-          style: DS.labelLg.copyWith(letterSpacing: 4),
+          'Remote relay',
+          style: AppTextStyles.titleLarge.copyWith(
+            color: context.tokens.textPrimary,
+            fontWeight: AppTextStyles.titleFontWeight,
+          ),
         ),
-        leading: IconButton(
-          icon: const Icon(LucideIcons.chevronLeft),
-          onPressed: () => context.pop(),
-        ),
+        leading: AppBackButton(onPressed: () => context.pop()),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(DS.s24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              targetLabel,
-              style: DS.labelSm.copyWith(color: DS.success),
-            ),
-            const SizedBox(height: DS.s32),
-            
-            // Trackpad
-            RemoteTrackpad(
-              onMove: (delta) {
-                _accumulatedDelta += delta;
-
-                if (_accumulatedDelta.dx > _moveThreshold) {
-                  _sendNav('right');
-                  _accumulatedDelta = Offset(0, _accumulatedDelta.dy);
-                } else if (_accumulatedDelta.dx < -_moveThreshold) {
-                  _sendNav('left');
-                  _accumulatedDelta = Offset(0, _accumulatedDelta.dy);
-                }
-
-                if (_accumulatedDelta.dy > _moveThreshold) {
-                  _sendNav('down');
-                  _accumulatedDelta = Offset(_accumulatedDelta.dx, 0);
-                } else if (_accumulatedDelta.dy < -_moveThreshold) {
-                  _sendNav('up');
-                  _accumulatedDelta = Offset(_accumulatedDelta.dx, 0);
-                }
-              },
-              onTap: () => _sendNav('enter'),
-            ),
-            
-            const SizedBox(height: DS.s32),
-            
-            // Text Input
-            TextField(
-              controller: _textCtrl,
-              style: DS.bodyLg.copyWith(color: DS.textPrimary),
-              decoration: InputDecoration(
-                labelText: 'TYPE TO TARGETS...',
-                labelStyle: DS.labelSm,
-                suffixIcon: Row(
-                  mainAxisSize: MainAxisSize.min,
+        padding: const EdgeInsets.all(DS.s16),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Builder(
+              builder: (context) {
+                final tokens = context.tokens;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (widget.isServerMode)
-                      IconButton(
-                        icon: const Icon(LucideIcons.megaphone, color: DS.warning),
-                        tooltip: 'BROADCAST ALERT',
-                        onPressed: () {
-                          _sendIntercom(_textCtrl.text);
-                          _textCtrl.clear();
-                        },
+                    AppCard(
+                      child: Padding(
+                        padding: const EdgeInsets.all(DS.s16),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: tokens.surface2,
+                                borderRadius: BorderRadius.circular(DS.radiusMd),
+                              ),
+                              child: Icon(
+                                LucideIcons.monitor,
+                                color: tokens.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(width: DS.s16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Connected target',
+                                    style: AppTextStyles.bodyLarge.copyWith(
+                                      color: tokens.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: DS.s4),
+                                  Text(
+                                    targetLabel,
+                                    style: AppTextStyles.supporting.copyWith(
+                                      color: tokens.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    IconButton(
-                      icon: const Icon(LucideIcons.send, color: DS.accent),
-                      onPressed: () {
-                        _sendText(_textCtrl.text);
+                    ),
+                    const SizedBox(height: DS.s20),
+                    RemoteTrackpad(
+                      onMove: (delta) {
+                        _accumulatedDelta += delta;
+
+                        if (_accumulatedDelta.dx > _moveThreshold) {
+                          _sendNav('right');
+                          _accumulatedDelta = Offset(0, _accumulatedDelta.dy);
+                        } else if (_accumulatedDelta.dx < -_moveThreshold) {
+                          _sendNav('left');
+                          _accumulatedDelta = Offset(0, _accumulatedDelta.dy);
+                        }
+
+                        if (_accumulatedDelta.dy > _moveThreshold) {
+                          _sendNav('down');
+                          _accumulatedDelta = Offset(_accumulatedDelta.dx, 0);
+                        } else if (_accumulatedDelta.dy < -_moveThreshold) {
+                          _sendNav('up');
+                          _accumulatedDelta = Offset(_accumulatedDelta.dx, 0);
+                        }
+                      },
+                      onTap: () => _sendNav('enter'),
+                    ),
+                    const SizedBox(height: DS.s20),
+                    TextField(
+                      controller: _textCtrl,
+                      style: AppTextStyles.bodyLarge.copyWith(
+                        color: tokens.textPrimary,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Send text to target',
+                        filled: true,
+                        fillColor: tokens.surface1,
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.isServerMode)
+                              IconButton(
+                                icon: const Icon(LucideIcons.megaphone),
+                                color: tokens.warning,
+                                tooltip: 'Send broadcast alert',
+                                onPressed: () {
+                                  _sendIntercom(_textCtrl.text);
+                                  _textCtrl.clear();
+                                },
+                              ),
+                            IconButton(
+                              icon: const Icon(LucideIcons.send),
+                              color: tokens.accent,
+                              tooltip: 'Send text',
+                              onPressed: () {
+                                _sendText(_textCtrl.text);
+                                _textCtrl.clear();
+                              },
+                            ),
+                          ],
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: tokens.border.withValues(alpha: 0.45),
+                          ),
+                          borderRadius: BorderRadius.circular(DS.radiusMd),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: tokens.accent, width: 1.5),
+                          borderRadius: BorderRadius.circular(DS.radiusMd),
+                        ),
+                      ),
+                      onSubmitted: (value) {
+                        _sendText(value);
                         _textCtrl.clear();
                       },
                     ),
+                    const SizedBox(height: DS.s20),
+                    AppActionGrid(
+                      padding: EdgeInsets.zero,
+                      minTileWidth: 84,
+                      maxColumns: 3,
+                      children: [
+                        for (final action in _navigationActions)
+                          AppActionCard(
+                            label: action.label,
+                            icon: action.icon,
+                            onTap: () => _sendNav(action.command),
+                          ),
+                      ],
+                    ),
                   ],
-                ),
-                enabledBorder: const OutlineInputBorder(
-                  borderSide: BorderSide(color: DS.borderDefault),
-                  borderRadius: BorderRadius.zero,
-                ),
-                focusedBorder: const OutlineInputBorder(
-                  borderSide: BorderSide(color: DS.accent),
-                  borderRadius: BorderRadius.zero,
-                ),
-              ),
-              onSubmitted: (v) {
-                _sendText(v);
-                _textCtrl.clear();
+                );
               },
             ),
-            
-            const SizedBox(height: DS.s48),
-            
-            // Grid of Navigation Controls
-            GridView.count(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 3,
-              mainAxisSpacing: 1,
-              crossAxisSpacing: 1,
-              children: [
-                _NavBtn(icon: LucideIcons.chevronLeft, label: 'BACK', onTap: () => _sendNav('back')),
-                _NavBtn(icon: LucideIcons.chevronUp, label: 'UP', onTap: () => _sendNav('up')),
-                _NavBtn(icon: LucideIcons.home, label: 'HOME', onTap: () => _sendNav('home')),
-                
-                _NavBtn(icon: LucideIcons.chevronLeft, label: 'LEFT', onTap: () => _sendNav('left')),
-                _NavBtn(icon: LucideIcons.circle, label: 'ENTER', onTap: () => _sendNav('enter')),
-                _NavBtn(icon: LucideIcons.chevronRight, label: 'RIGHT', onTap: () => _sendNav('right')),
-                
-                _NavBtn(icon: LucideIcons.info, label: 'INFO', onTap: () => _sendNav('info')),
-                _NavBtn(icon: LucideIcons.chevronDown, label: 'DOWN', onTap: () => _sendNav('down')),
-                _NavBtn(icon: LucideIcons.menu, label: 'MENU', onTap: () => _sendNav('menu')),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _NavBtn extends StatelessWidget {
+const _navigationActions = <({
+  IconData icon,
+  String label,
+  String command,
+})>[
+  (icon: LucideIcons.chevronLeft, label: 'Back', command: 'back'),
+  (icon: LucideIcons.chevronUp, label: 'Up', command: 'up'),
+  (icon: LucideIcons.home, label: 'Home', command: 'home'),
+  (icon: LucideIcons.chevronLeft, label: 'Left', command: 'left'),
+  (icon: LucideIcons.circle, label: 'Enter', command: 'enter'),
+  (icon: LucideIcons.chevronRight, label: 'Right', command: 'right'),
+  (icon: LucideIcons.info, label: 'Info', command: 'info'),
+  (icon: LucideIcons.chevronDown, label: 'Down', command: 'down'),
+  (icon: LucideIcons.menu, label: 'Menu', command: 'menu'),
+];
 
-  const _NavBtn({required this.icon, required this.label, required this.onTap});
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-      onTap: onTap,
-      child: Container(
-        color: DS.surface1,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: DS.accent, size: 20),
-            const SizedBox(height: 8),
-            Text(label, style: DS.labelSm.copyWith(fontSize: 8)),
-          ],
-        ),
-      ),
-    );
-}

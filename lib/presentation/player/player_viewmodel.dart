@@ -12,21 +12,21 @@
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import 'package:streamz/core/di/service_locator.dart';
+import 'package:streamz/core/platform/player_property.dart';
 import 'package:streamz/data/repositories/media_repository.dart';
 import 'package:streamz/domain/models/media_item.dart';
 import 'package:streamz/domain/models/remote_command.dart';
 import 'package:streamz/domain/services/player_service.dart';
 import 'package:streamz/domain/services/remote_command_service.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/player/playback_issue.dart';
 
 class PlayerViewModel extends ChangeNotifier {
-
   PlayerViewModel() {
     _playerService = PlayerService(repo: _repo, remote: _remote);
     videoController = VideoController(_playerService.player);
@@ -34,29 +34,48 @@ class PlayerViewModel extends ChangeNotifier {
     // Wake OSD whenever any remote command arrives.
     _remoteSub = _remote.commands.listen((cmd) {
       if (_isDisposed) return;
-      
+
       if (cmd.type == 'intercom') {
         _handleIntercom(cmd.value?.toString() ?? '');
       }
-      
+
       wakeOSD();
     });
 
     _bufferSub = player.stream.buffering.listen((isBuffering) {
       if (_isDisposed) return;
-      if (isBuffering && !_isLowFiMode) {
-        // If we buffer for more than 3s, enter Low-Fi mode
-        Timer(const Duration(seconds: 3), () {
-          if (!_isDisposed && player.state.buffering) {
+      if (isBuffering) {
+        // If buffering lasts more than 3s, show the recovery indicator.
+        _bufferRecoveryTimer ??= Timer(const Duration(seconds: 3), () {
+          _bufferRecoveryTimer = null;
+          if (!_isDisposed && player.state.buffering && !_isLowFiMode) {
             _isLowFiMode = true;
             notifyListeners();
           }
         });
-      } else if (!isBuffering && _isLowFiMode) {
+        _bufferTimeoutTimer ??= Timer(const Duration(seconds: 20), () {
+          _bufferTimeoutTimer = null;
+          if (!_isDisposed &&
+              player.state.buffering &&
+              _playerService.shouldBePlaying) {
+            _handlePlaybackError('network timeout while buffering media');
+          }
+        });
+        return;
+      }
+
+      _bufferRecoveryTimer?.cancel();
+      _bufferRecoveryTimer = null;
+      _bufferTimeoutTimer?.cancel();
+      _bufferTimeoutTimer = null;
+      if (_isLowFiMode) {
         _isLowFiMode = false;
         notifyListeners();
       }
     });
+    _errorSub = player.stream.error.listen(_handlePlaybackError);
+    _playingSub = player.stream.playing.listen(_onPlayingChanged);
+    _positionSub = player.stream.position.listen(_onPositionChanged);
   }
   late final PlayerService _playerService;
   late final VideoController videoController;
@@ -69,6 +88,11 @@ class PlayerViewModel extends ChangeNotifier {
   double _gestureOpacity = 0.0;
   BoxFit _videoFit = BoxFit.contain;
   Timer? _sleepTimer;
+  Timer? _bufferRecoveryTimer;
+  Timer? _bufferTimeoutTimer;
+  Timer? _retryTimer;
+  Timer? _recoveryCheckTimer;
+  Timer? _recoveryStableTimer;
   int _sleepMinutesRemaining = 0;
   double _audioDelay = 0.0;
   double _subDelay = 0.0;
@@ -80,10 +104,19 @@ class PlayerViewModel extends ChangeNotifier {
   bool _intercomDucking = false;
   Timer? _intercomRestoreTimer;
   bool _isLowFiMode = false;
+  PlaybackIssue? _playbackIssue;
+  bool _isRecovering = false;
+  bool _retryInFlight = false;
+  int _retryAttempt = 0;
+  Duration _recoveryPosition = Duration.zero;
+  static const List<int> _retryDelays = [2, 4, 8, 16, 30];
 
   Timer? _hideTimer;
   StreamSubscription? _remoteSub;
   StreamSubscription? _bufferSub;
+  StreamSubscription? _errorSub;
+  StreamSubscription? _playingSub;
+  StreamSubscription? _positionSub;
 
   // FIX: Track disposed state so async callbacks don't call notifyListeners
   // after the ViewModel has been garbage-collected.
@@ -98,6 +131,10 @@ class PlayerViewModel extends ChangeNotifier {
   double get subDelay => _subDelay;
   bool get isLocked => _isLocked;
   bool get isLowFiMode => _isLowFiMode;
+  PlaybackIssue? get playbackIssue => _playbackIssue;
+  bool get isRecovering => _isRecovering;
+  bool get isRetryInFlight => _retryInFlight;
+  int get retryAttempt => _retryAttempt;
   String? get intercomMessage => _intercomMessage;
   bool get isStopped => _playerService.isStopped;
   List<Color>? get vibeColors => _playerService.vibeColors;
@@ -111,7 +148,8 @@ class PlayerViewModel extends ChangeNotifier {
   String get mediaUrl => _playerService.mediaUrl;
   String get thumbUrl => _playerService.thumbUrl;
 
-  set snapshotCallback(Future<String?> Function()? cb) => _playerService.snapshotCallback = cb;
+  set snapshotCallback(Future<String?> Function()? cb) =>
+      _playerService.snapshotCallback = cb;
 
   void _handleIntercom(String msg) {
     _intercomMessage = msg;
@@ -138,8 +176,26 @@ class PlayerViewModel extends ChangeNotifier {
     });
   }
 
-  Future<void> load({required List<MediaItem> items, required int startIndex, bool isPathBased = false, Duration? startOffset, bool autoPlay = true}) async {
-    await _playerService.load(items: items, startIndex: startIndex, isPathBased: isPathBased, startOffset: startOffset, autoPlay: autoPlay);
+  Future<void> load({
+    required List<MediaItem> items,
+    required int startIndex,
+    bool isPathBased = false,
+    Duration? startOffset,
+    bool autoPlay = true,
+  }) async {
+    _clearPlaybackRecovery(resetAttempts: true, notify: false);
+    try {
+      await _playerService.load(
+        items: items,
+        startIndex: startIndex,
+        isPathBased: isPathBased,
+        startOffset: startOffset,
+        autoPlay: autoPlay,
+      );
+    } catch (error) {
+      _handlePlaybackError(error.toString());
+      return;
+    }
 
     // [A3] Apply the sync role the server elected for a station join.
     // Done here (not in the screens) so every load path — initial open,
@@ -152,7 +208,7 @@ class PlayerViewModel extends ChangeNotifier {
 
     // Log to local history if we successfully loaded an item
     if (_playerService.current != null) {
-      unawaited(sl<MediaRepository>().addToHistory(_playerService.current!));
+      unawaited(sl<ClientViewModel>().addToHistory(_playerService.current!));
     }
 
     if (!_isDisposed) {
@@ -164,6 +220,7 @@ class PlayerViewModel extends ChangeNotifier {
   // ── Playback ──────────────────────────────────────────────────────────────
 
   Future<void> next() async {
+    _clearPlaybackRecovery(resetAttempts: true, notify: false);
     await _playerService.next();
     if (!_isDisposed) {
       wakeOSD();
@@ -172,6 +229,7 @@ class PlayerViewModel extends ChangeNotifier {
   }
 
   Future<void> prev() async {
+    _clearPlaybackRecovery(resetAttempts: true, notify: false);
     await _playerService.prev();
     if (!_isDisposed) {
       wakeOSD();
@@ -182,7 +240,9 @@ class PlayerViewModel extends ChangeNotifier {
   Future<void> seekRelative(Duration d) async {
     await _playerService.seekRelative(d);
     if (_isDisposed) return;
-    _showGestureFeedback(d.inSeconds > 0 ? '+${d.inSeconds}s' : '${d.inSeconds}s');
+    _showGestureFeedback(
+      d.inSeconds > 0 ? '+${d.inSeconds}s' : '${d.inSeconds}s',
+    );
     wakeOSD();
   }
 
@@ -193,6 +253,183 @@ class PlayerViewModel extends ChangeNotifier {
     _showGestureFeedback('${rate}x SPEED');
   }
 
+  Future<void> play() async {
+    await _playerService.play();
+    if (_playbackIssue?.canAutoRetry == true) {
+      _isRecovering = true;
+      _schedulePlaybackRetry();
+    }
+  }
+
+  Future<void> pause() async {
+    await _playerService.pause();
+    if (_playbackIssue?.canAutoRetry == true) {
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      _recoveryCheckTimer?.cancel();
+      _recoveryCheckTimer = null;
+      _isRecovering = false;
+      if (!_isDisposed) notifyListeners();
+    }
+  }
+
+  Future<void> togglePlayback() =>
+      player.state.playing ? pause() : play();
+
+  Future<void> retryPlayback() async {
+    if (_isDisposed || current == null || _playbackIssue == null) return;
+    _retryTimer?.cancel();
+    _recoveryCheckTimer?.cancel();
+    _recoveryStableTimer?.cancel();
+    _recoveryStableTimer = null;
+    _retryAttempt = 0;
+    _isRecovering = true;
+    if (_playbackIssue?.kind == PlaybackIssueKind.device) {
+      _retryInFlight = true;
+      final playback = _playerService.play();
+      notifyListeners();
+      try {
+        await playback;
+      } catch (error) {
+        _handlePlaybackError(error.toString());
+      } finally {
+        _retryInFlight = false;
+      }
+      if (!_isDisposed) notifyListeners();
+      if (!_isDisposed && !player.state.playing) {
+        _isRecovering = false;
+        notifyListeners();
+      }
+      return;
+    }
+    notifyListeners();
+    await _attemptPlaybackRetry(manual: true);
+  }
+
+  void _handlePlaybackError(String message) {
+    if (_isDisposed || current == null || isStopped) return;
+    _playbackIssue = PlaybackIssue.fromMessage(message);
+    if (_playbackIssue!.canAutoRetry && _playerService.shouldBePlaying) {
+      _recoveryCheckTimer?.cancel();
+      _isRecovering = true;
+      if (!_retryInFlight) _schedulePlaybackRetry();
+    } else {
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      _recoveryCheckTimer?.cancel();
+      _recoveryCheckTimer = null;
+      _isRecovering = false;
+    }
+    notifyListeners();
+  }
+
+  void _schedulePlaybackRetry() {
+    if (_isDisposed ||
+        _playbackIssue?.canAutoRetry != true ||
+        !_playerService.shouldBePlaying ||
+        _retryInFlight ||
+        _retryTimer != null) {
+      return;
+    }
+    final delayIndex =
+        _retryAttempt.clamp(0, _retryDelays.length - 1).toInt();
+    final delay = Duration(seconds: _retryDelays[delayIndex]);
+    _isRecovering = true;
+    _retryTimer = Timer(delay, () {
+      _retryTimer = null;
+      unawaited(_attemptPlaybackRetry());
+    });
+    notifyListeners();
+  }
+
+  Future<void> _attemptPlaybackRetry({bool manual = false}) async {
+    if (_isDisposed || current == null || _retryInFlight) return;
+    _retryInFlight = true;
+    _retryAttempt++;
+
+    final playingPosition = player.state.position;
+    final savedSeconds = current!.isBroadcast ? 0 : _repo.getProgress(current!.id);
+    _recoveryPosition = playingPosition > Duration(seconds: savedSeconds)
+        ? playingPosition
+        : Duration(seconds: savedSeconds);
+    _playerService.saveCurrentProgress();
+    notifyListeners();
+
+    var retryFailed = false;
+    try {
+      await _playerService.retryCurrent(
+        _recoveryPosition,
+        resumePlayback: manual,
+      );
+    } catch (error) {
+      _playbackIssue = PlaybackIssue.fromMessage(error.toString());
+      retryFailed = true;
+    } finally {
+      _retryInFlight = false;
+    }
+
+    if (_isDisposed) return;
+    if (_playbackIssue?.canAutoRetry == true &&
+        _playerService.shouldBePlaying) {
+      _recoveryCheckTimer?.cancel();
+      if (retryFailed || !player.state.playing) {
+        _recoveryCheckTimer = null;
+        _schedulePlaybackRetry();
+        return;
+      }
+      _recoveryCheckTimer = Timer(const Duration(seconds: 10), () {
+        _recoveryCheckTimer = null;
+        if (!_isDisposed && _playbackIssue?.canAutoRetry == true) {
+          _schedulePlaybackRetry();
+        }
+      });
+    } else {
+      _recoveryCheckTimer?.cancel();
+      _recoveryCheckTimer = null;
+      _isRecovering = false;
+      notifyListeners();
+    }
+  }
+
+  void _onPlayingChanged(bool playing) {
+    if (_isDisposed || !playing || _playbackIssue == null) return;
+    _recoveryCheckTimer?.cancel();
+    _recoveryCheckTimer = null;
+    _recoveryStableTimer?.cancel();
+    _recoveryStableTimer = Timer(const Duration(seconds: 8), () {
+      if (_isDisposed || !player.state.playing) return;
+      if (player.state.position > _recoveryPosition) {
+        _clearPlaybackRecovery(resetAttempts: true);
+      }
+    });
+  }
+
+  void _onPositionChanged(Duration position) {
+    if (_isDisposed ||
+        !_isRecovering ||
+        _playbackIssue == null ||
+        !player.state.playing) {
+      return;
+    }
+    if (position > _recoveryPosition + const Duration(seconds: 1)) {
+      _clearPlaybackRecovery(resetAttempts: true);
+    }
+  }
+
+  void _clearPlaybackRecovery({bool resetAttempts = false, bool notify = true}) {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _recoveryCheckTimer?.cancel();
+    _recoveryCheckTimer = null;
+    _recoveryStableTimer?.cancel();
+    _recoveryStableTimer = null;
+    _playbackIssue = null;
+    _isRecovering = false;
+    _recoveryPosition = Duration.zero;
+    if (resetAttempts) _retryAttempt = 0;
+    if (notify && !_isDisposed) notifyListeners();
+  }
+
   Future<void> setAudioTrack(AudioTrack track) async {
     await _playerService.setAudioTrack(track);
     _showGestureFeedback('AUDIO: ${track.title ?? track.language ?? track.id}');
@@ -200,13 +437,17 @@ class PlayerViewModel extends ChangeNotifier {
 
   Future<void> setSubtitleTrack(SubtitleTrack track) async {
     await _playerService.setSubtitleTrack(track);
-    final label = track.id == 'no' ? 'OFF' : (track.title ?? track.language ?? track.id);
+    final label = track.id == 'no'
+        ? 'OFF'
+        : (track.title ?? track.language ?? track.id);
     _showGestureFeedback('SUBTITLES: $label');
   }
 
   void setVideoFit(BoxFit fit) {
     _videoFit = fit;
-    final label = fit == BoxFit.contain ? 'FIT' : (fit == BoxFit.cover ? 'FILL' : 'STRETCH');
+    final label = fit == BoxFit.contain
+        ? 'FIT'
+        : (fit == BoxFit.cover ? 'FILL' : 'STRETCH');
     _showGestureFeedback('ASPECT: $label');
     notifyListeners();
   }
@@ -226,7 +467,7 @@ class PlayerViewModel extends ChangeNotifier {
         }
         _sleepMinutesRemaining--;
         if (_sleepMinutesRemaining <= 0) {
-          _playerService.player.pause();
+          _playerService.pause();
           timer.cancel();
           _showGestureFeedback('SLEEP TIMER: PAUSED');
         }
@@ -265,14 +506,11 @@ class PlayerViewModel extends ChangeNotifier {
   }
 
   void _setProperty(String key, String val) {
-    if (kIsWeb) return; // Properties not supported on web
-    try {
-      if (player.platform is NativePlayer) {
-        (player.platform as NativePlayer).setProperty(key, val);
-      }
-    } catch (e) {
-      debugPrint('Error setting $key: $e');
-    }
+    unawaited(
+      setPlayerProperty(player, key, val).catchError((Object error) {
+        debugPrint('Error setting $key: $error');
+      }),
+    );
   }
 
   void sendRemoteCommand(RemoteCommand cmd) => _remote.send(cmd);
@@ -334,10 +572,20 @@ class PlayerViewModel extends ChangeNotifier {
   void dispose() {
     _isDisposed = true;
     _hideTimer?.cancel();
+    _sleepTimer?.cancel();
+    _bufferRecoveryTimer?.cancel();
+    _bufferTimeoutTimer?.cancel();
+    _retryTimer?.cancel();
+    _recoveryCheckTimer?.cancel();
+    _recoveryStableTimer?.cancel();
     _intercomRestoreTimer?.cancel();
     _remoteSub?.cancel();
     _bufferSub?.cancel();
+    _errorSub?.cancel();
+    _playingSub?.cancel();
+    _positionSub?.cancel();
     _playerService.dispose();
+    unawaited(sl<ClientViewModel>().refreshPlaybackProgress());
     super.dispose();
   }
 }

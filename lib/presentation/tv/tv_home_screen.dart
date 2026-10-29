@@ -1,6 +1,6 @@
 // presentation/tv/tv_home_screen.dart
 // ============================================================================
-// STREAMZ — TV Home Screen (Brutalist Web Studio Edition)
+// STREAMZ — TV Home Screen
 // ============================================================================
 
 import 'package:flutter/material.dart';
@@ -16,7 +16,9 @@ import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/core/theme/theme_tokens.dart';
 import 'package:streamz/domain/models/media_item.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
-import 'package:streamz/presentation/shared/atmospheric_background.dart';
+import 'package:streamz/presentation/client/widgets/client_library_state.dart';
+import 'package:streamz/presentation/shared/app_back_button.dart';
+import 'package:streamz/presentation/shared/app_brand_icon.dart';
 import 'package:streamz/presentation/tv/widgets/tv_content_rail.dart';
 import 'package:streamz/presentation/tv/widgets/tv_hero_section.dart';
 import 'package:streamz/presentation/tv/widgets/tv_station_rail.dart';
@@ -37,8 +39,8 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
   void initState() {
     super.initState();
     SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft, 
-      DeviceOrientation.landscapeRight
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
     ]);
     _scrollController.addListener(_onScroll);
   }
@@ -57,9 +59,9 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
       ..removeListener(_onScroll)
       ..dispose();
     SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft, 
-      DeviceOrientation.landscapeRight, 
-      DeviceOrientation.portraitUp
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+      DeviceOrientation.portraitUp,
     ]);
     super.dispose();
   }
@@ -70,6 +72,7 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
     final allMedia = vm.remoteMedia;
     final stations = vm.stations;
     final continueWatching = vm.continueWatching;
+    final recentlyPlayed = vm.recentlyPlayed;
     final videos = vm.videos;
     final audio = vm.audio;
     final images = vm.images;
@@ -80,124 +83,154 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
     final vSpacing = (size.height * 0.03).clamp(16.0, 40.0);
 
     final featuredItems = [...continueWatching, ...videos].take(5).toList();
+    var nextRailIndex = 0;
+    final stationsRailIndex = stations.isNotEmpty ? nextRailIndex++ : -1;
+    final continueRailIndex =
+        continueWatching.isNotEmpty ? nextRailIndex++ : -1;
+    final recentRailIndex = recentlyPlayed.isNotEmpty ? nextRailIndex++ : -1;
+    final videoRailIndex = videos.isNotEmpty ? nextRailIndex++ : -1;
+    final audioRailIndex = audio.isNotEmpty ? nextRailIndex++ : -1;
+    final imageRailIndex = images.isNotEmpty ? nextRailIndex++ : -1;
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) context.pop();
       },
-      child: Scaffold(
-        backgroundColor: tokens.background,
+      child: AppScaffold(
         extendBodyBehindAppBar: true,
-        body: AtmosphericBackground(
-          child: allMedia.isEmpty
-              ? const Center(child: _EmptyState())
-              : CustomScrollView(
-                controller: _scrollController,
-                physics: const ClampingScrollPhysics(),
-                slivers: [
-                  _buildAppBar(context, vm, tokens, sidePadding),
-
-                  if (featuredItems.isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: SizedBox(
-                        height: size.height * 0.75,
-                        width: double.infinity,
-                        child: TVHeroSection(items: featuredItems, vm: vm, allItems: allMedia),
-                      ),
-                    )
-                  else
-                    const SliverToBoxAdapter(child: SizedBox(height: 100)),
-
-                  SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
-
-                  if (stations.isNotEmpty) ...[
-                    SliverToBoxAdapter(
-                      child: TVStationRail(
-                        stations: stations, 
-                        railIndex: 0, 
-                        focusedRail: _railFocus, 
-                        onRailFocus: (i) => setState(() => _railFocus = i), 
-                        vm: vm
-                      ),
+        body: CustomScrollView(
+          controller: _scrollController,
+          physics: const ClampingScrollPhysics(),
+          slivers: [
+            _buildAppBar(context, vm, tokens, sidePadding),
+            if (allMedia.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: ClientLibraryStateView(
+                  isLoading: vm.isLoading,
+                  isConnected: vm.isConnected,
+                  error: vm.connectionError,
+                  onReconnect: () => context.go('/client/connect'),
+                ),
+              )
+            else ...[
+              if (featuredItems.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: size.height * 0.75,
+                    width: double.infinity,
+                    child: TVHeroSection(
+                      items: featuredItems,
+                      vm: vm,
+                      allItems: allMedia,
                     ),
-                    SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
-                  ],
+                  ),
+                )
+              else
+                const SliverToBoxAdapter(child: SizedBox(height: 100)),
 
-                  if (continueWatching.isNotEmpty) ...[
-                    SliverToBoxAdapter(
-                      child: TVContentRail(
-                        title: AppStrings.continueWatching,
-                        subTitle: AppStrings.pathResume,
-                        items: continueWatching,
-                        showProgress: true,
-                        railIndex: stations.isNotEmpty ? 1 : 0,
-                        focusedRail: _railFocus,
-                        onRailFocus: (i) => setState(() => _railFocus = i),
-                        vm: vm,
-                      ),
-                    ),
-                    SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
-                  ],
+              SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
 
-                  if (videos.isNotEmpty) ...[
-                    SliverToBoxAdapter(
-                      child: TVContentRail(
-                        title: AppStrings.videoArchive,
-                        subTitle: AppStrings.pathVideos,
-                        items: videos,
-                        railIndex: (stations.isNotEmpty ? 1 : 0) + (continueWatching.isNotEmpty ? 1 : 0),
-                        focusedRail: _railFocus,
-                        onRailFocus: (i) => setState(() => _railFocus = i),
-                        vm: vm,
-                      ),
-                    ),
-                    SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
-                  ],
+              if (stations.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: TVStationRail(
+                    stations: stations,
+                    railIndex: stationsRailIndex,
+                    onRailFocus: (i) => setState(() => _railFocus = i),
+                    vm: vm,
+                  ),
+                ),
+                SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
+              ],
 
-                  if (audio.isNotEmpty) ...[
-                    SliverToBoxAdapter(
-                      child: TVContentRail(
-                        title: AppStrings.audioMatrix,
-                        subTitle: AppStrings.pathAudio,
-                        items: audio,
-                        railIndex: _calcRailIndex(stations, continueWatching, videos, 2),
-                        focusedRail: _railFocus,
-                        onRailFocus: (i) => setState(() => _railFocus = i),
-                        vm: vm,
-                      ),
-                    ),
-                    SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
-                  ],
+              if (continueWatching.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: TVContentRail(
+                    title: AppStrings.continueWatching,
+                    items: continueWatching,
+                    showProgress: true,
+                    railIndex: continueRailIndex,
+                    focusedRail: _railFocus,
+                    onRailFocus: (i) => setState(() => _railFocus = i),
+                    vm: vm,
+                  ),
+                ),
+                SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
+              ],
 
-                  if (images.isNotEmpty) ...[
-                    SliverToBoxAdapter(
-                      child: TVContentRail(
-                        title: AppStrings.photoDb,
-                        subTitle: AppStrings.pathImages,
-                        items: images,
-                        railIndex: _calcRailIndex(stations, continueWatching, videos, 3),
-                        focusedRail: _railFocus,
-                        onRailFocus: (i) => setState(() => _railFocus = i),
-                        vm: vm,
-                      ),
-                    ),
-                  ],
+              if (recentlyPlayed.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: TVContentRail(
+                    title: AppStrings.recentlyPlayed,
+                    items: recentlyPlayed,
+                    railIndex: recentRailIndex,
+                    focusedRail: _railFocus,
+                    onRailFocus: (i) => setState(() => _railFocus = i),
+                    vm: vm,
+                  ),
+                ),
+                SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
+              ],
 
-                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
-                ],
-              ),
+              if (videos.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: TVContentRail(
+                    title: AppStrings.videoArchive,
+                    items: videos,
+                    railIndex: videoRailIndex,
+                    focusedRail: _railFocus,
+                    onRailFocus: (i) => setState(() => _railFocus = i),
+                    vm: vm,
+                  ),
+                ),
+                SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
+              ],
+
+              if (audio.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: TVContentRail(
+                    title: AppStrings.audioMatrix,
+                    items: audio,
+                    railIndex: audioRailIndex,
+                    focusedRail: _railFocus,
+                    onRailFocus: (i) => setState(() => _railFocus = i),
+                    vm: vm,
+                  ),
+                ),
+                SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
+              ],
+
+              if (images.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: TVContentRail(
+                    title: AppStrings.photoDb,
+                    items: images,
+                    railIndex: imageRailIndex,
+                    focusedRail: _railFocus,
+                    onRailFocus: (i) => setState(() => _railFocus = i),
+                    vm: vm,
+                  ),
+                ),
+              ],
+
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+          ],
+        ),
       ),
-    ),
     );
   }
 
-  Widget _buildAppBar(BuildContext context, ClientViewModel vm, StreamzThemeExtension tokens, double sidePadding) {
+  Widget _buildAppBar(
+    BuildContext context,
+    ClientViewModel vm,
+    StreamzThemeExtension tokens,
+    double sidePadding,
+  ) {
     final size = MediaQuery.sizeOf(context);
-    return SliverAppBar(
-      backgroundColor: _isScrolled ? tokens.surface1 : Colors.transparent,
+    return AppSliverAppBar(
       floating: true,
-      elevation: 0,
       pinned: true,
       toolbarHeight: (size.height * 0.08).clamp(50.0, 80.0),
       leadingWidth: sidePadding + 48,
@@ -214,33 +247,36 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
           },
           child: Focus(
             onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => context.pop()),
-            child: IconButton(
-              tooltip: AppStrings.back,
-              icon: Icon(AppIcons.back, color: tokens.textPrimary, size: (size.width * 0.015).clamp(20.0, 28.0)),
+            child: AppBackButton(
+              iconSize: (size.width * 0.015).clamp(20.0, 28.0),
+              color: tokens.textPrimary,
               onPressed: () => context.pop(),
             ),
           ),
         ),
       ),
-      title: Text(
-        AppStrings.streamzStudio,
-        style: AppTextStyles.barlowBlack((size.width * 0.015).clamp(18.0, 28.0), spacing: 4, color: tokens.textPrimary),
+      title: Row(
+        children: [
+          AppBrandIcon(
+            size: (size.width * 0.03).clamp(28.0, 44.0).toDouble(),
+          ),
+          SizedBox(width: (size.width * 0.01).clamp(10.0, 16.0)),
+          Flexible(
+            child: Text(
+              AppStrings.streamzStudio,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.display(
+                (size.width * 0.015).clamp(18.0, 28.0),
+                spacing: 4,
+                color: tokens.textPrimary,
+              ),
+            ),
+          ),
+        ],
       ),
       centerTitle: false,
       actions: [
-        Center(
-          child: Row(
-            children: [
-              Container(width: 6, height: 6, color: tokens.accent),
-              const SizedBox(width: DS.s8),
-              Text(
-                'TGT // ${vm.targetIp}',
-                style: AppTextStyles.mono((size.width * 0.008).clamp(9.0, 12.0), color: tokens.textSecondary),
-              ),
-              const SizedBox(width: DS.s24),
-            ],
-          ),
-        ),
         Padding(
           padding: EdgeInsets.only(right: sidePadding),
           child: Actions(
@@ -253,32 +289,42 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
               ),
             },
             child: Focus(
-              onKeyEvent: (_, ev) => handleTVSelectKey(ev, () => _openSearch(context, vm.remoteMedia)),
+              onKeyEvent: (_, ev) => handleTVSelectKey(
+                ev,
+                () => _openSearch(context, vm.remoteMedia),
+              ),
               child: IconButton(
                 tooltip: AppStrings.search,
-                icon: Icon(AppIcons.search, color: tokens.textPrimary, size: (size.width * 0.015).clamp(20.0, 28.0)),
+                icon: Icon(
+                  AppIcons.search,
+                  color: tokens.textPrimary,
+                  size: (size.width * 0.015).clamp(20.0, 28.0),
+                ),
                 onPressed: () => _openSearch(context, vm.remoteMedia),
               ),
             ),
           ),
         ),
-      ],
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: AnimatedOpacity(
-          opacity: _isScrolled ? 1.0 : 0.0,
-          duration: const Duration(milliseconds: 200),
-          child: Container(color: tokens.border.withValues(alpha: 0.15), height: 1),
+        Padding(
+          padding: EdgeInsets.only(right: sidePadding),
+          child: Focus(
+            onKeyEvent: (_, event) => handleTVSelectKey(
+              event,
+              () => context.push('/settings'),
+            ),
+            child: IconButton(
+              tooltip: 'Appearance settings',
+              icon: Icon(
+                AppIcons.settings,
+                color: tokens.textPrimary,
+                size: (size.width * 0.015).clamp(20.0, 28.0),
+              ),
+              onPressed: () => context.push('/settings'),
+            ),
+          ),
         ),
-      ),
+      ],
     );
-  }
-
-  int _calcRailIndex(List stations, List continueWatching, List videos, int baseOffset) {
-    var idx = stations.isNotEmpty ? 1 : 0;
-    if (continueWatching.isNotEmpty) idx++;
-    if (videos.isNotEmpty) idx++;
-    return idx + baseOffset - 2;
   }
 
   void _openSearch(BuildContext context, List<MediaItem> allMedia) {
@@ -289,7 +335,8 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
           value: context.read<ClientViewModel>(),
           child: _TVSearchScreen(allMedia: allMedia),
         ),
-        transitionsBuilder: (_, a, _, c) => FadeTransition(opacity: a, child: c),
+        transitionsBuilder: (_, a, _, c) =>
+            FadeTransition(opacity: a, child: c),
       ),
     );
   }
@@ -311,7 +358,10 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
   List<MediaItem> get _results {
     if (_query.isEmpty) return [];
     final q = _query.toLowerCase();
-    return widget.allMedia.where((m) => m.title.toLowerCase().contains(q)).take(50).toList();
+    return widget.allMedia
+        .where((m) => m.title.toLowerCase().contains(q))
+        .take(50)
+        .toList();
   }
 
   @override
@@ -332,23 +382,27 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
     final tokens = context.tokens;
     final results = _results;
 
-    return Scaffold(
-      backgroundColor: tokens.background,
+    return AppScaffold(
       body: SafeArea(
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
-              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)))),
               child: Row(
                 children: [
+                  AppBackButton(onPressed: () => context.pop()),
+                  const SizedBox(width: 12),
                   const Icon(AppIcons.search, color: DS.textPrimary, size: 32),
                   const SizedBox(width: 24),
                   Expanded(
                     child: TextField(
                       controller: _ctrl,
                       focusNode: _focus,
-                      style: AppTextStyles.mono(24, spacing: 2, color: tokens.textPrimary),
+                      style: AppTextStyles.text(
+                        24,
+                        spacing: 2,
+                        color: tokens.textPrimary,
+                      ),
                       decoration: const InputDecoration(
                         hintText: AppStrings.searchSignalHint,
                         hintStyle: TextStyle(color: DS.textMuted),
@@ -361,19 +415,38 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
               ),
             ),
             Expanded(
-              child: results.isEmpty 
-                  ? Center(child: Text(AppStrings.noSignals.toUpperCase(), style: AppTextStyles.mono(16, spacing: 4, color: tokens.textMuted)))
+              child: results.isEmpty
+                  ? Center(
+                      child: Text(
+                        _query.trim().isEmpty
+                            ? 'TYPE TO SEARCH YOUR MEDIA'
+                            : 'NO MATCHING MEDIA',
+                        style: AppTextStyles.text(
+                          16,
+                          spacing: 4,
+                          color: tokens.textMuted,
+                        ),
+                      ),
+                    )
                   : GridView.builder(
                       padding: const EdgeInsets.all(48),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 5, 
-                        crossAxisSpacing: 24, 
-                        mainAxisSpacing: 24, 
-                        childAspectRatio: 1.0
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount:
+                            (MediaQuery.sizeOf(context).width /
+                                    (320 *
+                                        MediaQuery.textScalerOf(
+                                          context,
+                                        ).scale(20) /
+                                        20))
+                                .floor()
+                                .clamp(2, 8),
+                        crossAxisSpacing: 24,
+                        mainAxisSpacing: 24,
+                        childAspectRatio: 1.0,
                       ),
                       itemCount: results.length,
                       itemBuilder: (ctx, i) => _TVSearchCard(
-                        item: results[i], 
+                        item: results[i],
                         allItems: results,
                         onFocus: () {},
                       ),
@@ -387,7 +460,11 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
 }
 
 class _TVSearchCard extends StatefulWidget {
-  const _TVSearchCard({required this.item, required this.allItems, required this.onFocus});
+  const _TVSearchCard({
+    required this.item,
+    required this.allItems,
+    required this.onFocus,
+  });
   final MediaItem item;
   final List<MediaItem> allItems;
   final VoidCallback onFocus;
@@ -400,10 +477,13 @@ class _TVSearchCardState extends State<_TVSearchCard> {
   bool _focused = false;
 
   void _play() {
-    context.push('/tv-player', extra: {
-      'items': widget.allItems,
-      'startIndex': widget.allItems.indexOf(widget.item),
-    });
+    context.push(
+      '/tv-player',
+      extra: {
+        'items': widget.allItems,
+        'startIndex': widget.allItems.indexOf(widget.item),
+      },
+    );
   }
 
   @override
@@ -423,14 +503,21 @@ class _TVSearchCardState extends State<_TVSearchCard> {
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: tokens.surface2,
-              border: Border.all(color: _focused ? tokens.textPrimary : tokens.border.withValues(alpha: 0.15), width: _focused ? 4 : 1),
+              border: Border.all(
+                color: _focused
+                    ? tokens.textPrimary
+                    : tokens.border.withValues(alpha: 0.15),
+                width: _focused ? 4 : 1,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
                   child: NetworkImageFade(
-                    url: context.read<ClientViewModel>().thumbnailUrl(widget.item.id),
+                    url: context.read<ClientViewModel>().thumbnailUrl(
+                      widget.item.id,
+                    ),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -440,7 +527,12 @@ class _TVSearchCardState extends State<_TVSearchCard> {
                     widget.item.title.toUpperCase(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.mono(10, color: _focused ? tokens.textPrimary : tokens.textSecondary),
+                    style: AppTextStyles.text(
+                      10,
+                      color: _focused
+                          ? tokens.textPrimary
+                          : tokens.textSecondary,
+                    ),
                   ),
                 ),
               ],
@@ -448,26 +540,6 @@ class _TVSearchCardState extends State<_TVSearchCard> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(AppIcons.wifiOff, size: 64, color: DS.textMuted),
-        const SizedBox(height: 24),
-        Text(
-          '${AppStrings.signalLost} // NO_CONTENT',
-          style: AppTextStyles.barlowBold(32, spacing: 4, color: tokens.textMuted),
-        ),
-      ],
     );
   }
 }

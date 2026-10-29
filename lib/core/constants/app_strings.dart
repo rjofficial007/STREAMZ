@@ -2,49 +2,46 @@
 
 abstract final class AppStrings {
   static const appTitle = 'STREAMZ';
-  static const studio = 'STUDIO';
-  static const streamzStudio = '$appTitle // $studio';
-  
-  static const back = 'BACK';
-  static const play = 'PLAY';
-  static const playNow = 'PLAY NOW';
-  static const live = 'LIVE';
-  static const search = 'SEARCH';
-  static const relay = 'RELAY';
-  static const queue = 'QUEUE';
-  static const vote = 'VOTE';
-  static const sharedQueue = 'SHARED QUEUE';
-  static const voteForNextSignal = 'VOTE FOR NEXT SIGNAL';
-  static const queueEmpty = 'QUEUE EMPTY // ADD MEDIA';
-  
-  static const continueWatching = 'CONTINUE WATCHING';
-  static const pathResume = 'PATH // ROOT/RESUME';
-  
-  static const videoArchive = 'VIDEO ARCHIVE';
-  static const pathVideos = 'PATH // ROOT/VIDEOS';
-  
-  static const photoDb = 'PHOTO DB';
-  static const pathImages = 'PATH // ROOT/IMAGES';
-  
-  static const audioMatrix = 'AUDIO MATRIX';
-  static const pathAudio = 'PATH // ROOT/AUDIO';
-  
-  static const networkBroadcasts = 'NETWORK BROADCASTS';
-  static const pathLive = 'PATH // ROOT/LIVE';
-  
-  static const statusHighlighted = 'STATUS // HIGHLIGHTED';
-  static const statusNowPlaying = 'STATUS // NOW PLAYING';
-  static const awaitingSignal = 'AWAITING SIGNAL';
-  
-  static const addToSharedQueue = 'ADD TO SHARED QUEUE';
-  static const downloadSignal = 'DOWNLOAD SIGNAL';
-  
-  static const searchSignalHint = 'SEARCH_SIGNAL...';
-  static const noSignals = 'NO SIGNALS';
-  static const signalLost = 'SIGNAL_LOST';
-  
-  static const by = 'BY:';
-  
+  static const studio = 'Studio';
+  static const streamzStudio = appTitle;
+
+  static const back = 'Back';
+  static const play = 'Play';
+  static const playNow = 'Play now';
+  static const live = 'Live';
+  static const search = 'Search';
+  static const relay = 'Remote control';
+  static const queue = 'Queue';
+  static const vote = 'Vote';
+  static const sharedQueue = 'Shared queue';
+  static const voteForNextSignal = 'Choose what plays next';
+  static const queueEmpty = 'Your queue is empty';
+
+  static const continueWatching = 'Continue watching';
+  static const recentlyPlayed = 'Recently played';
+
+  static const videoArchive = 'Videos';
+
+  static const photoDb = 'Photos';
+
+  static const audioMatrix = 'Music';
+
+  static const networkBroadcasts = 'Live streams';
+  static const pathLive = 'Broadcasts on your network';
+
+  static const statusHighlighted = 'Featured';
+  static const statusNowPlaying = 'Now playing';
+  static const awaitingSignal = 'Waiting for a stream';
+
+  static const addToSharedQueue = 'Add to shared queue';
+  static const downloadSignal = 'Download';
+
+  static const searchSignalHint = 'Search your library';
+  static const noSignals = 'No media found';
+  static const signalLost = 'Connection lost';
+
+  static const by = 'By';
+
   // Terminal/System strings
   static const sysRoot = 'SYS:/';
   static const loaded = 'LOADED';

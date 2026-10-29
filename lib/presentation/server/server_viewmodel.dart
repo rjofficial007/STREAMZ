@@ -29,7 +29,6 @@ import 'package:streamz/domain/services/server_lifecycle_service.dart';
 import 'package:streamz/domain/services/video_thumbnail_service.dart';
 
 class ServerViewModel extends ChangeNotifier {
-
   // ── Constructor ───────────────────────────────────────────────────────────
 
   ServerViewModel() {
@@ -58,7 +57,11 @@ class ServerViewModel extends ChangeNotifier {
       _broadcaster.stop();
       if (gen != _restartGeneration) return; // superseded
       _httpServer.pairingToken = _pairingToken;
-      await _httpServer.start(ip: _serverIp, sharedFolders: _sharedFolders, getMediaItems: _getMediaItems);
+      await _httpServer.start(
+        ip: _serverIp,
+        sharedFolders: _sharedFolders,
+        getMediaItems: _getMediaItems,
+      );
       if (gen != _restartGeneration) return; // superseded
       await _broadcaster.start(_serverIp, _pairingToken);
       notifyListeners();
@@ -98,7 +101,7 @@ class ServerViewModel extends ChangeNotifier {
   Timer? _speedTimer;
 
   int _lastBytesSent = 0;
-  double _currentSpeedMb = 0.0;
+  final ValueNotifier<double> _speedUpdates = ValueNotifier(0);
 
   // ── Getters ───────────────────────────────────────────────────────────────
   bool get isRunning => _httpServer.isRunning;
@@ -114,7 +117,8 @@ class ServerViewModel extends ChangeNotifier {
   List<StreamSession> get activeSessions => _activeSessions.values.toList();
   List<ConnectionRecord> get connectionHistory => _serverRepo.connectionHistory;
   int get connectedClients => _httpServer.socketCount;
-  double get currentSpeedMb => _currentSpeedMb;
+  double get currentSpeedMb => _speedUpdates.value;
+  ValueListenable<double> get speedUpdates => _speedUpdates;
   List<String> get serverLogs => _httpServer.logs;
 
   void _loadStations() {
@@ -159,6 +163,8 @@ class ServerViewModel extends ChangeNotifier {
     if (isRunning || _isInitializing) return;
     _isInitializing = true;
     notifyListeners();
+    var shouldRetry = false;
+    var retryGeneration = _restartGeneration;
 
     try {
       _serverIp = await _networkService.detectIp();
@@ -167,23 +173,30 @@ class ServerViewModel extends ChangeNotifier {
       await _lifecycleService.acquire(serverIp: _serverIp);
 
       // Scan media...
-      await _scanner.scanPhotoManager(includeVideos: _shareVideos, includeImages: _shareImages);
+      await _scanner.scanPhotoManager(
+        includeVideos: _shareVideos,
+        includeImages: _shareImages,
+      );
       await _scanner.scanAudio();
 
       // Scan manually shared directories.
       _scanner.clearScannedFiles();
       for (final folder in _sharedFolders) {
         await _scanner.scanDirectory(
-          folder, 
-          includeVideos: _shareVideos, 
-          includeAudio: _shareMusic, 
-          includeImages: _shareImages, 
-          onBatch: (_) => notifyListeners()
+          folder,
+          includeVideos: _shareVideos,
+          includeAudio: _shareMusic,
+          includeImages: _shareImages,
+          onBatch: (_) => notifyListeners(),
         );
       }
 
       _httpServer.pairingToken = _pairingToken;
-      await _httpServer.start(ip: _serverIp, sharedFolders: _sharedFolders, getMediaItems: _getMediaItems);
+      await _httpServer.start(
+        ip: _serverIp,
+        sharedFolders: _sharedFolders,
+        getMediaItems: _getMediaItems,
+      );
 
       await _broadcaster.start(_serverIp, _pairingToken);
       _startUITimers();
@@ -198,14 +211,21 @@ class ServerViewModel extends ChangeNotifier {
         _startRetried = true;
         _serverIp = 'Retrying...';
         notifyListeners();
-        await Future.delayed(const Duration(milliseconds: 500));
-        unawaited(startServer());
-        return;
+        shouldRetry = true;
+        retryGeneration = _restartGeneration;
+      } else {
+        _serverIp = 'Error: ${e.toString().split('\n').first}';
       }
-      _serverIp = 'Error: ${e.toString().split('\n').first}';
     } finally {
       _isInitializing = false;
       notifyListeners();
+    }
+
+    if (shouldRetry) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (retryGeneration == _restartGeneration && !isRunning) {
+        await startServer();
+      }
     }
   }
 
@@ -217,11 +237,11 @@ class ServerViewModel extends ChangeNotifier {
 
     try {
       await Future.any([
-        Future.wait([
-          _httpServer.stop(),
-          Future.microtask(_broadcaster.stop),
-        ]),
-        Future.delayed(const Duration(seconds: 3), () => logger.w('[ServerVM] Stop timeout')),
+        Future.wait([_httpServer.stop(), Future.microtask(_broadcaster.stop)]),
+        Future.delayed(
+          const Duration(seconds: 3),
+          () => logger.w('[ServerVM] Stop timeout'),
+        ),
       ]);
     } catch (e) {
       logger.e('[ServerVM] Error during stop', error: e);
@@ -235,13 +255,30 @@ class ServerViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<MediaItem> _getMediaItems() => _mediaRepo.getLocalMediaItems(shareVideos: _shareVideos, shareMusic: _shareMusic, shareImages: _shareImages);
+  List<MediaItem> _getMediaItems() => _mediaRepo.getLocalMediaItems(
+    shareVideos: _shareVideos,
+    shareMusic: _shareMusic,
+    shareImages: _shareImages,
+  );
 
-  List<MediaItem> getLocalMediaItems({bool? shareVideos, bool? shareMusic, bool? shareImages}) => _mediaRepo.getLocalMediaItems(shareVideos: shareVideos ?? _shareVideos, shareMusic: shareMusic ?? _shareMusic, shareImages: shareImages ?? _shareImages);
+  List<MediaItem> getLocalMediaItems({
+    bool? shareVideos,
+    bool? shareMusic,
+    bool? shareImages,
+  }) => _mediaRepo.getLocalMediaItems(
+    shareVideos: shareVideos ?? _shareVideos,
+    shareMusic: shareMusic ?? _shareMusic,
+    shareImages: shareImages ?? _shareImages,
+  );
 
   // ── Communication ────────────────────────────────────────────────────────
 
-  void broadcastCommand(String type, String action, {dynamic value, String? targetId}) {
+  void broadcastCommand(
+    String type,
+    String action, {
+    dynamic value,
+    String? targetId,
+  }) {
     final payload = {
       'type': type,
       'action': action,
@@ -254,11 +291,9 @@ class ServerViewModel extends ChangeNotifier {
 
   void sendIntercom(String text) {
     if (text.isEmpty) return;
-    _httpServer.broadcast(jsonEncode({
-      'type': 'intercom',
-      'action': 'alert',
-      'value': text,
-    }));
+    _httpServer.broadcast(
+      jsonEncode({'type': 'intercom', 'action': 'alert', 'value': text}),
+    );
   }
 
   void playOnClient(MediaItem item, {String? targetId}) {
@@ -271,21 +306,24 @@ class ServerViewModel extends ChangeNotifier {
 
   void teleport(String fromId, String toId) {
     // Session retrieval by clientId. We assume the session is active if the node is connected.
-    final session = _activeSessions.values.firstWhere((s) => s.clientId == fromId, orElse: () => throw Exception('Session not found'));
-    
+    final session = _activeSessions.values.firstWhere(
+      (s) => s.clientId == fromId,
+      orElse: () => throw Exception('Session not found'),
+    );
+
     // Teleportation logic:
     // 1. Tell the source node to stop.
     // 2. Tell the target node to start playing the SAME media at the SAME position.
     stopClient(fromId);
     broadcastCommand(
-      'media', 
-      'teleport', 
+      'media',
+      'teleport',
       value: {
         'mediaId': session.mediaId,
         'position': session.position,
         'mediaType': session.mediaType,
-      }, 
-      targetId: toId
+      },
+      targetId: toId,
     );
   }
 
@@ -312,7 +350,10 @@ class ServerViewModel extends ChangeNotifier {
     // LAN pairing code, short enough to type by hand.
     const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
     final rnd = Random.secure();
-    _pairingToken = List.generate(8, (_) => alphabet[rnd.nextInt(alphabet.length)]).join();
+    _pairingToken = List.generate(
+      8,
+      (_) => alphabet[rnd.nextInt(alphabet.length)],
+    ).join();
     prefs.setString('pairing_token', _pairingToken);
   }
 
@@ -334,14 +375,16 @@ class ServerViewModel extends ChangeNotifier {
   }
 
   void _saveSettings() {
-    unawaited(_serverRepo.saveSettings({
-      'sharedFolders': _sharedFolders,
-      'useModernWebUI': _useModernWebUI,
-      'shareVideos': _shareVideos,
-      'shareImages': _shareImages,
-      'shareMusic': _shareMusic,
-      'zeroTrace': _zeroTrace,
-    }));
+    unawaited(
+      _serverRepo.saveSettings({
+        'sharedFolders': _sharedFolders,
+        'useModernWebUI': _useModernWebUI,
+        'shareVideos': _shareVideos,
+        'shareImages': _shareImages,
+        'shareMusic': _shareMusic,
+        'zeroTrace': _zeroTrace,
+      }),
+    );
   }
 
   void setUseModernWebUI(bool v) {
@@ -440,12 +483,20 @@ class ServerViewModel extends ChangeNotifier {
       // Resuming: Adjust startTime so that (now - newStartTime) == (pausedAt - oldStartTime)
       final pausedElapsed = station.pausedAt!.difference(station.startTime);
       final newStartTime = now.subtract(pausedElapsed);
-      _stations[idx] = station.copyWith(isPaused: false, pausedAt: null, startTime: newStartTime);
-      _httpServer.broadcast(jsonEncode({'type': 'media', 'action': 'station_resume'}));
+      _stations[idx] = station.copyWith(
+        isPaused: false,
+        pausedAt: null,
+        startTime: newStartTime,
+      );
+      _httpServer.broadcast(
+        jsonEncode({'type': 'media', 'action': 'station_resume'}),
+      );
     } else {
       // Pausing: Store current time as pausedAt
       _stations[idx] = station.copyWith(isPaused: true, pausedAt: now);
-      _httpServer.broadcast(jsonEncode({'type': 'media', 'action': 'station_pause'}));
+      _httpServer.broadcast(
+        jsonEncode({'type': 'media', 'action': 'station_pause'}),
+      );
     }
 
     _httpServer.stations = _stations;
@@ -461,11 +512,22 @@ class ServerViewModel extends ChangeNotifier {
     final station = _stations[idx];
     if (station.isActive) {
       // Deactivating (Stop)
-      _stations[idx] = station.copyWith(isActive: false, isPaused: false, pausedAt: null);
-      _httpServer.broadcast(jsonEncode({'type': 'media', 'action': 'station_stop'}));
+      _stations[idx] = station.copyWith(
+        isActive: false,
+        isPaused: false,
+        pausedAt: null,
+      );
+      _httpServer.broadcast(
+        jsonEncode({'type': 'media', 'action': 'station_stop'}),
+      );
     } else {
       // Activating (Start) - Reset startTime to now to start from beginning
-      _stations[idx] = station.copyWith(isActive: true, isPaused: false, pausedAt: null, startTime: DateTime.now());
+      _stations[idx] = station.copyWith(
+        isActive: true,
+        isPaused: false,
+        pausedAt: null,
+        startTime: DateTime.now(),
+      );
     }
 
     // Re-run sync-master election on next join.
@@ -486,7 +548,11 @@ class ServerViewModel extends ChangeNotifier {
   }
 
   Future<void> curateStation(String vibe) async {
-    final all = _mediaRepo.getLocalMediaItems(shareVideos: true, shareMusic: true, shareImages: false);
+    final all = _mediaRepo.getLocalMediaItems(
+      shareVideos: true,
+      shareMusic: true,
+      shareImages: false,
+    );
     var filtered = <MediaItem>[];
     if (vibe == 'video') {
       filtered = all.where((m) => m.isVideo).toList();
@@ -497,7 +563,10 @@ class ServerViewModel extends ChangeNotifier {
     }
     if (filtered.isEmpty) return;
     filtered.shuffle();
-    await createStation('AUTO_${vibe.toUpperCase()}', filtered.take(15).toList());
+    await createStation(
+      'AUTO_${vibe.toUpperCase()}',
+      filtered.take(15).toList(),
+    );
   }
 
   Future<int> _probeDuration(MediaItem item) async {
@@ -508,7 +577,9 @@ class ServerViewModel extends ChangeNotifier {
     }
     // Path-based items (id IS the file path).
     final raw = File(item.id);
-    if (raw.existsSync()) return sl<VideoThumbnailService>().probeDuration(item.id);
+    if (raw.existsSync()) {
+      return sl<VideoThumbnailService>().probeDuration(item.id);
+    }
     return 0;
   }
 
@@ -517,14 +588,16 @@ class ServerViewModel extends ChangeNotifier {
   void _startUITimers() {
     _speedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       final sent = _httpServer.bytesSent;
-      _currentSpeedMb = (sent - _lastBytesSent) / (1024 * 1024);
+      _speedUpdates.value = (sent - _lastBytesSent) / (1024 * 1024);
       _lastBytesSent = sent;
-      notifyListeners();
     });
 
     _sessionPruneTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      final previousCount = _activeSessions.length;
       _activeSessions.removeWhere((_, s) => s.isStale);
-      notifyListeners();
+      if (_activeSessions.length != previousCount) {
+        notifyListeners();
+      }
     });
   }
 
@@ -537,6 +610,7 @@ class ServerViewModel extends ChangeNotifier {
     _speedTimer?.cancel();
     _sessionPruneTimer?.cancel();
     _lifecycleBus.removeManualListener(_onLifecycleChange);
+    _speedUpdates.dispose();
     super.dispose();
   }
 }

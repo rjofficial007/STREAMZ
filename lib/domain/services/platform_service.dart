@@ -1,9 +1,24 @@
 import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 
 /// PlatformService centralizes OS-specific logic such as default media paths.
 /// This improves testability and keeps ViewModels clean of 'if (Platform.is...)' checks.
 class PlatformService {
+  /// Detects Android TV by its Leanback system feature, independent of the
+  /// display's resolution or density.
+  Future<bool> isAndroidTV() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return false;
+
+    try {
+      final info = await DeviceInfoPlugin().androidInfo;
+      return info.systemFeatures.contains('android.software.leanback') ||
+          info.systemFeatures.contains('android.hardware.type.television');
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Returns a list of default "mounted" folders based on the current OS.
   List<String> getDefaultSharedFolders() {
     if (kIsWeb) return [];

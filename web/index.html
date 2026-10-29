@@ -1,46 +1,94 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
-
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
-
-  <!-- iOS meta tags & icons -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Your media, shared simply.">
+  <meta name="theme-color" content="#060606">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="streamz">
+  <meta name="apple-mobile-web-app-title" content="STREAMZ">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
-
-  <title>streamz</title>
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="manifest.json">
+  <link rel="preload" as="image" href="assets/assets/images/app_icon.png">
+  <title>STREAMZ</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { width: 100%; height: 100%; margin: 0; background: #060606; }
+    body { overflow: hidden; }
+    #launch-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background:
+        radial-gradient(circle 90vmin at 50% -7.5vh, rgba(12, 58, 168, .85) 0%, rgba(12, 58, 168, .25) 35%, transparent 100%),
+        linear-gradient(180deg, #0a0a0c 0%, #060606 50%, #020202 100%);
+      opacity: 1;
+      transition: opacity 360ms ease;
+    }
+    #launch-splash.is-hidden { opacity: 0; pointer-events: none; }
+    .launch-lockup {
+      width: min(92vw, 560px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      font-family: Manrope, "Avenir Next", "Segoe UI", sans-serif;
+      animation: settle 800ms cubic-bezier(.2,.75,.25,1) both;
+    }
+    .launch-mark {
+      width: clamp(56px, 13vmin, 70px);
+      height: clamp(56px, 13vmin, 70px);
+      margin-bottom: 25px;
+      border-radius: 20%;
+      object-fit: cover;
+      filter: drop-shadow(0 0 42px rgba(37, 89, 184, .18));
+    }
+    .launch-wordmark {
+      color: #e4e5e9;
+      font-size: clamp(38px, 11.5vw, 68px);
+      font-weight: 300;
+      letter-spacing: 1.2px;
+      line-height: 1;
+    }
+    .launch-tagline {
+      margin-top: 12px;
+      color: #8b8e97;
+      font-size: clamp(14px, 3.7vw, 20px);
+      font-weight: 300;
+      letter-spacing: .1px;
+    }
+    @keyframes settle {
+      from { opacity: 0; transform: translateY(10px) scale(.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <div id="launch-splash" role="status" aria-label="STREAMZ loading">
+    <div class="launch-lockup">
+      <img class="launch-mark" src="assets/assets/images/app_icon.png" alt="">
+      <div class="launch-wordmark">STREAMZ</div>
+      <div class="launch-tagline">Your media, shared simply.</div>
+    </div>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      const splash = document.getElementById('launch-splash');
+      if (!splash) return;
+      splash.classList.add('is-hidden');
+      window.setTimeout(() => splash.remove(), 400);
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
