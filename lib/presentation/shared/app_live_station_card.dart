@@ -15,6 +15,7 @@ class AppLiveStationCard extends StatelessWidget {
     this.width,
     this.height,
     this.onFocusChanged,
+    this.focusNode,
   });
 
   final String title;
@@ -25,6 +26,7 @@ class AppLiveStationCard extends StatelessWidget {
   final double? width;
   final double? height;
   final ValueChanged<bool>? onFocusChanged;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +38,7 @@ class AppLiveStationCard extends StatelessWidget {
       child: AppCard(
         onTap: onTap,
         onFocusChanged: onFocusChanged,
+        focusNode: focusNode,
         child: Padding(
           padding: const EdgeInsets.all(DS.s16),
           child: Column(

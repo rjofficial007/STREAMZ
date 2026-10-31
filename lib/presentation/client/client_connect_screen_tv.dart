@@ -1,6 +1,6 @@
 // presentation/client/client_connect_screen_tv.dart
 // ============================================================================
-// STREAMZ — TV Client Connection Screen (NOC Dashboard - V2)
+// STREAMZ — TV client connection screen
 // ============================================================================
 
 import 'dart:async';
@@ -42,11 +42,13 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
   }
 
   void _startDiscovery() {
-    _clientViewModel.startDiscovery((ip, token) {
-      if (!mounted || _ctrl.text.isNotEmpty) return;
-      _ctrl.text = ip;
-      unawaited(_connect(ip, token));
-    });
+    unawaited(
+      _clientViewModel.startDiscovery((ip, token) {
+        if (!mounted || _ctrl.text.isNotEmpty) return;
+        _ctrl.text = ip;
+        unawaited(_connect(ip, token, true));
+      }),
+    );
   }
 
   @override
@@ -58,16 +60,20 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
     super.dispose();
   }
 
-  Future<void> _connect([String? manualIp, String? pairingToken]) async {
+  Future<void> _connect([
+    String? manualIp,
+    String? pairingToken,
+    bool keepDiscovery = false,
+  ]) async {
     final ip = (manualIp ?? _ctrl.text).trim();
     if (ip.isEmpty) return;
     // Explicit token (QR/discovery) wins; otherwise fall back to the field.
     final code = (pairingToken ?? _codeCtrl.text).trim();
 
-    // Stop discovery before connecting
-    context.read<ClientViewModel>().stopDiscovery();
+    final clientViewModel = context.read<ClientViewModel>();
+    if (!keepDiscovery) clientViewModel.stopDiscovery();
 
-    final ok = await context.read<ClientViewModel>().connect(
+    final ok = await clientViewModel.connect(
       ip,
       pairingToken: code.isEmpty ? null : code,
     );
@@ -83,7 +89,7 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
     final vm = context.watch<ClientViewModel>();
     final tokens = context.tokens;
     final size = MediaQuery.sizeOf(context);
-    final horizontalPad = (size.width * 0.05).clamp(24.0, 80.0);
+    final horizontalPad = DS.hPad(size.width);
 
     return AppScaffold(
       body: Stack(
@@ -112,6 +118,30 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
                               _buildIntegratedInput(context)
                             else
                               _buildQuickActions(vm),
+
+                            if (vm.discoveredHosts.isNotEmpty) ...[
+                              const SizedBox(height: DS.s24),
+                              Text(
+                                'Found on your network',
+                                style: AppTextStyles.heading(
+                                  20,
+                                  color: tokens.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: DS.s8),
+                              ...vm.discoveredHosts.map(
+                                (host) => AppListTileCard(
+                                  title: host.name,
+                                  subtitle: host.ip,
+                                  icon: LucideIcons.server,
+                                  onTap: () {
+                                    _ctrl.text = host.ip;
+                                    setState(() => _showManualInput = true);
+                                    _focusNode.requestFocus();
+                                  },
+                                ),
+                              ),
+                            ],
 
                             if (vm.connectionError != null)
                               _buildErrorBanner(context, vm.connectionError!),
@@ -170,7 +200,6 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
                     ),
                   ),
                 ),
-                _buildFooter(context),
               ],
             ),
           ),
@@ -187,10 +216,9 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
                       CircularProgressIndicator(color: tokens.accent),
                       const SizedBox(height: 24),
                       Text(
-                        'INITIATING HANDSHAKE...',
+                        'Connecting to server…',
                         style: AppTextStyles.bodyLarge.copyWith(
-                          color: tokens.accent,
-                          letterSpacing: 0.8,
+                          color: tokens.textPrimary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -212,17 +240,17 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
       padding: EdgeInsets.all((size.width * 0.025).clamp(16.0, 32.0)),
       decoration: BoxDecoration(
         color: tokens.surface1,
-        border: Border.all(color: tokens.accent, width: 2),
+        borderRadius: BorderRadius.circular(DS.radiusLg),
+        border: Border.all(color: tokens.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'MANUAL HANDSHAKE',
+            'Connect manually',
             style: AppTextStyles.style(
               color: tokens.textSecondary,
               fontSize: (size.width * 0.009).clamp(10.0, 14.0),
-              letterSpacing: 0.8,
             ),
           ),
           SizedBox(height: (size.height * 0.03).clamp(16.0, 24.0)),
@@ -235,6 +263,7 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
                   },
                   child: Container(
                     decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(DS.radius(14)),
                       border: Border.all(
                         color: _focusNode.hasFocus
                             ? tokens.accent
@@ -251,7 +280,7 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
                         fontSize: (size.width * 0.015).clamp(18.0, 24.0),
                       ),
                       decoration: InputDecoration(
-                        hintText: 'ENTER IPv4 ADDRESS...',
+                        hintText: 'IP address',
                         hintStyle: TextStyle(color: tokens.textMuted),
                         border: InputBorder.none,
                       ),
@@ -262,10 +291,10 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
                 ),
               ),
               const SizedBox(width: 24),
-              _DialogBtn(label: 'INITIATE', isPrimary: true, onTap: _connect),
+              _DialogBtn(label: 'Connect', isPrimary: true, onTap: _connect),
               const SizedBox(width: 16),
               _DialogBtn(
-                label: 'CANCEL',
+                label: 'Cancel',
                 onTap: () => setState(() => _showManualInput = false),
               ),
             ],
@@ -275,7 +304,8 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
           // (shown on the server's QR sheet).
           Container(
             decoration: BoxDecoration(
-              border: Border.all(color: tokens.borderStrong),
+              borderRadius: BorderRadius.circular(DS.radius(14)),
+              border: Border.all(color: tokens.border),
               color: tokens.surface2,
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -286,7 +316,7 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
                 fontSize: (size.width * 0.012).clamp(14.0, 18.0),
               ),
               decoration: InputDecoration(
-                hintText: 'PAIRING CODE (OPTIONAL)...',
+                hintText: 'Pairing code (optional)',
                 hintStyle: TextStyle(color: tokens.textMuted),
                 border: InputBorder.none,
               ),
@@ -302,10 +332,9 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
     children: [
       Expanded(
         child: _TVConnectCard(
-          label: 'MANUAL IP',
-          subLabel: 'DIRECT NODE ADDRESSING',
-          code: 'TCP-01',
-          icon: LucideIcons.terminal,
+          label: 'Enter server address',
+          subLabel: 'Connect using an IP address',
+          icon: LucideIcons.hardDrive,
           onTap: () {
             setState(() => _showManualInput = true);
             _focusNode.requestFocus();
@@ -316,9 +345,8 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
       const SizedBox(width: DS.s24),
       Expanded(
         child: _TVConnectCard(
-          label: vm.isDiscovering ? 'STOP SCAN' : 'DISCOVER',
-          subLabel: 'AUTOMATIC NODE SEARCH',
-          code: 'UDP-02',
+          label: vm.isDiscovering ? 'Stop searching' : 'Find servers',
+          subLabel: 'Search your local network',
           icon: vm.isDiscovering ? LucideIcons.searchX : LucideIcons.search,
           onTap: () =>
               vm.isDiscovering ? vm.stopDiscovery() : _startDiscovery(),
@@ -330,82 +358,74 @@ class _ClientConnectScreenTVState extends State<ClientConnectScreenTV> {
   Widget _buildHeader(BuildContext context, ClientViewModel vm) {
     final tokens = context.tokens;
     final size = MediaQuery.sizeOf(context);
-    final horizontalPad = (size.width * 0.05).clamp(24.0, 80.0);
+    final horizontalPad = DS.hPad(size.width);
     final verticalPad = (size.height * 0.04).clamp(16.0, 40.0);
+    final heading = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Connect to a server',
+          style: AppTextStyles.heading(
+            (size.width * 0.025).clamp(24.0, 38.0),
+            color: tokens.textPrimary,
+          ),
+        ),
+        const SizedBox(height: DS.s4),
+        Text(
+          'Find a device on your network or enter its address.',
+          style: AppTextStyles.body.copyWith(color: tokens.textMuted),
+        ),
+      ],
+    );
+    final statuses = [
+      _StatusModule(
+        label: 'Discovery',
+        value: vm.isDiscovering
+            ? 'Searching'
+            : vm.discoveryState == 'failed'
+            ? 'Unavailable'
+            : vm.discoveryState == 'timedOut'
+            ? 'No servers found'
+            : 'Ready',
+      ),
+      _StatusModule(
+        label: 'Recent server',
+        value: vm.ipHistory.firstOrNull ?? 'None yet',
+      ),
+      _StatusModule(label: 'Saved servers', value: '${vm.ipHistory.length}'),
+    ];
 
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: horizontalPad,
         vertical: verticalPad,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 850) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'CLIENT NODE // HANDSHAKE ANALYSIS',
-                  style: AppTextStyles.style(
-                    color: tokens.textPrimary,
-                    fontSize: (size.width * 0.02).clamp(20.0, 32.0),
-                    fontWeight: AppTextStyles.titleFontWeight,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-                const SizedBox(height: DS.s8),
-                Container(
-                  height: 2,
-                  width: (size.width * 0.1).clamp(100.0, 200.0),
-                  color: tokens.accent,
-                ),
+                heading,
+                const SizedBox(height: DS.s16),
+                Wrap(spacing: DS.s12, runSpacing: DS.s12, children: statuses),
               ],
-            ),
-          ),
-          _StatusModule(
-            label: 'SCAN STATUS',
-            value: vm.isDiscovering ? 'ACTIVE' : 'IDLE',
-          ),
-          SizedBox(width: (size.width * 0.03).clamp(16.0, 48.0)),
-          _StatusModule(
-            label: 'LAST NODE',
-            value: vm.ipHistory.firstOrNull ?? 'NONE',
-          ),
-          SizedBox(width: (size.width * 0.03).clamp(16.0, 48.0)),
-          _StatusModule(
-            label: 'HISTORY',
-            value: '${vm.ipHistory.length} NODES',
-          ),
-        ],
-      ),
-    );
-  }
+            );
+          }
 
-  Widget _buildFooter(BuildContext context) {
-    final tokens = context.tokens;
-    final size = MediaQuery.sizeOf(context);
-    final horizontalPad = (size.width * 0.05).clamp(24.0, 80.0);
-    final verticalPad = (size.height * 0.04).clamp(16.0, 40.0);
-
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: horizontalPad,
-        vertical: verticalPad,
-      ),
-      child: Row(
-        children: [
-          Text(
-            'PROTOCOL: TCP/UDP // MODE: DISTRIBUTED // AUTH: TOKEN',
-            style: AppTextStyles.style(
-              color: tokens.textMuted,
-              fontSize: (size.width * 0.008).clamp(9.0, 12.0),
-              letterSpacing: 0.5,
-            ),
-          ),
-          const Spacer(),
-          const _BlinkingDotTV(),
-        ],
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: heading),
+              const SizedBox(width: DS.s16),
+              statuses[0],
+              const SizedBox(width: DS.s12),
+              statuses[1],
+              const SizedBox(width: DS.s12),
+              statuses[2],
+            ],
+          );
+        },
       ),
     );
   }
@@ -464,25 +484,33 @@ class _StatusModule extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTextStyles.caption.copyWith(
-            color: tokens.textMuted,
-            letterSpacing: 0.2,
+    return Container(
+      constraints: const BoxConstraints(minWidth: 112, maxWidth: 200),
+      padding: const EdgeInsets.symmetric(horizontal: DS.s12, vertical: DS.s8),
+      decoration: BoxDecoration(
+        color: tokens.surface1,
+        borderRadius: BorderRadius.circular(DS.radius(14)),
+        border: Border.all(color: tokens.border.withValues(alpha: 0.65)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: AppTextStyles.caption.copyWith(color: tokens.textMuted),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: AppTextStyles.bodyLarge.copyWith(
-            color: tokens.textPrimary,
-            fontWeight: FontWeight.w500,
+          const SizedBox(height: DS.s4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.bodyLarge.copyWith(
+              color: tokens.textPrimary,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -491,14 +519,12 @@ class _TVConnectCard extends StatefulWidget {
   const _TVConnectCard({
     required this.label,
     required this.subLabel,
-    required this.code,
     required this.icon,
     required this.onTap,
     this.autofocus = false,
   });
   final String label;
   final String subLabel;
-  final String code;
   final IconData icon;
   final VoidCallback onTap;
   final bool autofocus;
@@ -514,7 +540,7 @@ class _TVConnectCardState extends State<_TVConnectCard> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final bgColor = _isFocused ? tokens.surface3 : tokens.surface1;
-    final borderColor = _isFocused ? tokens.accent : tokens.border;
+    final borderColor = _isFocused ? tokens.focusColor : tokens.border;
     final size = MediaQuery.sizeOf(context);
 
     return Focus(
@@ -534,13 +560,12 @@ class _TVConnectCardState extends State<_TVConnectCard> {
             decoration: BoxDecoration(
               color: bgColor,
               borderRadius: BorderRadius.circular(DS.radius(24)),
-              border: Border.all(color: borderColor, width: _isFocused ? 4 : 1),
+              border: Border.all(color: borderColor, width: _isFocused ? 2 : 1),
               boxShadow: _isFocused
                   ? [
                       BoxShadow(
-                        color: tokens.accent.withValues(alpha: 0.2),
-                        blurRadius: 20,
-                        spreadRadius: 5,
+                        color: tokens.focusShadow.withValues(alpha: 0.12),
+                        blurRadius: 24,
                       ),
                     ]
                   : [],
@@ -549,23 +574,20 @@ class _TVConnectCardState extends State<_TVConnectCard> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'SYS_TYPE // ${widget.code}',
-                    style: AppTextStyles.style(
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: tokens.surface2,
+                      borderRadius: BorderRadius.circular(DS.radius(20)),
+                    ),
+                    child: Icon(
+                      widget.icon,
                       color: _isFocused
                           ? tokens.textPrimary
-                          : tokens.textMuted,
-                      fontSize: (size.width * 0.008).clamp(9.0, 12.0),
-                      letterSpacing: 0.5,
+                          : tokens.textSecondary,
+                      size: 30,
                     ),
-                  ),
-                  SizedBox(height: (size.height * 0.02).clamp(12.0, 24.0)),
-                  Icon(
-                    widget.icon,
-                    color: _isFocused
-                        ? tokens.textPrimary
-                        : tokens.textSecondary,
-                    size: (size.width * 0.035).clamp(32.0, 56.0),
                   ),
                   SizedBox(height: (size.height * 0.02).clamp(12.0, 24.0)),
                   Text(
@@ -573,7 +595,6 @@ class _TVConnectCardState extends State<_TVConnectCard> {
                     style: AppTextStyles.style(
                       color: tokens.textPrimary,
                       fontSize: (size.width * 0.018).clamp(20.0, 32.0),
-                      letterSpacing: 0.8,
                       fontWeight: AppTextStyles.titleFontWeight,
                     ),
                     textAlign: TextAlign.center,
@@ -582,11 +603,8 @@ class _TVConnectCardState extends State<_TVConnectCard> {
                   Text(
                     widget.subLabel,
                     style: AppTextStyles.style(
-                      color: _isFocused
-                          ? tokens.textPrimary
-                          : tokens.textMuted,
-                      fontSize: (size.width * 0.008).clamp(9.0, 12.0),
-                      letterSpacing: 0.2,
+                      color: tokens.textMuted,
+                      fontSize: (size.width * 0.009).clamp(12.0, 15.0),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -650,7 +668,11 @@ class _DialogBtnState extends State<_DialogBtn> {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           decoration: BoxDecoration(
             color: bgColor,
-            border: Border.all(color: tokens.accent),
+            borderRadius: BorderRadius.circular(DS.radius(12)),
+            border: Border.all(
+              color: _isFocused ? tokens.focusColor : tokens.border,
+              width: _isFocused ? 2 : 1,
+            ),
           ),
           child: Text(
             widget.label,
@@ -661,62 +683,6 @@ class _DialogBtnState extends State<_DialogBtn> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _BlinkingDotTV extends StatefulWidget {
-  const _BlinkingDotTV();
-
-  @override
-  State<_BlinkingDotTV> createState() => _BlinkingDotTVState();
-}
-
-class _BlinkingDotTVState extends State<_BlinkingDotTV>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return FadeTransition(
-      opacity: _ctrl,
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: tokens.success,
-              boxShadow: [BoxShadow(color: tokens.success, blurRadius: 6)],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            'SYSTEM SCANNING',
-            style: AppTextStyles.caption.copyWith(
-              color: tokens.textPrimary,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
       ),
     );
   }

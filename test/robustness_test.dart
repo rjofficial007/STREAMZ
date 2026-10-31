@@ -45,6 +45,25 @@ void main() {
     });
   });
 
+  group('A3: WebSocket heartbeat lease', () {
+    test('expires silent clients after the timeout, not at its boundary', () {
+      final now = DateTime.utc(2026, 10, 30, 12);
+      const timeout = Duration(seconds: 45);
+
+      expect(
+        HttpServerService.hasHeartbeatExpired(now.subtract(timeout), now),
+        isFalse,
+      );
+      expect(
+        HttpServerService.hasHeartbeatExpired(
+          now.subtract(timeout + const Duration(milliseconds: 1)),
+          now,
+        ),
+        isTrue,
+      );
+    });
+  });
+
   group('C3: connection history cap', () {
     test('logAccess caps history at 200 entries', () async {
       SharedPreferences.setMockInitialValues({});

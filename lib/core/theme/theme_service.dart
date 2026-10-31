@@ -9,11 +9,11 @@ import 'package:streamz/core/theme/streamz_theme.dart';
 
 enum AppGlowColor {
   blue('Blue', Color(0xFF0C3AA8)),
-  violet('Amethyst', Color(0xFF7957D5)),
-  teal('Aurora', Color(0xFF00A98F)),
-  rose('Rose', Color(0xFFD94E78)),
-  amber('Champagne', Color(0xFFE3A438)),
-  ice('Arctic', Color(0xFF3997E8));
+  violet('Amethyst', Color(0xFF402969)),
+  teal('Aurora', Color(0xFF06443D)),
+  rose('Rose', Color(0xFF5B2239)),
+  amber('Champagne', Color(0xFF503A18)),
+  ice('Arctic', Color(0xFF17405E));
 
   const AppGlowColor(this.label, this.color);
   final String label;

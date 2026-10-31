@@ -20,6 +20,7 @@ import 'package:streamz/presentation/player/player_screen.dart';
 import 'package:streamz/presentation/shared/app_back_button.dart';
 import 'package:streamz/presentation/shared/app_list_tile_card.dart';
 import 'package:streamz/presentation/shared/app_state_view.dart';
+import 'package:streamz/presentation/shared/app_summary_components.dart';
 import 'package:streamz/presentation/shared/file_item.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -40,22 +41,22 @@ class _Category {
 }
 
 const _kCategories = [
-  _Category(id: 'recent', label: 'RECENT', icon: LucideIcons.history),
+  _Category(id: 'recent', label: 'Recent', icon: LucideIcons.history),
   _Category(
     id: 'images',
-    label: 'IMAGES',
+    label: 'Images',
     icon: LucideIcons.image,
     filterType: SFileType.image,
   ),
   _Category(
     id: 'videos',
-    label: 'VIDEOS',
+    label: 'Videos',
     icon: LucideIcons.film,
     filterType: SFileType.video,
   ),
   _Category(
     id: 'audio',
-    label: 'AUDIO',
+    label: 'Audio',
     icon: LucideIcons.activity,
     filterType: SFileType.audio,
   ),
@@ -76,17 +77,25 @@ class SamsungFileManagerScreen extends StatefulWidget {
 class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
     with TickerProviderStateMixin {
   final List<String?> _navStack = [null];
+  final ScrollController _scrollController = ScrollController();
   String? get _currentPath => _navStack.last;
 
   List<SFileItem> _items = [];
   List<SFileItem> _allItems = [];
   List<BroadcastStation> _stations = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _browseHasMore = false;
+  int _browseOffset = 0;
+  int _browseGeneration = 0;
+  String? _loadedBrowsePath;
   String? _error;
 
   bool _isListView = false; // Defaulted to Grid View based on 3-column request
+  bool _showAllRecent = false;
   bool _searchActive = false;
   String _searchQuery = '';
+  Timer? _searchDebounce;
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
 
@@ -101,15 +110,16 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
   final double _textPad = 16.0;
 
   String get _title {
-    if (_activeCategory != null) return _activeCategoryLabel ?? 'FILES';
-    if (_currentPath == null || _currentPath!.isEmpty) return 'SYS DIRECTORY';
+    if (_activeCategory != null) return _activeCategoryLabel ?? 'Files';
+    if (_currentPath == null || _currentPath!.isEmpty) return 'Files';
     final parts = _currentPath!.replaceAll(r'\', '/').split('/');
-    return parts.where((s) => s.isNotEmpty).lastOrNull ?? 'ROOT';
+    return parts.where((s) => s.isNotEmpty).lastOrNull ?? 'Root';
   }
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onBrowseScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _vm = context.read<ClientViewModel>();
       _loadHome();
@@ -118,8 +128,10 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchCtrl.dispose();
     _searchFocus.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -162,30 +174,82 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
     }
   }
 
-  Future<void> _loadPath(String path) async {
+  Future<void> _loadPath(String path, {String query = ''}) async {
+    _searchDebounce?.cancel();
+    final generation = ++_browseGeneration;
     setState(() {
       _isLoading = true;
+      _isLoadingMore = false;
+      _browseHasMore = false;
+      _browseOffset = 0;
+      _loadedBrowsePath = path;
       _error = null;
-      _searchActive = false;
-      _searchQuery = '';
-      _searchCtrl.clear();
+      _searchActive = query.isNotEmpty;
+      _searchQuery = query.toLowerCase();
+      if (query.isEmpty) _searchCtrl.clear();
       _activeCategory = null;
     });
     try {
-      final raw = await _vm.browseRemote(path);
-      final items = raw.map(SFileItem.fromJson).toList();
-      if (mounted) {
+      final page = await _vm.browseRemotePage(
+        path,
+        offset: 0,
+        query: query,
+        sortBy: _sortBy,
+        ascending: _sortAsc,
+      );
+      final items = page.items.map(SFileItem.fromJson).toList();
+      if (mounted && generation == _browseGeneration) {
         setState(() {
-          _items = _sort(items);
+          _items = items;
+          _browseOffset = items.length;
+          _browseHasMore = page.hasMore;
+          _isLoading = false;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) => _onBrowseScroll());
+      }
+    } catch (e) {
+      if (mounted && generation == _browseGeneration) {
+        setState(() {
+          _error = 'Connection failed. Check the server and try again.';
           _isLoading = false;
         });
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = 'CONNECTION FAILED';
-          _isLoading = false;
-        });
+    }
+  }
+
+  void _onBrowseScroll() {
+    if (_scrollController.hasClients &&
+        _scrollController.position.extentAfter < 400) {
+      _loadMoreBrowseItems();
+    }
+  }
+
+  Future<void> _loadMoreBrowseItems() async {
+    final path = _loadedBrowsePath;
+    if (!mounted || _isLoading || _isLoadingMore || !_browseHasMore || path == null) {
+      return;
+    }
+    final generation = _browseGeneration;
+    setState(() => _isLoadingMore = true);
+    try {
+      final page = await _vm.browseRemotePage(
+        path,
+        offset: _browseOffset,
+        query: _searchQuery,
+        sortBy: _sortBy,
+        ascending: _sortAsc,
+      );
+      if (!mounted || generation != _browseGeneration) return;
+      setState(() {
+        _items = [..._items, ...page.items.map(SFileItem.fromJson)];
+        _browseOffset += page.items.length;
+        _browseHasMore = page.hasMore;
+        _isLoadingMore = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _onBrowseScroll());
+    } catch (_) {
+      if (mounted && generation == _browseGeneration) {
+        setState(() => _isLoadingMore = false);
       }
     }
   }
@@ -212,9 +276,14 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
   }
 
   void _openCategory(_Category cat) {
+    _searchDebounce?.cancel();
     setState(() {
       _activeCategory = cat.id;
       _activeCategoryLabel = cat.label;
+      _loadedBrowsePath = null;
+      _browseHasMore = false;
+      _isLoadingMore = false;
+      _showAllRecent = false;
       _isLoading = false;
       if (cat.id == 'live') {
         _items = []; // Stations are handled separately in _buildBodySlivers
@@ -235,13 +304,49 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
     _loadPath(path);
   }
 
+  void _scheduleSearch(String query) {
+    _searchDebounce?.cancel();
+    if (query.trim().isEmpty) {
+      if (_loadedBrowsePath != null) {
+        _loadPath(_loadedBrowsePath!);
+      } else {
+        setState(() => _searchQuery = '');
+      }
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 180), () {
+      if (!mounted) return;
+      final normalized = query.trim().toLowerCase();
+      if (_loadedBrowsePath != null && _activeCategory == null) {
+        _loadPath(_loadedBrowsePath!, query: normalized);
+      } else {
+        setState(() => _searchQuery = normalized);
+      }
+    });
+  }
+
+  void _clearSearchQuery() {
+    _searchDebounce?.cancel();
+    if (_loadedBrowsePath != null) {
+      _loadPath(_loadedBrowsePath!);
+    } else {
+      setState(() => _searchQuery = '');
+    }
+  }
+
+  void _closeSearch() {
+    _searchDebounce?.cancel();
+    _searchCtrl.clear();
+    setState(() {
+      _searchActive = false;
+      _searchQuery = '';
+    });
+    if (_loadedBrowsePath != null) _loadPath(_loadedBrowsePath!);
+  }
+
   bool _goBack() {
     if (_searchActive) {
-      setState(() {
-        _searchActive = false;
-        _searchQuery = '';
-        _searchCtrl.clear();
-      });
+      _closeSearch();
       return true;
     }
     if (_activeCategory != null) {
@@ -341,13 +446,13 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'DOWNLOADING ${item.name.toUpperCase()}',
+          'Downloading ${item.name}',
           style: AppTextStyles.caption.copyWith(
-            color: tokens.background,
+            color: tokens.textPrimary,
             fontWeight: FontWeight.w500,
           ),
         ),
-        backgroundColor: tokens.textPrimary,
+        backgroundColor: tokens.surface3,
         duration: const Duration(seconds: 2),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DS.radius(12))),
       ),
@@ -356,8 +461,9 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
 
   List<SFileItem> get _displayItems {
     if (_searchQuery.isEmpty) return _items;
+    final query = _searchQuery;
     return _items
-        .where((i) => i.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .where((i) => i.name.toLowerCase().contains(query))
         .toList();
   }
 
@@ -374,6 +480,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
     child: AppScaffold(
       body: SafeArea(
         child: CustomScrollView(
+          controller: _scrollController,
           physics: const BouncingScrollPhysics(),
           slivers: [
             _buildAppSliverAppBar(context),
@@ -401,13 +508,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
               actions: {
                 ActivateIntent: CallbackAction<ActivateIntent>(
                   onInvoke: (_) {
-                    _searchActive
-                        ? setState(() {
-                            _searchActive = false;
-                            _searchQuery = '';
-                            _searchCtrl.clear();
-                          })
-                        : _goBack();
+                    _searchActive ? _closeSearch() : _goBack();
                     return null;
                   },
                 ),
@@ -415,25 +516,11 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
               child: Focus(
                 onKeyEvent: (_, ev) => handleTVSelectKey(
                   ev,
-                  _searchActive
-                      ? () {
-                          setState(() {
-                            _searchActive = false;
-                            _searchQuery = '';
-                            _searchCtrl.clear();
-                          });
-                        }
-                      : _goBack,
+                  _searchActive ? _closeSearch : _goBack,
                 ),
                 child: AppBackButton(
                   iconSize: iconSz,
-                  onPressed: _searchActive
-                      ? () => setState(() {
-                          _searchActive = false;
-                          _searchQuery = '';
-                          _searchCtrl.clear();
-                        })
-                      : _goBack,
+                  onPressed: _searchActive ? _closeSearch : _goBack,
                 ),
               ),
             )
@@ -443,13 +530,6 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
           ? Row(
               children: [
                 if (!showNav) SizedBox(width: _textPad),
-                Text(
-                  'CMD>',
-                  style: AppTextStyles.caption.copyWith(
-                    color: tokens.textMuted,
-                  ),
-                ),
-                const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: _searchCtrl,
@@ -461,11 +541,11 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
                     ),
                     cursorColor: tokens.textPrimary,
                     decoration: InputDecoration(
-                      hintText: 'SEARCH QUERY...',
+                      hintText: 'Search media',
                       hintStyle: TextStyle(color: tokens.textMuted),
                       border: InputBorder.none,
                     ),
-                    onChanged: (v) => setState(() => _searchQuery = v),
+                    onChanged: _scheduleSearch,
                   ),
                 ),
               ],
@@ -476,11 +556,11 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
                 children: [
                   Expanded(
                     child: Text(
-                      _title.toUpperCase(),
+                      _title,
                       style: AppTextStyles.titleLarge.copyWith(
                         color: tokens.textPrimary,
                         fontWeight: AppTextStyles.titleFontWeight,
-                        letterSpacing: 0.8,
+                        letterSpacing: -0.2,
                       ),
                     ),
                   ),
@@ -519,7 +599,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
               ActivateIntent: CallbackAction<ActivateIntent>(
                 onInvoke: (_) {
                   _searchCtrl.clear();
-                  setState(() => _searchQuery = '');
+                  _clearSearchQuery();
                   return null;
                 },
               ),
@@ -527,7 +607,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
             child: Focus(
               onKeyEvent: (_, ev) => handleTVSelectKey(ev, () {
                 _searchCtrl.clear();
-                setState(() => _searchQuery = '');
+                _clearSearchQuery();
               }),
               child: IconButton(
                 icon: Icon(
@@ -537,7 +617,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
                 ),
                 onPressed: () {
                   _searchCtrl.clear();
-                  setState(() => _searchQuery = '');
+                  _clearSearchQuery();
                 },
               ),
             ),
@@ -546,11 +626,19 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
           _SortMenuButton(
             sortBy: _sortBy,
             sortAsc: _sortAsc,
-            onChanged: (by, asc) => setState(() {
-              _sortBy = by;
-              _sortAsc = asc;
-              _items = _sort(_items);
-            }),
+            onChanged: (by, asc) {
+              setState(() {
+                _sortBy = by;
+                _sortAsc = asc;
+                if (_loadedBrowsePath == null) _items = _sort(_items);
+              });
+              final path = _loadedBrowsePath;
+              if (path != null) {
+                unawaited(
+                  _loadPath(path, query: _searchQuery),
+                );
+              }
+            },
           ),
         if (!_searchActive)
           Actions(
@@ -605,7 +693,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
   }
 
   List<Widget> _buildBodySlivers(BuildContext context) {
-    if (_isLoading) return _buildSkeletonSlivers(context);
+    if (_isLoading) return _buildLoadingSlivers();
     if (_error != null) return _buildErrorSlivers();
     if (_currentPath == null && _activeCategory == null && !_isLoading) {
       return _buildHomeSlivers(context);
@@ -649,9 +737,79 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
     final items = _displayItems;
     if (items.isEmpty) return _buildEmptySlivers();
 
-    return _isListView
+    final slivers = _isListView
         ? _buildListSlivers(items)
         : _buildGridSlivers(context, items);
+    if (_browseHasMore || _isLoadingMore) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              DS.s16,
+              DS.s16,
+              DS.s16,
+              DS.s32,
+            ),
+            child: Center(
+              child: _isLoadingMore
+                  ? const CircularProgressIndicator(
+                      semanticsLabel: 'Loading more files',
+                    )
+                  : TextButton.icon(
+                      onPressed: _loadMoreBrowseItems,
+                      icon: const Icon(LucideIcons.chevronDown),
+                      label: const Text('Load more files'),
+                    ),
+            ),
+          ),
+        ),
+      );
+    }
+    if (_activeCategory == 'recent' &&
+        _searchQuery.isEmpty &&
+        _allItems.length > 50) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              DS.s16,
+              DS.s8,
+              DS.s16,
+              DS.s24,
+            ),
+            child: Column(
+              children: [
+                Text(
+                  _showAllRecent
+                      ? 'All ${_allItems.length} items shown'
+                      : 'Showing 50 of ${_allItems.length} items',
+                  style: AppTextStyles.caption.copyWith(
+                    color: context.tokens.textMuted,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => setState(() {
+                    _showAllRecent = !_showAllRecent;
+                    _items = _sort(
+                      _showAllRecent ? _allItems : _allItems.take(50).toList(),
+                    );
+                  }),
+                  icon: Icon(
+                    _showAllRecent
+                        ? LucideIcons.chevronUp
+                        : LucideIcons.chevronDown,
+                  ),
+                  label: Text(
+                    _showAllRecent ? 'Show 50 items' : 'Show all items',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return slivers;
   }
 
   // ── Home View Slivers ─────────────────────────────────────────────────────
@@ -677,20 +835,20 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
               ),
             ),
             AppActionCard(
-              label: 'LIVE',
+              label: 'Live streams',
               icon: LucideIcons.radio,
               isActive: _stations.isNotEmpty,
               onTap: () => _openCategory(
                 const _Category(
                   id: 'live',
-                  label: 'LIVE',
+                  label: 'Live streams',
                   icon: LucideIcons.radio,
                 ),
               ),
             ),
             AppActionCard(
-              label: 'DIRECTORY',
-              icon: LucideIcons.terminal,
+              label: 'Browse folders',
+              icon: LucideIcons.folderOpen,
               onTap: () {
                 _navStack.add('');
                 _loadPath('');
@@ -722,24 +880,10 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
     }
     final other = total - imgs - vids - auds;
 
-    Widget legend(String label, int count, Color color) => Row(
-      children: [
-        Container(width: 8, height: 8, color: color),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            label,
-            style: AppTextStyles.caption.copyWith(color: tokens.textSecondary),
-          ),
-        ),
-        Text(
-          count.toString(),
-          style: AppTextStyles.caption.copyWith(
-            fontWeight: FontWeight.w500,
-            color: tokens.textPrimary,
-          ),
-        ),
-      ],
+    Widget legend(String label, int count, Color color) => AppSummaryLegend(
+      label: label,
+      value: count.toString(),
+      markerColor: color,
     );
 
     return Container(
@@ -754,16 +898,20 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'STORAGE ANALYSIS',
-                style: AppTextStyles.title.copyWith(
-                  color: tokens.textPrimary,
-                  fontWeight: AppTextStyles.titleFontWeight,
-                  letterSpacing: 0.2,
+              Expanded(
+                child: Text(
+                  'Storage overview',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.title.copyWith(
+                    color: tokens.textPrimary,
+                    fontWeight: AppTextStyles.titleFontWeight,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ),
+              const SizedBox(width: DS.s12),
               Icon(LucideIcons.hardDrive, color: tokens.textMuted, size: 20),
             ],
           ),
@@ -804,9 +952,9 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
               Expanded(
                 child: Column(
                   children: [
-                    legend('VIDEOS', vids, tokens.textPrimary),
+                    legend('Videos', vids, tokens.textPrimary),
                     const SizedBox(height: 8),
-                    legend('IMAGES', imgs, tokens.textSecondary),
+                    legend('Images', imgs, tokens.textSecondary),
                   ],
                 ),
               ),
@@ -814,9 +962,9 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
               Expanded(
                 child: Column(
                   children: [
-                    legend('AUDIO', auds, tokens.textMuted),
+                    legend('Audio', auds, tokens.textMuted),
                     const SizedBox(height: 8),
-                    legend('OTHER', other, tokens.surface2),
+                    legend('Other', other, tokens.surface2),
                   ],
                 ),
               ),
@@ -829,7 +977,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'TOTAL INDEXED FILES',
+                'Media items',
                 style: AppTextStyles.caption.copyWith(
                   color: tokens.textMuted,
                   letterSpacing: 0.2,
@@ -851,52 +999,14 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
 
   // ── Skeleton & State Slivers ──────────────────────────────────────────────
 
-  List<Widget> _buildSkeletonSlivers(BuildContext context) {
-    final tokens = context.tokens;
-    return [
-      SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (_, i) => Container(
-            height: 60,
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: tokens.border.withValues(alpha: 0.15),
-                ),
-                top: i == 0
-                    ? BorderSide(color: tokens.border.withValues(alpha: 0.15))
-                    : BorderSide.none,
-              ),
-              color: tokens.surface1,
-            ),
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Container(width: 40, height: 40, color: tokens.surface2),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        height: 11,
-                        width: double.infinity,
-                        color: tokens.surface2,
-                      ),
-                      const SizedBox(height: 6),
-                      Container(width: 80, height: 9, color: tokens.surface2),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          childCount: 12,
-        ),
+  List<Widget> _buildLoadingSlivers() => const [
+    AppStateSliver(
+      state: AppStateView(
+        kind: AppStateKind.loading,
+        title: 'Loading media library',
       ),
-    ];
-  }
+    ),
+  ];
 
   List<Widget> _buildEmptySlivers() => [
     const AppStateSliver(
@@ -912,7 +1022,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
       state: AppStateView(
         kind: AppStateKind.error,
         title: 'Connection failed',
-        description: (_error ?? 'Unknown error').toUpperCase(),
+        description: _error ?? 'Unknown error',
         icon: LucideIcons.alertTriangle,
         actionLabel: 'Retry',
         onAction: () =>
@@ -955,7 +1065,7 @@ class _SamsungFileManagerScreenState extends State<SamsungFileManagerScreen>
     );
     final gridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
       crossAxisCount: columns,
-      childAspectRatio: 0.72,
+      childAspectRatio: 0.75,
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
     );
@@ -1023,10 +1133,7 @@ class _FileListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     const iconBoxSz = 44.0;
-    final metadata = item.isDirectory
-        ? '${item.itemCount} items'
-        : [if (item.sizeLabel.isNotEmpty) item.sizeLabel, item.typeLabel]
-              .join(' · ');
+    final metadata = item.cardMetadata;
 
     String? thumbUrl;
     if (item.isPlayable) {
@@ -1141,7 +1248,7 @@ class _FileListTile extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FILE GRID CARD (Match ModernMobileUIScreen 78/22 Split)
+// FILE GRID CARD with square artwork and a compact metadata footer.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _FileGridCard extends StatelessWidget {
@@ -1179,7 +1286,7 @@ class _FileGridCard extends StatelessWidget {
         children: [
           // Poster area keeps the title clean while exposing a large download target.
           Expanded(
-            flex: 78,
+            flex: 75,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -1229,28 +1336,36 @@ class _FileGridCard extends StatelessWidget {
               ],
             ),
           ),
-          // Info area (22%)
+          // A square artwork area with a compact two-line info footer.
           Expanded(
-            flex: 22,
+            flex: 25,
             child: Container(
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: tokens.surface1,
-                border: Border(
-                  top: BorderSide(
-                    color: tokens.border.withValues(alpha: 0.15),
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              color: tokens.surface1,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.caption.copyWith(
+                      color: tokens.textPrimary,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-              ),
-              child: Text(
-                item.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.caption.copyWith(
-                  color: tokens.textPrimary,
-                  fontWeight: FontWeight.w500,
-                ),
+                  Text(
+                    item.cardMetadata,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.caption.copyWith(
+                      color: tokens.textMuted,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1287,9 +1402,9 @@ class _SortMenuButton extends StatelessWidget {
       shape: Border.all(color: tokens.border.withValues(alpha: 0.15)),
       onSelected: (v) => onChanged(v, v == sortBy ? !sortAsc : true),
       itemBuilder: (_) => [
-        _sortItem(context, 'name', 'NAME'),
-        _sortItem(context, 'size', 'SIZE'),
-        _sortItem(context, 'type', 'TYPE'),
+        _sortItem(context, 'name', 'Name'),
+        _sortItem(context, 'size', 'Size'),
+        _sortItem(context, 'type', 'Type'),
       ],
     );
   }

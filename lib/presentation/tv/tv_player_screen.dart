@@ -18,20 +18,21 @@ import 'package:provider/provider.dart';
 import 'package:streamz/core/constants/app_strings.dart';
 import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/domain/models/broadcast_station.dart';
 import 'package:streamz/domain/models/media_item.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
 import 'package:streamz/presentation/player/playback_issue.dart';
 import 'package:streamz/presentation/player/player_viewmodel.dart';
-import 'package:streamz/presentation/player/widgets/playback_recovery_overlay.dart';
 import 'package:streamz/presentation/player/widgets/low_fi_indicator.dart';
+import 'package:streamz/presentation/player/widgets/playback_recovery_overlay.dart';
 import 'package:streamz/presentation/player/widgets/player_action_button.dart';
 import 'package:streamz/presentation/player/widgets/player_options_sheet.dart';
 import 'package:streamz/presentation/player/widgets/player_sync_tile.dart';
 import 'package:streamz/presentation/player/widgets/player_track_tile.dart';
 import 'package:streamz/presentation/shared/app_list_tile_card.dart';
 import 'package:streamz/presentation/shared/app_state_view.dart';
-import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/presentation/shared/media_details_text.dart';
 
 class TVPlayerScreen extends StatefulWidget {
   const TVPlayerScreen({
@@ -209,13 +210,15 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaPause) {
-      _vm.pause();
-      _vm.wakeOSD();
+      _vm
+        ..pause()
+        ..wakeOSD();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaPlayPause) {
-      _vm.togglePlayback();
-      _vm.wakeOSD();
+      _vm
+        ..togglePlayback()
+        ..wakeOSD();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaStop) {
@@ -400,12 +403,16 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                       ),
                     ),
                   _buildToolsSidebar(context),
-                  Selector<PlayerViewModel, (PlaybackIssue?, bool, bool, int)>(
+                  Selector<
+                    PlayerViewModel,
+                    (PlaybackIssue?, bool, bool, int, Duration)
+                  >(
                     selector: (_, vm) => (
                       vm.playbackIssue,
                       vm.isRecovering,
                       vm.isRetryInFlight,
                       vm.retryAttempt,
+                      vm.recoveryPosition,
                     ),
                     builder: (context, state, _) {
                       final issue = state.$1;
@@ -415,6 +422,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                         isRecovering: state.$2,
                         isRetryInFlight: state.$3,
                         retryAttempt: state.$4,
+                        resumePosition: state.$5,
                         isTV: true,
                         onRetry: () => _vm.retryPlayback(),
                         onBack: () => context.pop(),
@@ -591,6 +599,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
           final idx = data.$2;
           final total = data.$3;
           final isBroadcast = item?.isBroadcast ?? false;
+          final nextItem = idx + 1 < total ? _vm.playlist[idx + 1] : null;
 
           return Column(
             mainAxisSize: MainAxisSize.min,
@@ -615,14 +624,18 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                       children: [
                         Row(
                           children: [
-                            Text(
-                              'Streamz · ${idx + 1} of $total',
-                              style: AppTextStyles.style(
-                                fontSize: (size.width * 0.008).clamp(
-                                  12.0,
-                                  16.0,
+                            Flexible(
+                              child: Text(
+                                '${AppStrings.appTitle} · ${idx + 1} of $total',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.style(
+                                  fontSize: (size.width * 0.008).clamp(
+                                    12.0,
+                                    16.0,
+                                  ),
+                                  color: tokens.textMuted,
                                 ),
-                                color: tokens.textMuted,
                               ),
                             ),
                             if (isBroadcast) ...[
@@ -659,6 +672,43 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        if (item != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: MediaDetailsText(item: item),
+                          ),
+                        if (nextItem != null)
+                          Semantics(
+                            button: true,
+                            label: '${AppStrings.upNext}: ${nextItem.title}',
+                            child: InkWell(
+                              onTap: _vm.next,
+                              borderRadius: BorderRadius.circular(DS.radius(8)),
+                              child: SizedBox(
+                                height: 44,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      LucideIcons.skipForward,
+                                      size: 14,
+                                      color: tokens.textMuted,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Flexible(
+                                      child: Text(
+                                        '${AppStrings.upNext} · ${nextItem.title}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppTextStyles.caption.copyWith(
+                                          color: tokens.textMuted,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -686,44 +736,26 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                     ],
                   ),
                   // Options (Right)
-                  Expanded(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        PlayerActionButton(
-                          icon: LucideIcons.subtitles,
-                          label: 'Subtitle tracks',
-                          size: (size.width * 0.025).clamp(28.0, 44.0),
-                          isTV: true,
-                          onPressed: () => _showTrackModal('subtitles'),
-                        ),
-                        const SizedBox(width: 12),
-                        PlayerActionButton(
-                          icon: LucideIcons.activity,
-                          label: 'Audio tracks',
-                          size: (size.width * 0.025).clamp(28.0, 44.0),
-                          isTV: true,
-                          onPressed: () => _showTrackModal('audio'),
-                        ),
-                        const SizedBox(width: 12),
-                        PlayerActionButton(
-                          icon: LucideIcons.settings2,
-                          label: 'Player settings',
-                          size: (size.width * 0.025).clamp(28.0, 44.0),
-                          isTV: true,
-                          onPressed: () => _toggleSidebar(true),
-                        ),
-                        const SizedBox(width: 12),
-                        PlayerActionButton(
-                          icon: LucideIcons.x,
-                          label: 'Close player',
-                          size: (size.width * 0.025).clamp(28.0, 44.0),
-                          isTV: true,
-                          onPressed: () => context.pop(),
-                          isDestructive: true,
-                        ),
-                      ],
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PlayerActionButton(
+                        icon: LucideIcons.settings2,
+                        label: 'Player options',
+                        size: (size.width * 0.025).clamp(28.0, 44.0),
+                        isTV: true,
+                        onPressed: () => _toggleSidebar(true),
+                      ),
+                      const SizedBox(width: 12),
+                      PlayerActionButton(
+                        icon: LucideIcons.x,
+                        label: 'Close player',
+                        size: (size.width * 0.025).clamp(28.0, 44.0),
+                        isTV: true,
+                        onPressed: () => context.pop(),
+                        isDestructive: true,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -751,8 +783,9 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
           isPrimary: true,
           focusNode: _playPauseFocusNode,
           onPressed: () {
-            _vm.togglePlayback();
-            _vm.wakeOSD();
+            _vm
+              ..togglePlayback()
+              ..wakeOSD();
           },
         );
       },
@@ -810,7 +843,7 @@ class _TVPlayerScreenState extends State<TVPlayerScreen> {
                   ),
                   const SizedBox(width: 16),
                   Text(
-                    'System controls',
+                    'Options',
                     style: AppTextStyles.style(
                       fontSize: (size.width * 0.015).clamp(20.0, 28.0),
                       fontWeight: AppTextStyles.titleFontWeight,

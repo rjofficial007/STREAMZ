@@ -13,9 +13,7 @@
                 android:endColor="#00060606" />
         </shape>
     </item>
-    <item>
-        <bitmap
-            android:src="@drawable/streamz_app_icon"
-            android:gravity="center" />
-    </item>
+    <item
+        android:drawable="@drawable/ic_brand_mark"
+        android:gravity="center" />
 </layer-list>

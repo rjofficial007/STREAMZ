@@ -9,6 +9,7 @@ import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/domain/models/media_item.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
 import 'package:streamz/presentation/shared/app_bottom_sheet.dart';
+import 'package:streamz/presentation/shared/media_details_text.dart';
 
 class MobileContentRail extends StatelessWidget {
   const MobileContentRail({
@@ -51,6 +52,19 @@ class MobileContentRail extends StatelessWidget {
                   '/player',
                   extra: {'items': items, 'startIndex': idx >= 0 ? idx : 0},
                 );
+              },
+            ),
+            AppSheetOption(
+              title: vm.isFavorite(item.id)
+                  ? AppStrings.removeFromFavorites
+                  : AppStrings.addToFavorites,
+              subtitle: vm.isFavorite(item.id)
+                  ? 'Remove from your saved media'
+                  : 'Keep this item in your favorites',
+              icon: AppIcons.favorite,
+              onTap: () async {
+                await vm.toggleFavorite(item);
+                if (sheetContext.mounted) sheetContext.pop();
               },
             ),
             AppSheetOption(
@@ -99,7 +113,7 @@ class MobileContentRail extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 166,
+          height: 224,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -164,8 +178,9 @@ class _MobileRailCardState extends State<_MobileRailCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                flex: 78,
+              SizedBox(
+                width: widget.size,
+                height: widget.size,
                 child: Container(
                   color: tokens.background,
                   child: NetworkImageFade(
@@ -192,20 +207,26 @@ class _MobileRailCardState extends State<_MobileRailCard> {
                   ),
                 ),
               Expanded(
-                flex: 22,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.fromLTRB(10, 7, 10, 5),
                   decoration: BoxDecoration(color: tokens.surface1),
-                  child: Text(
-                    widget.item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.text(
-                      12,
-                      color: tokens.textSecondary,
-                      weight: FontWeight.w500,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        widget.item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.text(
+                          12,
+                          color: tokens.textSecondary,
+                          weight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      MediaDetailsText(item: widget.item),
+                    ],
                   ),
                 ),
               ),

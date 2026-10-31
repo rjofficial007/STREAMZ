@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
@@ -17,10 +18,31 @@ import 'package:streamz/core/utils/logger.dart';
 import 'package:streamz/domain/models/media_item.dart';
 
 class MediaScanner {
+  static const int _photoScanPageSize = 256;
+
   final List<AssetEntity> localAssets = [];
   final Map<String, String> assetFolders = {};
   final Map<String, File> scannedFiles = {};
-  List<SongModel> localSongs = [];
+  final Map<String, AssetEntity> _assetsById = {};
+  final Map<int, SongModel> _songsById = {};
+  final Map<String, SongModel> _songsByPath = {};
+  List<SongModel> _localSongs = [];
+
+  List<SongModel> get localSongs => _localSongs;
+
+  set localSongs(List<SongModel> songs) {
+    _localSongs = songs;
+    _songsById.clear();
+    _songsByPath.clear();
+    for (final song in songs) {
+      _songsById.putIfAbsent(song.id, () => song);
+      _songsByPath.putIfAbsent(song.data, () => song);
+    }
+  }
+
+  int _catalogRevision = 0;
+
+  int get catalogRevision => _catalogRevision;
 
   final _audioQuery = OnAudioQuery();
 
@@ -37,15 +59,19 @@ class MediaScanner {
       return;
     }
 
+    final stopwatch = Stopwatch()..start();
     logger.i('Scanning PhotoManager assets...');
     final ps = await PhotoManager.requestPermissionExtend();
     if (!ps.isAuth) {
-      logger.w('PhotoManager permission denied.');
+      logger.w(
+        'PhotoManager permission denied elapsed_ms=${stopwatch.elapsedMilliseconds}',
+      );
       return;
     }
 
     localAssets.clear();
     assetFolders.clear();
+    _assetsById.clear();
 
     final type = includeVideos && includeImages
         ? RequestType.common
@@ -59,15 +85,26 @@ class MediaScanner {
       if (path.isAll) continue;
       final count = await path.assetCountAsync;
       if (count == 0) continue;
-      final assets = await path.getAssetListRange(start: 0, end: count);
-      for (final a in assets) {
-        if (!assetFolders.containsKey(a.id)) {
-          localAssets.add(a);
-          assetFolders[a.id] = path.name;
+      for (var page = 0; page * _photoScanPageSize < count; page++) {
+        final assets = await path.getAssetListPaged(
+          page: page,
+          size: _photoScanPageSize,
+          type: type,
+        );
+        for (final asset in assets) {
+          if (!assetFolders.containsKey(asset.id)) {
+            localAssets.add(asset);
+            assetFolders[asset.id] = path.name;
+            _assetsById[asset.id] = asset;
+          }
         }
       }
     }
-    logger.i('PhotoManager scan complete: ${localAssets.length} assets found.');
+    _catalogRevision++;
+    logger.i(
+      'PhotoManager scan complete assets=${localAssets.length} '
+      'elapsed_ms=${stopwatch.elapsedMilliseconds}',
+    );
   }
 
   Future<void> scanAudio() async {
@@ -76,6 +113,7 @@ class MediaScanner {
         defaultTargetPlatform != TargetPlatform.iOS) {
       return;
     }
+    final stopwatch = Stopwatch()..start();
     logger.i('Scanning audio library...');
     try {
       if (await _audioQuery.checkAndRequest(retryRequest: true)) {
@@ -84,10 +122,17 @@ class MediaScanner {
           uriType: UriType.EXTERNAL,
           ignoreCase: true,
         );
-        logger.i('Audio scan complete: ${localSongs.length} songs found.');
+        _catalogRevision++;
+        logger.i(
+          'Audio scan complete songs=${localSongs.length} '
+          'elapsed_ms=${stopwatch.elapsedMilliseconds}',
+        );
       }
     } catch (e) {
-      logger.e('Audio scan error', error: e);
+      logger.e(
+        'Audio scan error elapsed_ms=${stopwatch.elapsedMilliseconds}',
+        error: e,
+      );
     }
   }
 
@@ -101,20 +146,26 @@ class MediaScanner {
   }) async {
     if (kIsWeb) return;
 
+    final stopwatch = Stopwatch()..start();
     logger.i('Starting background scan for: $rootPath');
 
-    // We pass the paths to the isolate, then rebuild Files on the main thread
-    // because File objects don't survive isolate transfer well if they are complex.
-    final result = await compute(_scanDirectoryIsolate, {
-      'rootPath': rootPath,
-      'includeVideos': includeVideos,
-      'includeAudio': includeAudio,
-      'includeImages': includeImages,
-    });
+    // Stream paths out of the worker in bounded chunks. Keeping every path in
+    // both the isolate result and a second main-isolate list made large shared
+    // folders temporarily consume much more memory than their final index.
+    final receivePort = ReceivePort();
+    final finished = Completer<void>();
+    var fileCount = 0;
+    final subscription = receivePort.listen((message) {
+      if (message == null) {
+        if (!finished.isCompleted) finished.complete();
+        return;
+      }
+      if (message is! List) return;
 
-    if (result.isNotEmpty) {
       final batch = <MapEntry<String, String>>[];
-      for (final path in result) {
+      for (final value in message) {
+        if (value is! String) continue;
+        final path = value;
         final id = _pathToId(path);
         final existing = scannedFiles[id];
         if (existing != null && existing.path != path) {
@@ -127,26 +178,48 @@ class MediaScanner {
         scannedFiles[id] = File(path);
         batch.add(MapEntry(id, path));
       }
-      onBatch(batch);
-      logger.i(
-        'Directory scan complete for $rootPath: ${result.length} files found.',
-      );
+      if (batch.isNotEmpty) {
+        fileCount += batch.length;
+        onBatch(batch);
+      }
+    });
+
+    try {
+      await compute(_scanDirectoryIsolate, {
+        'rootPath': rootPath,
+        'includeVideos': includeVideos,
+        'includeAudio': includeAudio,
+        'includeImages': includeImages,
+        'sendPort': receivePort.sendPort,
+      });
+      await finished.future;
+    } finally {
+      await subscription.cancel();
+      receivePort.close();
     }
+
+    if (fileCount > 0) _catalogRevision++;
+    logger.i(
+      'Directory scan complete files=$fileCount '
+      'elapsed_ms=${stopwatch.elapsedMilliseconds}',
+    );
   }
 
-  static List<String> _scanDirectoryIsolate(Map<String, dynamic> args) {
+  static Future<void> _scanDirectoryIsolate(Map<String, dynamic> args) async {
     final rootPath = args['rootPath'] as String;
     final includeVideos = args['includeVideos'] as bool;
     final includeAudio = args['includeAudio'] as bool;
     final includeImages = args['includeImages'] as bool;
-
-    final foundPaths = <String>[];
-    final dir = Directory(rootPath);
-    if (!dir.existsSync()) return [];
+    final sendPort = args['sendPort'] as SendPort;
 
     try {
-      final entities = dir.listSync(recursive: true, followLinks: false);
-      for (final entity in entities) {
+      final dir = Directory(rootPath);
+      if (!await dir.exists()) return;
+      final foundPaths = <String>[];
+      await for (final entity in dir.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is File) {
           final type = FileTypeUtils.fromFilename(entity.path);
           final isTarget =
@@ -156,16 +229,28 @@ class MediaScanner {
 
           if (isTarget) {
             foundPaths.add(entity.path);
+            if (foundPaths.length == 256) {
+              sendPort.send(foundPaths.toList(growable: false));
+              foundPaths.clear();
+            }
           }
         }
       }
-    } catch (_) {}
-    return foundPaths;
+      if (foundPaths.isNotEmpty) {
+        sendPort.send(foundPaths.toList(growable: false));
+      }
+    } catch (_) {
+    } finally {
+      sendPort.send(null);
+    }
   }
 
   /// Clears directory-scan results. Called before a fresh server scan so
   /// deleted files don't linger in the library.
-  void clearScannedFiles() => scannedFiles.clear();
+  void clearScannedFiles() {
+    scannedFiles.clear();
+    _catalogRevision++;
+  }
 
   // ── MediaItem conversion ──────────────────────────────────────────────────
 
@@ -253,31 +338,15 @@ class MediaScanner {
 
   // ── Thumbnail resolution ──────────────────────────────────────────────────
 
-  AssetEntity? assetById(String id) {
-    try {
-      return localAssets.firstWhere((e) => e.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
+  AssetEntity? assetById(String id) => _assetsById[id];
 
   SongModel? songById(String id) {
     final intId = int.tryParse(id);
     if (intId == null) return null;
-    try {
-      return localSongs.firstWhere((s) => s.id == intId);
-    } catch (_) {
-      return null;
-    }
+    return _songsById[intId];
   }
 
-  SongModel? songByPath(String path) {
-    try {
-      return localSongs.firstWhere((s) => s.data == path);
-    } catch (_) {
-      return null;
-    }
-  }
+  SongModel? songByPath(String path) => _songsByPath[path];
 
   File? fileById(String id) => scannedFiles[id];
 

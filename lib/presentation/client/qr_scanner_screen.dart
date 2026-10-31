@@ -110,7 +110,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: DS.s24,
+                    horizontal: DS.s16,
                     vertical: DS.s20,
                   ),
                   margin: const EdgeInsets.only(

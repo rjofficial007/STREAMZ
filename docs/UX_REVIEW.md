@@ -2,15 +2,15 @@
 
 ## Scope and flow
 
-Reviewed route definitions, all presentation screen families and their reusable widgets, Provider/GetIt composition, client/server ViewModels, HTTP client/server contracts, media scanning, downloads, queues, playback, and platform shells. The app has a native host, native/Flutter Web clients, and two host-served HTML clients. Preserve these boundaries and the existing routes, pairing, media models, station commands, and MediaKit integration.
+Reviewed route definitions, all presentation screen families and their reusable widgets, Provider/GetIt composition, client/server ViewModels, HTTP client/server contracts, media scanning, downloads, queues, playback, and platform shells. The app has a native host, native/Flutter Web clients, and one host-served modern HTML client. Preserve these boundaries and the existing routes, pairing, media models, station commands, and MediaKit integration.
 
 ## Current status
 
-The shared Flutter visual language is implemented across the routed app: near-black scaffold with configurable blue glow, Manrope-led type roles, transparent app bars with scroll-under blur, shared spacing/radius tokens, responsive grids, and focus-aware reusable controls. The Appearance screen applies saved device-local preferences app-wide. Both host-served HTML clients now share the same visual direction while retaining separate browser/player implementations.
+The shared Flutter visual language is implemented across the routed app: near-black scaffold with configurable blue glow, Manrope-led type roles, transparent app bars with scroll-under blur, shared spacing/radius tokens, responsive grids, and focus-aware reusable controls. The Appearance screen applies saved device-local preferences app-wide. The host-served HTML client's switch changes its appearance while retaining the same browser/player implementation.
 
-The latest UI follow-up found no routed Flutter screen roots bypassing `AppScaffold`. The player now surfaces likely connection/codec/device failures, preserves playback position during automatic remote-stream retries, and gives Retry/Back actions. The TV home now adds a Recently played rail sourced from local history next to Continue Watching; the current progress and shelf indicator refresh from the local store when playback closes. Both host-served browser clients have matching network/codec/device diagnostics and resume-aware retries.
+The latest UI follow-up found no routed Flutter screen roots bypassing `AppScaffold`. The player now surfaces likely connection/codec/device failures, preserves playback position during automatic remote-stream retries, and gives Retry/Back actions. The TV home now adds a Recently played rail sourced from local history next to Continue Watching; the current progress and shelf indicator refresh from the local store when playback closes. The host-served browser client has network/codec/device diagnostics and resume-aware retries.
 
-Remaining verification limits are platform-specific: Flutter analysis/tests could not be rerun after this follow-up, no Windows build was run here, and physical Android/Android TV display, remote, and playback checks remain necessary.
+Verification update (31 October 2026): all 73 Flutter tests pass, including the splash, responsive-grid, loading-button, TV viewport, host-loss reconnect, WebSocket client-cap, file-stream cap, LAN browse, and media recovery checks. The current Android debug APK builds successfully, and the Web release build succeeded in the previous verification. Full analysis reports five existing info-level findings outside the LAN scanner and integration-test files; those changed files analyze cleanly. Windows build plus physical Android/Android TV display, remote, playback, and Wi-Fi interruption checks remain necessary on matching hardware/toolchains.
 
 ## Initial review priorities
 
@@ -42,7 +42,7 @@ The findings below describe the state at the start of the review; they are not a
 
 ## Existing architectural limits
 
-HTTP media endpoints remain unauthenticated LAN endpoints; browser codecs and native scanning/discovery differ. Downloads use native files, so Flutter Web download parity needs a separate implementation. The two host-served HTML clients remain separate from Flutter Web and keep independent JavaScript/playback flows, although their visual styling is aligned. This review does not change server contracts, release signing, or codecs. See [ARCHITECTURE.md](ARCHITECTURE.md) for those boundaries.
+HTTP media endpoints remain unauthenticated LAN endpoints; browser codecs and native scanning/discovery differ. Downloads use native files, so Flutter Web download parity needs a separate implementation. The host-served HTML client remains separate from Flutter Web and uses browser media playback. This review does not change server contracts, release signing, or codecs. See [ARCHITECTURE.md](ARCHITECTURE.md) for those boundaries.
 
 ## Implemented in this review
 
@@ -64,16 +64,16 @@ HTTP media endpoints remain unauthenticated LAN endpoints; browser codecs and na
 - Fixed mobile file-manager error precedence so a failed browse is shown instead of the home summary.
 - Replaced the mobile file-manager's custom tap-only category and file cards with shared focusable cards. Its category grid and file grid now share `DS.responsiveColumns` and adapt to viewport width and text scale; list metadata wraps, and download controls have separate, labeled tap targets.
 - Standardized download-sheet panels on `AppPanel`, removed the unreferenced technical-card component library and unused toggle widgets, and brought the remaining small secondary labels back to the 12 logical pixel type minimum.
-- Aligned both native-host HTML clients with the dark blue-glow background, Manrope type, transparent blurred bars, rounded cards, readable mobile labels, safe-area spacing, visible keyboard focus, and reduced-motion preferences. Their JavaScript and media/network behavior are unchanged.
+- Aligned the native-host HTML client with the dark blue-glow background, Manrope type, compact responsive spacing, transparent blurred bars, rounded cards, readable mobile labels, safe-area spacing, visible keyboard focus, and reduced-motion preferences.
 - Added a shared `PlaybackRecoveryOverlay` to both Flutter player screens. It explains likely network, codec, or device/browser causes and offers Retry or Back to library. Connection errors reopen the current stream at the captured/saved position using 2/4/8/16/30-second backoff capped at 30 seconds; pause and route disposal stop further retries.
 - Added a Recently played rail to Android TV, mapped through the existing local playback history and current server media list. Continue Watching remains progress-backed, in-progress items are omitted from the recent rail to reduce duplication, and cards retain D-pad focus and playback/resume behavior.
-- Added matching error panels, browser `online`/`offline` handling, capped retries, and playback-position restore to both host-served HTML clients. Browser error categories use native media error codes where available.
+- Added playback error panels, browser `online`/`offline` handling, capped retries, and playback-position restore to the host-served HTML client. Browser error categories use native media error codes where available.
 
 ## Validation record
 
 - The previous UI pass's `flutter test --no-pub` run passed all 47 tests, including responsive file-grid behavior, host-browser theme/control contracts, and Android TV HD/4K logical viewport checks. Those results predate the playback-recovery and TV-home follow-up.
-- The previous analyzer run found no errors or warnings and eight info-level lints. For the current follow-up, both generated host-browser scripts passed `node --check`; Flutter analysis/tests could not be rerun because the Flutter wrapper could not write its protected SDK cache and direct Dart startup crashed in `cpuinfo_macos.cc`.
-- A Web release build was attempted during this review but stopped before compilation when Flutter tried to write the protected SDK cache at `/Applications/development/flutter/bin/cache`. This was an environment/tooling failure, not a reported source compile error.
-- Earlier review records include successful Android debug and Web release builds. They were not rerun after this follow-up. Windows builds require a Windows host; physical phone, TV remote, overscan, and decoder checks were not available here.
+- For the browser-template consolidation, the unified inline JavaScript passed `node --check`; the full Flutter suite passed all 73 tests, and focused browser/TV tests passed after the TV key fix. Flutter analysis reports no errors and nine info-level lints elsewhere. Direct Dart formatting remains unavailable because the bundled Dart SDK crashes during macOS CPU-info initialization.
+- Android debug and Web release builds in this follow-up stopped before project compilation because Flutter could not write the protected SDK cache at `/Applications/development/flutter/bin/cache`. This is an environment/tooling limit, so platform packaging was not confirmed in this run.
+- Earlier review records include successful Android debug and Web release builds. Windows builds require a Windows host; physical phone, TV remote, overscan, and decoder checks were not available here.
 - The HD/4K automated checks cover logical viewport layout only. They do not prove physical TV focus, display scaling, or media decoding.
 - Playback error categorization is best-effort string/code mapping because MediaKit native and browser errors do not share a structured category API. Verify classifications against real failures on each target before treating a diagnosis as definitive.

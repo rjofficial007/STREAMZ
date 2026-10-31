@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:streamz/core/constants/app_strings.dart';
 import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
@@ -99,7 +100,8 @@ class _AppLaunchSplashState extends State<AppLaunchSplash>
                     AppBackdropSurface(topColor: widget.topColor),
                     SafeArea(
                       child: Semantics(
-                        label: 'STREAMZ. Your media, shared simply.',
+                        label:
+                            '${AppStrings.appTitle}. Your media, shared simply.',
                         child: Center(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -120,19 +122,24 @@ class _AppLaunchSplashState extends State<AppLaunchSplash>
                                         ),
                                       ],
                                     ),
-                                    child: AppBrandIcon(size: markSize),
+                                    child: AppBrandIcon(
+                                      size: markSize,
+                                      transparent: true,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 26),
                                 _revealWidget(
                                   _wordmarkOpacity,
                                   Text(
-                                    'STREAMZ',
+                                    AppStrings.appTitle,
                                     textAlign: TextAlign.center,
                                     style: AppTextStyles.display(
                                       wordmarkSize,
                                       spacing: 1.2,
                                       color: const Color(0xFFE4E5E9),
+                                    ).copyWith(
+                                      decoration: TextDecoration.none,
                                     ),
                                   ),
                                 ),
@@ -149,6 +156,7 @@ class _AppLaunchSplashState extends State<AppLaunchSplash>
                                       ),
                                       color: DS.textSecondary,
                                       fontWeight: FontWeight.w300,
+                                      decoration: TextDecoration.none,
                                     ),
                                   ),
                                 ),

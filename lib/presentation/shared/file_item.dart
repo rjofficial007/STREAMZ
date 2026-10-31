@@ -85,6 +85,13 @@ class SFileItem {
     return '${(size / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 
+  String get cardMetadata => isDirectory
+      ? '$itemCount items'
+      : [
+          if (sizeLabel.isNotEmpty) sizeLabel,
+          typeLabel,
+        ].join(' · ');
+
   IconData get icon {
     switch (type) {
       case SFileType.folder:
@@ -109,21 +116,21 @@ class SFileItem {
   String get typeLabel {
     switch (type) {
       case SFileType.folder:
-        return 'DIR';
+        return 'Folder';
       case SFileType.image:
-        return 'IMG';
+        return 'Image';
       case SFileType.video:
-        return 'VID';
+        return 'Video';
       case SFileType.audio:
-        return 'AUD';
+        return 'Audio';
       case SFileType.document:
-        return 'DOC';
+        return 'Document';
       case SFileType.apk:
         return 'APK';
       case SFileType.archive:
-        return 'ARC';
+        return 'Archive';
       default:
-        return ext.isNotEmpty ? ext.toUpperCase() : 'FILE';
+        return ext.isNotEmpty ? ext.toUpperCase() : 'File';
     }
   }
 }

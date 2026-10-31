@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/core/utils/format_utils.dart';
 import 'package:streamz/presentation/player/playback_issue.dart';
 
 class PlaybackRecoveryOverlay extends StatelessWidget {
@@ -11,6 +12,7 @@ class PlaybackRecoveryOverlay extends StatelessWidget {
     required this.isRecovering,
     required this.isRetryInFlight,
     required this.retryAttempt,
+    required this.resumePosition,
     required this.isTV,
     required this.onRetry,
     required this.onBack,
@@ -20,6 +22,7 @@ class PlaybackRecoveryOverlay extends StatelessWidget {
   final bool isRecovering;
   final bool isRetryInFlight;
   final int retryAttempt;
+  final Duration resumePosition;
   final bool isTV;
   final VoidCallback onRetry;
   final VoidCallback onBack;
@@ -28,10 +31,10 @@ class PlaybackRecoveryOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final status = isRetryInFlight
-        ? 'Reopening the media stream…'
+        ? 'Reopening stream…'
         : retryAttempt == 0
-        ? 'Reconnecting to the media source…'
-        : 'Retrying · attempt $retryAttempt';
+        ? 'Reconnecting…'
+        : 'Retry $retryAttempt';
 
     return Positioned.fill(
       child: ColoredBox(
@@ -49,7 +52,7 @@ class PlaybackRecoveryOverlay extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'PLAYBACK DIAGNOSTIC',
+                        'Playback status',
                         style: AppTextStyles.text(
                           12,
                           color: tokens.textMuted,
@@ -73,6 +76,15 @@ class PlaybackRecoveryOverlay extends StatelessWidget {
                           height: 1.5,
                         ),
                       ),
+                      if (resumePosition.inSeconds > 0) ...[
+                        const SizedBox(height: DS.s12),
+                        Text(
+                          'Resume near ${formatDuration(resumePosition.inSeconds)}',
+                          style: AppTextStyles.supporting.copyWith(
+                            color: tokens.textSecondary,
+                          ),
+                        ),
+                      ],
                       if (isRecovering) ...[
                         const SizedBox(height: DS.s16),
                         Row(

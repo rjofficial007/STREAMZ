@@ -26,15 +26,14 @@ import 'package:streamz/domain/models/media_item.dart';
 import 'package:streamz/domain/services/station_service.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
 import 'package:streamz/presentation/server/server_viewmodel.dart';
+import 'package:streamz/presentation/server/server_web_app_screen.dart';
 import 'package:streamz/presentation/server/widgets/server_engine_card.dart';
 import 'package:streamz/presentation/server/widgets/server_telemetry_tile.dart';
 import 'package:streamz/presentation/shared/app_back_button.dart';
 import 'package:streamz/presentation/shared/app_bottom_sheet.dart';
-import 'package:streamz/presentation/shared/app_brand_icon.dart';
 import 'package:streamz/presentation/shared/app_list_tile_card.dart';
 import 'package:streamz/presentation/shared/app_state_view.dart';
 import 'package:streamz/presentation/shared/remote_input_relay_screen.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class ServerDashboard extends StatefulWidget {
   const ServerDashboard({super.key});
@@ -45,29 +44,117 @@ class ServerDashboard extends StatefulWidget {
 
 class _ServerDashboardState extends State<ServerDashboard> {
   final List<String?> _navStack = [null];
+  final List<double> _scrollOffsets = [0];
+  final ScrollController _scrollController = ScrollController();
   String? get _currentPath => _navStack.last;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_rememberScrollOffset);
     // Autostart server on dashboard entry.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ServerViewModel>().startServer();
     });
   }
 
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_rememberScrollOffset)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _rememberScrollOffset() {
+    if (_scrollController.hasClients &&
+        _scrollOffsets.length == _navStack.length) {
+      _scrollOffsets.last = _scrollController.offset;
+    }
+  }
+
+  void _restoreScrollOffset(double offset) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final position = _scrollController.position;
+      _scrollController.jumpTo(
+        offset
+            .clamp(position.minScrollExtent, position.maxScrollExtent)
+            .toDouble(),
+      );
+      _rememberScrollOffset();
+    });
+  }
+
   bool _goBack() {
     if (_navStack.length > 1) {
-      setState(_navStack.removeLast);
+      _rememberScrollOffset();
+      final restoreOffset = _scrollOffsets[_scrollOffsets.length - 2];
+      setState(() {
+        _navStack.removeLast();
+        _scrollOffsets.removeLast();
+      });
+      _restoreScrollOffset(restoreOffset);
       return true;
     }
     return false;
   }
 
   void _navigateTo(String? path) {
+    _rememberScrollOffset();
     setState(() {
       _navStack.add(path);
+      _scrollOffsets.add(0);
     });
+    _restoreScrollOffset(0);
+  }
+
+  void _syncClients(BuildContext context, ServerViewModel state) {
+    final clientIds = state.activeSessions
+        .map((session) => session.clientId)
+        .toSet();
+    if (clientIds.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Start playback on at least two connected devices to sync them.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final masterId = clientIds.first;
+    // Set every playback session to slave first, then promote the chosen master.
+    state
+      ..broadcastCommand('media', 'set_sync_mode', value: 'slave')
+      ..broadcastCommand(
+        'media',
+        'set_sync_mode',
+        value: 'master',
+        targetId: masterId,
+      );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Playback sync enabled for ${clientIds.length} devices.'),
+      ),
+    );
+  }
+
+  void _openWebApp(BuildContext context, ServerViewModel state) {
+    if (!state.isRunning) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Start the server before opening the web app.')),
+      );
+      return;
+    }
+
+    final url = Uri(scheme: 'http', host: state.serverIp, port: 8080);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ServerWebAppScreen(url: url),
+      ),
+    );
   }
 
   String get _title {
@@ -75,6 +162,11 @@ class _ServerDashboardState extends State<ServerDashboard> {
     if (_currentPath == 'filters') return 'Sharing options';
     if (_currentPath == 'directories') return 'Shared folders';
     if (_currentPath == 'stations') return 'Broadcasts';
+    if (_currentPath == 'create_station') return 'Create a station';
+    if (_currentPath == 'pair') return 'Pair a device';
+    if (_currentPath == 'remote_control') return 'Remote control';
+    if (_currentPath == 'preview') return 'Choose an interface';
+    if (_currentPath == 'media_library') return 'Media library';
     if (_currentPath == 'history') return 'Viewing history';
     if (_currentPath == 'traffic') return 'Network traffic';
     if (_currentPath == 'live_logs') return 'Live logs';
@@ -96,6 +188,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
       child: AppScaffold(
         body: SafeArea(
           child: CustomScrollView(
+            controller: _scrollController,
             physics: const BouncingScrollPhysics(),
             slivers: [
               _buildAppSliverAppBar(isMobile),
@@ -140,24 +233,16 @@ class _ServerDashboardState extends State<ServerDashboard> {
         constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
         child: Padding(
           padding: EdgeInsets.only(left: showNav ? 0 : 16.0),
-          child: Row(
-            children: [
-              if (!showNav) ...[
-                AppBrandIcon(size: isMobile ? 28 : 36),
-                const SizedBox(width: DS.s12),
-              ],
-              Expanded(
-                child: Text(
-                  _title,
-                  style: AppTextStyles.style(
-                    color: tokens.textPrimary,
-                    fontSize: isMobile ? 20 : 24,
-                    fontWeight: AppTextStyles.titleFontWeight,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-              ),
-            ],
+          child: Text(
+            _title,
+            style: AppTextStyles.style(
+              color: tokens.textPrimary,
+              fontSize: isMobile ? 20 : 24,
+              fontWeight: AppTextStyles.titleFontWeight,
+              letterSpacing: -0.2,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ),
@@ -172,6 +257,47 @@ class _ServerDashboardState extends State<ServerDashboard> {
     );
   }
 
+  Widget _actionSection(String title, List<Widget> actions) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(DS.s16, DS.s24, DS.s16, 0),
+        child: Text(
+          title,
+          style: AppTextStyles.heading(
+            18,
+            color: context.tokens.textPrimary,
+          ),
+        ),
+      ),
+      AppActionGrid(
+        padding: const EdgeInsets.all(DS.s16),
+        spacing: DS.s8,
+        minTileWidth: 84,
+        maxColumns: 3,
+        children: actions,
+      ),
+    ],
+  );
+
+  Widget _serverActivitySection(List<Widget> actions) =>
+      _actionSection('Server activity', actions);
+
+  Widget _serverPageContent(Widget child) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          DS.s16,
+          DS.s16,
+          DS.s16,
+          DS.s24,
+        ),
+        child: child,
+      ),
+    ),
+  );
+
   List<Widget> _buildBodySlivers(bool isMobile, ServerViewModel state) {
     if (_currentPath == null) {
       return [
@@ -184,119 +310,102 @@ class _ServerDashboardState extends State<ServerDashboard> {
           ),
         ),
 
-        // Primary Utility Grid (3 Columns)
+        // Keep every existing action, grouped by the task it supports.
         SliverToBoxAdapter(
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
-              child: AppActionGrid(
-                padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  AppActionCard(
-                    label: 'Traffic',
-                    icon: LucideIcons.barChart,
-                    onTap: () => _navigateTo('traffic'),
-                  ),
-                  AppActionCard(
-                    label: 'Live logs',
-                    icon: LucideIcons.terminal,
-                    onTap: () => _navigateTo('live_logs'),
-                  ),
-                  AppActionCard(
-                    label: 'History',
-                    icon: LucideIcons.history,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const _ConnectionHistoryScreen(),
+                  _actionSection('Connect & control', [
+                    AppActionCard(
+                      label: 'Pair with QR',
+                      icon: LucideIcons.qrCode,
+                      onTap: () => _navigateTo('pair'),
+                    ),
+                    AppActionCard(
+                      label: 'Sync clients',
+                      icon: LucideIcons.refreshCw,
+                      onTap: () => _syncClients(context, state),
+                    ),
+                    AppActionCard(
+                      label: 'Remote control',
+                      icon: LucideIcons.gamepad2,
+                      onTap: () => _navigateTo('remote_control'),
+                    ),
+                    AppActionCard(
+                      label: 'Remote relay',
+                      icon: LucideIcons.smartphoneNfc,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const RemoteInputRelayScreen(
+                            isServerMode: true,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  AppActionCard(
-                    label: 'Remote relay',
-                    icon: LucideIcons.smartphoneNfc,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const RemoteInputRelayScreen(isServerMode: true),
+                    AppActionCard(
+                      label: 'Preview',
+                      icon: LucideIcons.monitor,
+                      onTap: () => _navigateTo('preview'),
+                    ),
+                  ]),
+                  _actionSection('Media & sharing', [
+                    AppActionCard(
+                      label: 'Media library',
+                      icon: LucideIcons.playCircle,
+                      onTap: () => _navigateTo('media_library'),
+                    ),
+                    AppActionCard(
+                      label: 'Shared folders',
+                      icon: LucideIcons.folderOpen,
+                      onTap: () => _navigateTo('directories'),
+                    ),
+                    AppActionCard(
+                      label: 'Sharing options',
+                      icon: LucideIcons.slidersHorizontal,
+                      onTap: () => _navigateTo('filters'),
+                    ),
+                    AppActionCard(
+                      label: 'Stations',
+                      icon: LucideIcons.radio,
+                      onTap: () => _navigateTo('stations'),
+                    ),
+                    AppActionCard(
+                      label: 'Create station',
+                      icon: LucideIcons.wand2,
+                      onTap: () => _navigateTo('create_station'),
+                    ),
+                    AppActionCard(
+                      label: 'Open web app',
+                      icon: LucideIcons.globe,
+                      onTap: () => _openWebApp(context, state),
+                    ),
+                  ]),
+                  _serverActivitySection([
+                    AppActionCard(
+                      label: 'Traffic',
+                      icon: LucideIcons.barChart,
+                      onTap: () => _navigateTo('traffic'),
+                    ),
+                    AppActionCard(
+                      label: 'Live logs',
+                      icon: LucideIcons.terminal,
+                      onTap: () => _navigateTo('live_logs'),
+                    ),
+                    AppActionCard(
+                      label: 'History',
+                      icon: LucideIcons.history,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const _ConnectionHistoryScreen(),
+                        ),
                       ),
                     ),
-                  ),
-                  AppActionCard(
-                    label: 'Remote control',
-                    icon: LucideIcons.gamepad2,
-                    onTap: () => showAppBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      builder: (_) => const UniversalRemoteSheet(),
-                    ),
-                  ),
-                  AppActionCard(
-                    label: 'Pair with QR',
-                    icon: LucideIcons.qrCode,
-                    onTap: () => _showQRSheet(context, state),
-                  ),
-                  AppActionCard(
-                    label: 'Preview',
-                    icon: LucideIcons.monitor,
-                    onTap: () => _showPreviewSheet(context, state),
-                  ),
-                  AppActionCard(
-                    label: 'Open web app',
-                    icon: LucideIcons.globe,
-                    onTap: () =>
-                        launchUrl(Uri.parse('http://${state.serverIp}:8080')),
-                  ),
-                  AppActionCard(
-                    label: 'Stations',
-                    icon: LucideIcons.radio,
-                    onTap: () => _navigateTo('stations'),
-                  ),
-                  AppActionCard(
-                    label: 'Sharing options',
-                    icon: LucideIcons.slidersHorizontal,
-                    onTap: () => _navigateTo('filters'),
-                  ),
-                  AppActionCard(
-                    label: 'Shared folders',
-                    icon: LucideIcons.folderOpen,
-                    onTap: () => _navigateTo('directories'),
-                  ),
-                  AppActionCard(
-                    label: 'Media library',
-                    icon: LucideIcons.playCircle,
-                    onTap: () => _showRemoteMediaSheet(context, state),
-                  ),
-                  AppActionCard(
-                    label: 'Create station',
-                    icon: LucideIcons.wand2,
-                    onTap: () => state.curateStation('all'),
-                  ),
-                  AppActionCard(
-                    label: 'Sync clients',
-                    icon: LucideIcons.refreshCw,
-                    onTap: () {
-                      if (state.activeSessions.isNotEmpty) {
-                        final masterId = state.activeSessions.first.clientId;
-                        sl<HttpServerService>().broadcast(
-                          jsonEncode({
-                            'type': 'media',
-                            'action': 'set_sync_mode',
-                            'value': 'master',
-                            'targetId': masterId,
-                          }),
-                        );
-                        sl<HttpServerService>().broadcast(
-                          jsonEncode({
-                            'type': 'media',
-                            'action': 'set_sync_mode',
-                            'value': 'slave',
-                          }),
-                        );
-                      }
-                    },
-                  ),
+                  ]),
                 ],
               ),
             ),
@@ -314,47 +423,53 @@ class _ServerDashboardState extends State<ServerDashboard> {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: DS.s16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const AppSheetHeader(
-                      title: 'Choose folders to share',
-                      subtitle: 'Connected devices can browse media in these folders.',
-                      icon: LucideIcons.folderOpen,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      DS.s16,
+                      DS.s16,
+                      DS.s16,
+                      DS.s8,
                     ),
-                    if (!kIsWeb)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: DS.s24,
-                        ),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: SizedBox(
-                            width: 180,
-                            child: _MountButton(
-                              onMounted: state.addSharedFolder,
-                            ),
+                    child: Text(
+                      'Add folders that connected devices can browse.',
+                      style: AppTextStyles.supporting.copyWith(
+                        color: context.tokens.textMuted,
+                      ),
+                    ),
+                  ),
+                  if (!kIsWeb)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: DS.s16,
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: SizedBox(
+                          width: 180,
+                          child: _MountButton(
+                            onMounted: state.addSharedFolder,
                           ),
                         ),
                       ),
-                    if (state.sharedFolders.isEmpty)
-                      const AppStateView(
-                        title: 'No shared folders yet',
-                        description: 'Add a folder to make its media available to connected devices.',
-                        icon: LucideIcons.folderOpen,
-                      )
-                    else
-                      ...state.sharedFolders.map(
-                        (path) => _DirRow(
-                          key: ValueKey(path),
-                          path: path,
-                          onRemove: () => state.removeSharedFolder(path),
-                        ),
+                    ),
+                  if (state.sharedFolders.isEmpty)
+                    const AppStateView(
+                      title: 'No shared folders yet',
+                      description: 'Add a folder to share its media.',
+                      icon: LucideIcons.folderOpen,
+                    )
+                  else
+                    ...state.sharedFolders.map(
+                      (path) => _DirRow(
+                        key: ValueKey(path),
+                        path: path,
+                        onRemove: () => state.removeSharedFolder(path),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -365,12 +480,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
     if (_currentPath == 'traffic') {
       return [
         SliverToBoxAdapter(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
-              child: _TrafficMonitor(state: state),
-            ),
-          ),
+          child: _serverPageContent(_TrafficMonitor(state: state)),
         ),
       ];
     }
@@ -378,12 +488,7 @@ class _ServerDashboardState extends State<ServerDashboard> {
     if (_currentPath == 'live_logs') {
       return [
         SliverToBoxAdapter(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
-              child: _LiveLogViewer(state: state),
-            ),
-          ),
+          child: _serverPageContent(_LiveLogViewer(state: state)),
         ),
       ];
     }
@@ -394,46 +499,118 @@ class _ServerDashboardState extends State<ServerDashboard> {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: DS.s16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const AppSheetHeader(
-                      title: 'Content and privacy',
-                      subtitle: 'Control the media and activity shared with connected devices.',
-                      icon: LucideIcons.slidersHorizontal,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      DS.s16,
+                      DS.s16,
+                      DS.s16,
+                      DS.s8,
                     ),
-                    _ToggleRow(
-                      label: 'Share videos',
-                      icon: LucideIcons.video,
-                      value: state.shareVideos,
-                      isMobile: isMobile,
-                      onChanged: state.setShareVideos,
+                    child: Text(
+                      'Choose what connected devices can access.',
+                      style: AppTextStyles.supporting.copyWith(
+                        color: context.tokens.textMuted,
+                      ),
                     ),
-                    _ToggleRow(
-                      label: 'Share music',
-                      icon: LucideIcons.music,
-                      value: state.shareMusic,
-                      isMobile: isMobile,
-                      onChanged: state.setShareMusic,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      DS.s16,
+                      DS.s8,
+                      DS.s16,
+                      DS.s8,
                     ),
-                    _ToggleRow(
-                      label: 'Share images',
-                      icon: LucideIcons.image,
-                      value: state.shareImages,
-                      isMobile: isMobile,
-                      onChanged: state.setShareImages,
+                    child: Text(
+                      'MEDIA ACCESS',
+                      style: AppTextStyles.caption.copyWith(
+                        color: context.tokens.textMuted,
+                        letterSpacing: 1.1,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    _ToggleRow(
-                      label: 'Private mode',
-                      icon: LucideIcons.ghost,
-                      value: state.zeroTrace,
-                      isMobile: isMobile,
-                      onChanged: state.setZeroTrace,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: DS.s16),
+                    child: AppCard(
+                      child: Column(
+                        children: [
+                          _ToggleRow(
+                            label: 'Share videos',
+                            description: 'Allow video playback.',
+                            icon: LucideIcons.video,
+                            value: state.shareVideos,
+                            isMobile: isMobile,
+                            grouped: true,
+                            onChanged: state.setShareVideos,
+                          ),
+                          Divider(
+                            height: 1,
+                            indent: DS.s56,
+                            endIndent: DS.s16,
+                            color: context.tokens.border.withValues(alpha: 0.45),
+                          ),
+                          _ToggleRow(
+                            label: 'Share music',
+                            description: 'Allow music playback.',
+                            icon: LucideIcons.music,
+                            value: state.shareMusic,
+                            isMobile: isMobile,
+                            grouped: true,
+                            onChanged: state.setShareMusic,
+                          ),
+                          Divider(
+                            height: 1,
+                            indent: DS.s56,
+                            endIndent: DS.s16,
+                            color: context.tokens.border.withValues(alpha: 0.45),
+                          ),
+                          _ToggleRow(
+                            label: 'Share images',
+                            description: 'Allow photo viewing.',
+                            icon: LucideIcons.image,
+                            value: state.shareImages,
+                            isMobile: isMobile,
+                            grouped: true,
+                            onChanged: state.setShareImages,
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      DS.s16,
+                      DS.s20,
+                      DS.s16,
+                      DS.s8,
+                    ),
+                    child: Text(
+                      'PRIVACY',
+                      style: AppTextStyles.caption.copyWith(
+                        color: context.tokens.textMuted,
+                        letterSpacing: 1.1,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: DS.s16),
+                    child: AppCard(
+                      child: _ToggleRow(
+                        label: 'Private mode',
+                        description: 'Do not save new connections to history.',
+                        icon: LucideIcons.ghost,
+                        value: state.zeroTrace,
+                        isMobile: isMobile,
+                        grouped: true,
+                        onChanged: state.setZeroTrace,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -444,7 +621,60 @@ class _ServerDashboardState extends State<ServerDashboard> {
     if (_currentPath == 'stations') {
       return [
         SliverToBoxAdapter(
-          child: _StationsTab(state: state, isMobile: isMobile),
+          child: _StationsTab(
+            state: state,
+            isMobile: isMobile,
+            onCreate: () => _navigateTo('create_station'),
+          ),
+        ),
+      ];
+    }
+
+    if (_currentPath == 'pair') {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: true,
+          child: _PairingQrView(state: state),
+        ),
+      ];
+    }
+
+    if (_currentPath == 'remote_control') {
+      return [
+        SliverToBoxAdapter(
+          child: UniversalRemoteSheet(showHeader: false),
+        ),
+      ];
+    }
+
+    if (_currentPath == 'preview') {
+      return [
+        SliverToBoxAdapter(
+          child: _PreviewOptions(
+            onMobile: () => _startPreview(false, state),
+            onTV: () => _startPreview(true, state),
+          ),
+        ),
+      ];
+    }
+
+    if (_currentPath == 'media_library') {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: true,
+          child: _RemoteMediaView(state: state, onBack: _goBack),
+        ),
+      ];
+    }
+
+    if (_currentPath == 'create_station') {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: true,
+          child: _StationCreationScreen(
+            state: state,
+            onBack: _goBack,
+          ),
         ),
       ];
     }
@@ -517,6 +747,8 @@ class _ServerDashboardState extends State<ServerDashboard> {
                           const SizedBox(height: DS.s4),
                           Text(
                             '${item.clientIp} · $time',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: AppTextStyles.supporting.copyWith(
                               color: tokens.textMuted,
                             ),
@@ -576,141 +808,37 @@ class _ServerDashboardState extends State<ServerDashboard> {
     );
   }
 
-  void _showRemoteMediaSheet(BuildContext context, ServerViewModel state) {
-    showAppBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => _RemoteMediaView(state: state),
-    );
-  }
-
-  void _showQRSheet(BuildContext context, ServerViewModel state) {
-    final tokens = context.tokens;
-    showAppBottomSheet(
-      context: context,
-      builder: (_) => Padding(
-        padding: const EdgeInsets.fromLTRB(DS.s24, 0, DS.s24, DS.s24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const AppSheetHeader(
-              title: 'Pair a device',
-              subtitle: 'Scan this code to connect to your server securely.',
-              icon: LucideIcons.qrCode,
-            ),
-            const SizedBox(height: DS.s8),
-            Container(
-              width: 224,
-              height: 224,
-              padding: const EdgeInsets.all(DS.s12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(DS.radiusLg),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(DS.radiusMd),
-                // [SECURITY B1] QR carries the pairing URL (token included) so
-                // both the web UI and Flutter clients can authenticate to the
-                // WS control plane after scanning.
-                child: QrImageView(
-                  data: state.pairingUrl,
-                  version: QrVersions.auto,
-                  backgroundColor: Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(height: DS.s20),
-            Container(
-              constraints: const BoxConstraints(maxWidth: 420),
-              width: double.infinity,
-              padding: const EdgeInsets.all(DS.s16),
-              decoration: BoxDecoration(
-                color: tokens.surface2,
-                borderRadius: BorderRadius.circular(DS.radiusMd),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    'Pairing code',
-                    style: AppTextStyles.supporting.copyWith(
-                      color: tokens.textMuted,
-                    ),
-                  ),
-                  const SizedBox(height: DS.s4),
-                  SelectableText(
-                    state.pairingToken,
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.heading(
-                      20,
-                      spacing: 1,
-                      color: tokens.textPrimary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: DS.s8),
-            Text(
-              'You can also enter the server address and this code manually.',
-              style: AppTextStyles.supporting.copyWith(color: tokens.textMuted),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: DS.s16),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showPreviewSheet(BuildContext context, ServerViewModel state) {
-    showAppBottomSheet(
-      context: context,
-      builder: (_) => Padding(
-        padding: const EdgeInsets.only(bottom: DS.s16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const AppSheetHeader(
-              title: 'Choose an interface',
-              subtitle: 'Preview the layout for each device type.',
-              icon: LucideIcons.monitor,
-            ),
-            AppSheetOption(
-              title: 'Mobile interface',
-              subtitle: 'Touch-first layout for phones and tablets',
-              icon: LucideIcons.smartphone,
-              onTap: () {
-                Navigator.pop(context);
-                _safePreview(context, false, state);
-              },
-            ),
-            AppSheetOption(
-              title: 'TV interface',
-              subtitle: 'Remote-friendly layout with D-pad focus',
-              icon: LucideIcons.tv,
-              onTap: () {
-                Navigator.pop(context);
-                _safePreview(context, true, state);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _safePreview(
     BuildContext context,
     bool isTV,
     ServerViewModel state,
   ) async {
     final tokens = context.tokens;
-    unawaited(
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) =>
-            Center(child: CircularProgressIndicator(color: tokens.accent)),
+    final messenger = ScaffoldMessenger.of(context);
+    final connectingNotice = messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(minutes: 1),
+        backgroundColor: tokens.surface3,
+        content: Row(
+          children: [
+            SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: tokens.accent,
+              ),
+            ),
+            const SizedBox(width: DS.s12),
+            Expanded(
+              child: Text(
+                'Connecting to ${isTV ? 'TV' : 'mobile'} preview…',
+                style: AppTextStyles.body.copyWith(
+                  color: tokens.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
     // FIX: Use the DI singleton — every client screen watches this same instance.
@@ -719,28 +847,28 @@ class _ServerDashboardState extends State<ServerDashboard> {
     final vm = context.read<ClientViewModel>();
     try {
       final ok = await vm.connect(state.serverIp);
-      if (context.mounted) Navigator.pop(context);
+      connectingNotice.close();
       if (ok && context.mounted) {
         unawaited(context.push('/client/interface'));
       } else if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             backgroundColor: tokens.error,
             content: Text(
-              'PREVIEW CONNECTION FAILED: ${vm.connectionError ?? "UNKNOWN"}',
+              'Preview connection failed: ${vm.connectionError ?? "Unknown error"}',
               style: AppTextStyles.style(color: tokens.background),
             ),
           ),
         );
       }
     } catch (e) {
+      connectingNotice.close();
       if (context.mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             backgroundColor: tokens.error,
             content: Text(
-              'PREVIEW ERROR: $e',
+              'Preview error: $e',
               style: AppTextStyles.style(color: tokens.background),
             ),
           ),
@@ -748,15 +876,184 @@ class _ServerDashboardState extends State<ServerDashboard> {
       }
     }
   }
+
+  void _startPreview(bool isTV, ServerViewModel state) {
+    _goBack();
+    unawaited(_safePreview(context, isTV, state));
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENT WIDGETS
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _RemoteMediaView extends StatefulWidget {
-  const _RemoteMediaView({required this.state});
+class _PairingQrView extends StatelessWidget {
+  const _PairingQrView({required this.state});
   final ServerViewModel state;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+
+    return SingleChildScrollView(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Padding(
+            padding: const EdgeInsets.all(DS.s24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Scan this code to connect to your server securely.',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.supporting.copyWith(
+                    color: tokens.textMuted,
+                  ),
+                ),
+                const SizedBox(height: DS.s20),
+                Container(
+                  width: 224,
+                  height: 224,
+                  padding: const EdgeInsets.all(DS.s12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(DS.radiusLg),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(DS.radiusMd),
+                    // The QR includes the pairing token used by the clients.
+                    child: QrImageView(
+                      data: state.pairingUrl,
+                      version: QrVersions.auto,
+                      backgroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: DS.s20),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(DS.s16),
+                  decoration: BoxDecoration(
+                    color: tokens.surface2,
+                    borderRadius: BorderRadius.circular(DS.radiusMd),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Pairing code',
+                        style: AppTextStyles.supporting.copyWith(
+                          color: tokens.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: DS.s4),
+                      SelectableText(
+                        state.pairingToken,
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.heading(
+                          20,
+                          spacing: 1,
+                          color: tokens.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: DS.s12),
+                Text(
+                  'You can also enter the server address and code manually.',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.supporting.copyWith(
+                    color: tokens.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PreviewOptions extends StatelessWidget {
+  const _PreviewOptions({required this.onMobile, required this.onTV});
+  final VoidCallback onMobile;
+  final VoidCallback onTV;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: DS.s16),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(DS.s8, DS.s8, DS.s8, DS.s16),
+              child: Text(
+                'Preview the layout for each device type.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.supporting.copyWith(
+                  color: context.tokens.textMuted,
+                ),
+              ),
+            ),
+            AppSheetOption(
+              title: 'Mobile interface',
+              subtitle: 'Touch-first layout for phones and tablets',
+              icon: LucideIcons.smartphone,
+              onTap: onMobile,
+            ),
+            AppSheetOption(
+              title: 'TV interface',
+              subtitle: 'Remote-friendly layout with D-pad focus',
+              icon: LucideIcons.tv,
+              onTap: onTV,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _MediaSearchField extends StatelessWidget {
+  const _MediaSearchField({required this.onChanged});
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        DS.s16,
+        DS.s8,
+        DS.s16,
+        DS.s16,
+      ),
+      child: TextField(
+        onChanged: onChanged,
+        style: AppTextStyles.body.copyWith(color: tokens.textPrimary),
+        decoration: InputDecoration(
+          hintText: 'Search media',
+          hintStyle: AppTextStyles.body.copyWith(color: tokens.textMuted),
+          prefixIcon: Icon(
+            LucideIcons.search,
+            color: tokens.textMuted,
+            size: 18,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RemoteMediaView extends StatefulWidget {
+  const _RemoteMediaView({required this.state, required this.onBack});
+  final ServerViewModel state;
+  final VoidCallback onBack;
 
   @override
   State<_RemoteMediaView> createState() => _RemoteMediaViewState();
@@ -790,18 +1087,22 @@ class _RemoteMediaViewState extends State<_RemoteMediaView> {
         if (_targetId != null) 'targetId': _targetId,
       }),
     );
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
+    final messenger = ScaffoldMessenger.of(context);
+    final tokens = context.tokens;
+    widget.onBack();
+    messenger.showSnackBar(
       SnackBar(
         content: Text(
-          'BROADCASTING: ${item.title.toUpperCase()}${_targetId != null ? " TO $_targetId" : ""}',
+          'Playing ${item.title}${_targetId != null ? " on $_targetId" : ""}',
           style: AppTextStyles.style(
-            color: context.tokens.background,
+            color: tokens.textPrimary,
             fontWeight: FontWeight.w500,
           ),
         ),
-        backgroundColor: context.tokens.accent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DS.radius(12))),
+        backgroundColor: tokens.surface3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DS.radius(12)),
+        ),
       ),
     );
   }
@@ -816,132 +1117,135 @@ class _RemoteMediaViewState extends State<_RemoteMediaView> {
               .where((item) => item.title.toLowerCase().contains(query))
               .toList();
 
-    return Container(
-      height: MediaQuery.sizeOf(context).height * 0.85,
-      color: tokens.surface1,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AppSheetHeader(
-            title: 'Choose media',
-            subtitle: 'Select content to play on a connected device.',
-            icon: LucideIcons.playCircle,
-            trailing: IconButton(
-              tooltip: 'Close media selector',
-              icon: const Icon(LucideIcons.x),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-
-          // Target Selector
-          if (widget.state.activeSessions.isNotEmpty)
-            SizedBox(
-              height: 60,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  ChoiceChip(
-                    label: Text(
-                      'ALL NODES',
-                      style: AppTextStyles.caption.copyWith(),
-                    ),
-                    selected: _targetId == null,
-                    onSelected: (v) => setState(() => _targetId = null),
-                    backgroundColor: tokens.surface1,
-                    selectedColor: tokens.textPrimary,
-                    labelStyle: TextStyle(
-                      color: _targetId == null
-                          ? tokens.background
-                          : tokens.textPrimary,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(DS.radius(12)),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ...widget.state.activeSessions.map(
-                    (s) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(
-                          s.clientId.toUpperCase(),
-                          style: AppTextStyles.caption.copyWith(),
-                        ),
-                        selected: _targetId == s.clientId,
-                        onSelected: (v) =>
-                            setState(() => _targetId = v ? s.clientId : null),
-                        backgroundColor: tokens.surface1,
-                        selectedColor: tokens.textPrimary,
-                        labelStyle: TextStyle(
-                          color: _targetId == s.clientId
-                              ? tokens.background
-                              : tokens.textPrimary,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(DS.radius(12)),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                DS.s16,
+                DS.s16,
+                DS.s16,
+                DS.s8,
               ),
-            ),
-
-          // Search
-          Padding(
-            padding: const EdgeInsets.fromLTRB(DS.s16, DS.s8, DS.s16, DS.s16),
-            child: TextField(
-              onChanged: (v) => setState(() => _query = v),
-              style: AppTextStyles.body.copyWith(color: tokens.textPrimary),
-              decoration: InputDecoration(
-                hintText: 'SEARCH MEDIA...',
-                hintStyle: AppTextStyles.body.copyWith(color: tokens.textMuted),
-                prefixIcon: Icon(
-                  LucideIcons.search,
-                  color: tokens.textMuted,
-                  size: 18,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Select content to play on a connected device.',
+                  style: AppTextStyles.supporting.copyWith(
+                    color: tokens.textMuted,
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // List
-          Expanded(
-            child: filtered.isEmpty
-                ? Center(
-                    child: Text(
-                      'NO MEDIA MATCHES SIGNAL',
-                      style: AppTextStyles.caption.copyWith(
-                        color: tokens.textMuted,
-                        letterSpacing: 0.5,
+            // Target Selector
+            if (widget.state.activeSessions.isNotEmpty)
+              SizedBox(
+                height: 60,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
+                    ChoiceChip(
+                      label: Text(
+                        'All devices',
+                        style: AppTextStyles.caption.copyWith(),
+                      ),
+                      selected: _targetId == null,
+                      onSelected: (v) => setState(() => _targetId = null),
+                      backgroundColor: tokens.surface1,
+                      selectedColor: tokens.textPrimary,
+                      labelStyle: TextStyle(
+                        color: _targetId == null
+                            ? tokens.background
+                            : tokens.textPrimary,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(DS.radius(12)),
                       ),
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.only(bottom: DS.s24),
-                    itemCount: filtered.length,
-                    itemBuilder: (_, i) {
-                      final item = filtered[i];
-                      return AppListTileCard(
-                        title: item.title,
-                        subtitle: item.isVideo ? 'Video' : 'Audio',
-                        icon: item.isVideo ? LucideIcons.video : LucideIcons.music,
-                        trailingIcon: LucideIcons.play,
-                        onTap: () => _play(item),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                    const SizedBox(width: 8),
+                    ...widget.state.activeSessions.map(
+                      (s) => Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(
+                            s.clientId.toUpperCase(),
+                            style: AppTextStyles.caption.copyWith(),
+                          ),
+                          selected: _targetId == s.clientId,
+                          onSelected: (v) =>
+                              setState(() => _targetId = v ? s.clientId : null),
+                          backgroundColor: tokens.surface1,
+                          selectedColor: tokens.textPrimary,
+                          labelStyle: TextStyle(
+                            color: _targetId == s.clientId
+                                ? tokens.background
+                                : tokens.textPrimary,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(DS.radius(12)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Search
+            _MediaSearchField(
+              onChanged: (value) => setState(() => _query = value),
+            ),
+
+            // List
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No media matches your search.',
+                        style: AppTextStyles.caption.copyWith(
+                          color: tokens.textMuted,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.only(bottom: DS.s24),
+                      itemCount: filtered.length,
+                      itemBuilder: (_, i) {
+                        final item = filtered[i];
+                        return AppListTileCard(
+                          title: item.title,
+                          subtitle: item.isVideo ? 'Video' : 'Audio',
+                          icon: item.isVideo
+                              ? LucideIcons.video
+                              : LucideIcons.music,
+                          trailingIcon: LucideIcons.play,
+                          onTap: () => _play(item),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class UniversalRemoteSheet extends StatelessWidget {
-  const UniversalRemoteSheet({super.key, this.targetId});
+  const UniversalRemoteSheet({
+    super.key,
+    this.targetId,
+    this.showHeader = true,
+  });
   final String? targetId;
+  final bool showHeader;
 
   void _cmd(BuildContext context, String type, String action, [dynamic value]) {
     context.read<ServerViewModel>().broadcastCommand(
@@ -953,14 +1257,14 @@ class UniversalRemoteSheet extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+  Widget build(BuildContext context) => SingleChildScrollView(
+    child: Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (showHeader)
               AppSheetHeader(
                 title: 'Remote control',
                 subtitle: targetId == null
@@ -968,131 +1272,150 @@ class UniversalRemoteSheet extends StatelessWidget {
                     : 'Control ${targetId!.toUpperCase()}.',
                 icon: LucideIcons.gamepad2,
               ),
-              AppActionGrid(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  // Navigation Cluster
-                  AppActionCard(
-                    label: 'BACK',
-                    icon: LucideIcons.chevronLeft,
-                    onTap: () => _cmd(context, 'nav', 'back'),
+            if (!showHeader)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  DS.s16,
+                  DS.s16,
+                  DS.s16,
+                  DS.s4,
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    targetId == null
+                        ? 'Control playback and navigation on connected devices.'
+                        : 'Control ${targetId!.toUpperCase()}.',
+                    style: AppTextStyles.supporting.copyWith(
+                      color: context.tokens.textMuted,
+                    ),
                   ),
-                  AppActionCard(
-                    label: 'UP',
-                    icon: LucideIcons.chevronUp,
-                    onTap: () => _cmd(context, 'nav', 'up'),
-                  ),
-                  AppActionCard(
-                    label: 'HOME',
-                    icon: LucideIcons.home,
-                    onTap: () => _cmd(context, 'nav', 'home'),
-                  ),
-
-                  AppActionCard(
-                    label: 'LEFT',
-                    icon: LucideIcons.chevronLeft,
-                    onTap: () => _cmd(context, 'nav', 'left'),
-                  ),
-                  AppActionCard(
-                    label: 'ENTER',
-                    icon: LucideIcons.circle,
-                    onTap: () => _cmd(context, 'nav', 'enter'),
-                  ),
-                  AppActionCard(
-                    label: 'RIGHT',
-                    icon: LucideIcons.chevronRight,
-                    onTap: () => _cmd(context, 'nav', 'right'),
-                  ),
-
-                  AppActionCard(
-                    label: 'INFO',
-                    icon: LucideIcons.info,
-                    onTap: () => _cmd(context, 'nav', 'info'),
-                  ),
-                  AppActionCard(
-                    label: 'DOWN',
-                    icon: LucideIcons.chevronDown,
-                    onTap: () => _cmd(context, 'nav', 'down'),
-                  ),
-                  AppActionCard(
-                    label: 'MENU',
-                    icon: LucideIcons.menu,
-                    onTap: () => _cmd(context, 'nav', 'menu'),
-                  ),
-
-                  // Media Cluster
-                  AppActionCard(
-                    label: 'PREV',
-                    icon: LucideIcons.skipBack,
-                    onTap: () => _cmd(context, 'media', 'prev'),
-                  ),
-                  AppActionCard(
-                    label: 'PLAY/PAUSE',
-                    icon: LucideIcons.play,
-                    onTap: () => _cmd(context, 'media', 'toggle_play'),
-                  ),
-                  AppActionCard(
-                    label: 'NEXT',
-                    icon: LucideIcons.skipForward,
-                    onTap: () => _cmd(context, 'media', 'next'),
-                  ),
-
-                  AppActionCard(
-                    label: '-10S',
-                    icon: LucideIcons.rewind,
-                    onTap: () => _cmd(context, 'media', 'seek', -10),
-                  ),
-                  AppActionCard(
-                    label: 'STOP',
-                    icon: LucideIcons.square,
-                    onTap: () => _cmd(context, 'media', 'stop'),
-                  ),
-                  AppActionCard(
-                    label: '+10S',
-                    icon: LucideIcons.fastForward,
-                    onTap: () => _cmd(context, 'media', 'seek', 10),
-                  ),
-
-                  // System Cluster
-                  AppActionCard(
-                    label: 'VOL UP',
-                    icon: LucideIcons.volume2,
-                    onTap: () => _cmd(context, 'system', 'volume_up'),
-                  ),
-                  AppActionCard(
-                    label: 'MUTE',
-                    icon: LucideIcons.volumeX,
-                    onTap: () => _cmd(context, 'system', 'mute'),
-                  ),
-                  AppActionCard(
-                    label: 'SHUTDOWN',
-                    icon: LucideIcons.power,
-                    onTap: () => _cmd(context, 'system', 'shutdown'),
-                  ),
-
-                  AppActionCard(
-                    label: 'VOL DOWN',
-                    icon: LucideIcons.volume1,
-                    onTap: () => _cmd(context, 'system', 'volume_down'),
-                  ),
-                  AppActionCard(
-                    label: 'SYNC ALL',
-                    icon: LucideIcons.refreshCw,
-                    onTap: () => _cmd(context, 'media', 'sync_all'),
-                  ),
-                  AppActionCard(
-                    label: 'KILL ALL',
-                    icon: LucideIcons.skull,
-                    onTap: () => _cmd(context, 'system', 'shutdown_all'),
-                  ),
-                ],
+                ),
               ),
-            ],
-          ),
+            AppActionGrid(
+              padding: const EdgeInsets.all(16),
+              children: [
+                // Navigation Cluster
+                AppActionCard(
+                  label: 'Back',
+                  icon: LucideIcons.chevronLeft,
+                  onTap: () => _cmd(context, 'nav', 'back'),
+                ),
+                AppActionCard(
+                  label: 'Up',
+                  icon: LucideIcons.chevronUp,
+                  onTap: () => _cmd(context, 'nav', 'up'),
+                ),
+                AppActionCard(
+                  label: 'Home',
+                  icon: LucideIcons.home,
+                  onTap: () => _cmd(context, 'nav', 'home'),
+                ),
+
+                AppActionCard(
+                  label: 'Left',
+                  icon: LucideIcons.chevronLeft,
+                  onTap: () => _cmd(context, 'nav', 'left'),
+                ),
+                AppActionCard(
+                  label: 'Select',
+                  icon: LucideIcons.circle,
+                  onTap: () => _cmd(context, 'nav', 'enter'),
+                ),
+                AppActionCard(
+                  label: 'Right',
+                  icon: LucideIcons.chevronRight,
+                  onTap: () => _cmd(context, 'nav', 'right'),
+                ),
+
+                AppActionCard(
+                  label: 'Info',
+                  icon: LucideIcons.info,
+                  onTap: () => _cmd(context, 'nav', 'info'),
+                ),
+                AppActionCard(
+                  label: 'Down',
+                  icon: LucideIcons.chevronDown,
+                  onTap: () => _cmd(context, 'nav', 'down'),
+                ),
+                AppActionCard(
+                  label: 'Menu',
+                  icon: LucideIcons.menu,
+                  onTap: () => _cmd(context, 'nav', 'menu'),
+                ),
+
+                // Media Cluster
+                AppActionCard(
+                  label: 'Previous',
+                  icon: LucideIcons.skipBack,
+                  onTap: () => _cmd(context, 'media', 'prev'),
+                ),
+                AppActionCard(
+                  label: 'Play / Pause',
+                  icon: LucideIcons.play,
+                  onTap: () => _cmd(context, 'media', 'toggle_play'),
+                ),
+                AppActionCard(
+                  label: 'Next',
+                  icon: LucideIcons.skipForward,
+                  onTap: () => _cmd(context, 'media', 'next'),
+                ),
+
+                AppActionCard(
+                  label: '−10 sec',
+                  icon: LucideIcons.rewind,
+                  onTap: () => _cmd(context, 'media', 'seek', -10),
+                ),
+                AppActionCard(
+                  label: 'Stop',
+                  icon: LucideIcons.square,
+                  onTap: () => _cmd(context, 'media', 'stop'),
+                ),
+                AppActionCard(
+                  label: '+10 sec',
+                  icon: LucideIcons.fastForward,
+                  onTap: () => _cmd(context, 'media', 'seek', 10),
+                ),
+
+                // System Cluster
+                AppActionCard(
+                  label: 'Volume up',
+                  icon: LucideIcons.volume2,
+                  onTap: () => _cmd(context, 'system', 'volume_up'),
+                ),
+                AppActionCard(
+                  label: 'Mute',
+                  icon: LucideIcons.volumeX,
+                  onTap: () => _cmd(context, 'system', 'mute'),
+                ),
+                AppActionCard(
+                  label: 'Shut down',
+                  icon: LucideIcons.power,
+                  onTap: () => _cmd(context, 'system', 'shutdown'),
+                ),
+
+                AppActionCard(
+                  label: 'Volume down',
+                  icon: LucideIcons.volume1,
+                  onTap: () => _cmd(context, 'system', 'volume_down'),
+                ),
+                AppActionCard(
+                  label: 'Sync all',
+                  icon: LucideIcons.refreshCw,
+                  onTap: () => _cmd(context, 'media', 'sync_all'),
+                ),
+                AppActionCard(
+                  label: 'Shut down all',
+                  icon: LucideIcons.skull,
+                  onTap: () => _cmd(context, 'system', 'shutdown_all'),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _DashboardCLI extends StatefulWidget {
@@ -1235,7 +1558,7 @@ class _DashboardCLIState extends State<_DashboardCLI> {
             Row(
               children: [
                 Text(
-                  'CMD>',
+                  'Command',
                   style: AppTextStyles.caption.copyWith(
                     color: tokens.accent,
                     fontWeight: FontWeight.w500,
@@ -1251,7 +1574,7 @@ class _DashboardCLIState extends State<_DashboardCLI> {
                     decoration: InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
-                      hintText: 'TYPE COMMAND...',
+                      hintText: 'Enter a command',
                       hintStyle: AppTextStyles.caption.copyWith(
                         color: tokens.textMuted,
                       ),
@@ -1433,6 +1756,8 @@ class _HistoryCard extends StatelessWidget {
                   children: [
                     Text(
                       record.ip,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.bodyLarge.copyWith(
                         color: tokens.textPrimary,
                         fontWeight: FontWeight.w600,
@@ -1441,6 +1766,8 @@ class _HistoryCard extends StatelessWidget {
                     const SizedBox(height: DS.s4),
                     Text(
                       '${record.network} · ${record.time.hour.toString().padLeft(2, '0')}:${record.time.minute.toString().padLeft(2, '0')}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.supporting.copyWith(
                         color: tokens.textMuted,
                       ),
@@ -1449,11 +1776,17 @@ class _HistoryCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: DS.s12),
-              Text(
-                '${record.transferGB.toStringAsFixed(1)} GB',
-                style: AppTextStyles.bodyLarge.copyWith(
-                  color: tokens.textPrimary,
-                  fontWeight: FontWeight.w600,
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '${record.transferGB.toStringAsFixed(1)} GB',
+                    style: AppTextStyles.bodyLarge.copyWith(
+                      color: tokens.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1629,15 +1962,19 @@ class _FolderPickerScreenState extends State<FolderPickerScreen> {
 class _ToggleRow extends StatefulWidget {
   const _ToggleRow({
     required this.label,
+    required this.description,
     required this.icon,
     required this.value,
     required this.isMobile,
+    this.grouped = false,
     required this.onChanged,
   });
   final String label;
+  final String description;
   final IconData icon;
   final bool value;
   final bool isMobile;
+  final bool grouped;
   final Function(bool) onChanged;
 
   @override
@@ -1651,9 +1988,9 @@ class _ToggleRowState extends State<_ToggleRow> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: DS.s24,
-        vertical: DS.s4,
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.grouped ? DS.s8 : DS.s16,
+        vertical: widget.grouped ? 0.0 : DS.s4,
       ),
       child: Actions(
         actions: {
@@ -1673,7 +2010,7 @@ class _ToggleRowState extends State<_ToggleRow> {
               handleTVSelectKey(ev, () => widget.onChanged(!widget.value)),
           child: Semantics(
             container: true,
-            label: widget.label,
+            label: '${widget.label}. ${widget.description}',
             checked: widget.value,
             child: InkWell(
               borderRadius: BorderRadius.circular(DS.radiusMd),
@@ -1683,11 +2020,15 @@ class _ToggleRowState extends State<_ToggleRow> {
                 decoration: BoxDecoration(
                   color: _isFocused
                       ? tokens.surface3
+                      : widget.grouped
+                      ? Colors.transparent
                       : tokens.surface1.withValues(alpha: 0.92),
                   borderRadius: BorderRadius.circular(DS.radiusMd),
                   border: Border.all(
                     color: _isFocused
                         ? tokens.focusColor
+                        : widget.grouped
+                        ? Colors.transparent
                         : tokens.border.withValues(alpha: 0.5),
                     width: _isFocused ? DS.focusWidth : 1,
                   ),
@@ -1705,12 +2046,29 @@ class _ToggleRowState extends State<_ToggleRow> {
                     ),
                     const SizedBox(width: DS.s16),
                     Expanded(
-                      child: Text(
-                        widget.label,
-                        style: AppTextStyles.bodyLarge.copyWith(
-                          fontWeight: FontWeight.w500,
-                          color: tokens.textPrimary,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.bodyLarge.copyWith(
+                              fontWeight: FontWeight.w500,
+                              color: tokens.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: DS.s4),
+                          Text(
+                            widget.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.supporting.copyWith(
+                              color: tokens.textMuted,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     _ToggleIndicator(value: widget.value),
@@ -1729,9 +2087,11 @@ class _StationsTab extends StatefulWidget {
   const _StationsTab({
     required this.state,
     required this.isMobile,
+    required this.onCreate,
   });
   final ServerViewModel state;
   final bool isMobile;
+  final VoidCallback onCreate;
 
   @override
   State<_StationsTab> createState() => _StationsTabState();
@@ -1781,7 +2141,7 @@ class _StationsTabState extends State<_StationsTab> {
       icon: LucideIcons.plus,
       isPrimary: false,
       height: 48,
-      onTap: () => _showCreateStationDialog(context),
+      onTap: widget.onCreate,
     );
 
     return Center(
@@ -1814,184 +2174,256 @@ class _StationsTabState extends State<_StationsTab> {
                 ),
               ),
               const SizedBox(height: DS.s16),
-            if (widget.state.stations.isEmpty)
-              const AppStateView(
-                title: 'No stations yet',
-                description: 'Create a station to start a live broadcast.',
-                icon: LucideIcons.radioTower,
-              )
-            else
-              ...widget.state.stations.map(
-                (s) => _StationCard(
-                  key: ValueKey(s.id),
-                  station: s,
-                  state: widget.state,
-                  isMobile: widget.isMobile,
+              if (widget.state.stations.isEmpty)
+                const AppStateView(
+                  title: 'No stations yet',
+                  description: 'Create a station to start a live broadcast.',
+                  icon: LucideIcons.radioTower,
+                )
+              else
+                ...widget.state.stations.map(
+                  (s) => _StationCard(
+                    key: ValueKey(s.id),
+                    station: s,
+                    state: widget.state,
+                    isMobile: widget.isMobile,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  Future<void> _showCreateStationDialog(BuildContext context) async {
-    final nameCtrl = TextEditingController();
-    final items = widget.state.getLocalMediaItems(shareImages: false);
-    final selectedItems = <MediaItem>[];
-    final width = MediaQuery.sizeOf(context).width;
-    final isMobile = width < DS.bpMobile;
-    final dialogInset = isMobile ? 16.0 : 40.0;
-    final dialogWidth = (width - dialogInset * 2 - 48).clamp(0.0, 800.0);
+class _StationCreationScreen extends StatefulWidget {
+  const _StationCreationScreen({required this.state, required this.onBack});
+  final ServerViewModel state;
+  final VoidCallback onBack;
+
+  @override
+  State<_StationCreationScreen> createState() => _StationCreationScreenState();
+}
+
+class _StationCreationScreenState extends State<_StationCreationScreen> {
+  late final TextEditingController _nameController;
+  late final List<MediaItem> _items;
+  final List<MediaItem> _selectedItems = [];
+  String _query = '';
+  bool _isCreating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _items = widget.state.getLocalMediaItems(shareImages: false);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _createStation() async {
+    final name = _nameController.text.trim();
+    if (_isCreating || name.isEmpty || _selectedItems.isEmpty) return;
+
+    final playlist = List<MediaItem>.of(_selectedItems);
+    setState(() => _isCreating = true);
+    try {
+      await widget.state.createStation(name, playlist);
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      widget.onBack();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Broadcast "$name" started.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isCreating = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not create station: $error')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tokens = context.tokens;
+    final query = _query.trim().toLowerCase();
+    final filteredItems = query.isEmpty
+        ? _items
+        : _items
+              .where((item) => item.title.toLowerCase().contains(query))
+              .toList();
 
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: tokens.surface1,
-          surfaceTintColor: Colors.transparent,
-          insetPadding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 16 : 40,
-            vertical: 24,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(DS.radiusLg),
-            side: BorderSide(color: tokens.border.withValues(alpha: 0.6)),
-          ),
-          title: Text(
-            'Create a station',
-            style: AppTextStyles.heading(
-              isMobile ? 22 : 28,
-              spacing: -0.4,
-              color: tokens.textPrimary,
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: DS.contentMaxWidth),
+        child: CustomScrollView(
+          primary: false,
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(DS.s16, DS.s16, DS.s16, DS.s8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Choose media for a live broadcast.',
+                      style: AppTextStyles.supporting.copyWith(
+                        color: tokens.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: DS.s16),
+                    TextField(
+                      controller: _nameController,
+                      style: AppTextStyles.supporting.copyWith(
+                        color: tokens.textPrimary,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        labelText: 'Station name',
+                        labelStyle: AppTextStyles.supporting.copyWith(
+                          color: tokens.textMuted,
+                        ),
+                        filled: true,
+                        fillColor: tokens.surface2,
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: tokens.border.withValues(alpha: 0.45),
+                          ),
+                          borderRadius: BorderRadius.circular(DS.radiusMd),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: tokens.accent,
+                            width: 1.5,
+                          ),
+                          borderRadius: BorderRadius.circular(DS.radiusMd),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        top: DS.s16,
+                        bottom: DS.s8,
+                      ),
+                      child: Text(
+                        'Select media · ${_selectedItems.length}',
+                        style: AppTextStyles.bodyLarge.copyWith(
+                          color: tokens.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          content: SizedBox(
-            width: dialogWidth,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  style: AppTextStyles.supporting.copyWith(
-                    color: tokens.textPrimary,
-                  ),
-                  onChanged: (_) => setDialogState(() {}),
-                  decoration: InputDecoration(
-                    labelText: 'Station name',
-                    labelStyle: AppTextStyles.supporting.copyWith(
+            SliverToBoxAdapter(
+              child: _MediaSearchField(
+                onChanged: (value) => setState(() => _query = value),
+              ),
+            ),
+            if (filteredItems.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(DS.s24),
+                  child: Text(
+                    _items.isEmpty
+                        ? 'No media is available to add.'
+                        : 'No media matches your search.',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.supporting.copyWith(
                       color: tokens.textMuted,
                     ),
-                    filled: true,
-                    fillColor: tokens.surface2,
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(
-                        color: tokens.border.withValues(alpha: 0.45),
+                  ),
+                ),
+              )
+            else
+              SliverList.builder(
+                itemCount: filteredItems.length,
+                itemBuilder: (context, index) {
+                  final item = filteredItems[index];
+                  final isSelected = _selectedItems.contains(item);
+                  return IgnorePointer(
+                    ignoring: _isCreating,
+                    child: AppListTileCard(
+                      title: item.title,
+                      subtitle: item.isVideo ? 'Video' : 'Audio',
+                      icon: item.isVideo
+                          ? LucideIcons.video
+                          : LucideIcons.music,
+                      isActive: isSelected,
+                      trailingIcon: LucideIcons.circle,
+                      onTap: () => setState(
+                        () => isSelected
+                            ? _selectedItems.remove(item)
+                            : _selectedItems.add(item),
                       ),
-                      borderRadius: BorderRadius.circular(DS.radiusMd),
                     ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: tokens.accent, width: 1.5),
-                      borderRadius: BorderRadius.circular(DS.radiusMd),
-                    ),
-                  ),
+                  );
+                },
+              ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  DS.s16,
+                  DS.s12,
+                  DS.s16,
+                  DS.s24,
                 ),
-                const SizedBox(height: DS.s20),
-                Text(
-                  'Select media · ${selectedItems.length}',
-                  style: AppTextStyles.bodyLarge.copyWith(
-                    color: tokens.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: DS.s12),
-                Flexible(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(DS.radiusMd),
-                    child: items.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No media is available to add.',
-                              style: AppTextStyles.supporting.copyWith(
-                                color: tokens.textMuted,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final canCreate = _nameController.text.trim().isNotEmpty &&
+                        _selectedItems.isNotEmpty &&
+                        !_isCreating;
+                    final cancelButton = OutlinedButton(
+                      onPressed: _isCreating ? null : widget.onBack,
+                      child: const Text('Cancel'),
+                    );
+                    final createButton = FilledButton.icon(
+                      onPressed: canCreate ? _createStation : null,
+                      icon: _isCreating
+                          ? SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: tokens.textPrimary,
                               ),
-                            ),
-                          )
-                        : ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: items.length,
-                            itemBuilder: (ctx, i) {
-                              final item = items[i];
-                              final isSelected = selectedItems.contains(item);
-                              return ListTile(
-                                dense: true,
-                                onTap: () => setDialogState(
-                                  () => isSelected
-                                      ? selectedItems.remove(item)
-                                      : selectedItems.add(item),
-                                ),
-                                leading: Icon(
-                                  item.isVideo
-                                      ? LucideIcons.video
-                                      : LucideIcons.music,
-                                  color: isSelected
-                                      ? tokens.accent
-                                      : tokens.textMuted,
-                                  size: 18,
-                                ),
-                                title: Text(
-                                  item.title,
-                                  style: AppTextStyles.body.copyWith(
-                                    color: tokens.textPrimary,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                trailing: Icon(
-                                  isSelected
-                                      ? LucideIcons.circleCheck
-                                      : LucideIcons.circle,
-                                  color: isSelected
-                                      ? tokens.accent
-                                      : tokens.textMuted,
-                                  size: 18,
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            FilledButton.icon(
-              onPressed: (nameCtrl.text.isEmpty || selectedItems.isEmpty)
-                  ? null
-                  : () {
-                      widget.state.createStation(nameCtrl.text, selectedItems);
-                      Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Broadcast "${nameCtrl.text}" started.'),
-                        ),
+                            )
+                          : const Icon(LucideIcons.radio),
+                      label: Text(_isCreating ? 'Starting…' : 'Start broadcast'),
+                    );
+
+                    if (constraints.maxWidth < 420) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          createButton,
+                          const SizedBox(height: DS.s8),
+                          cancelButton,
+                        ],
                       );
-                    },
-              icon: const Icon(LucideIcons.radio),
-              label: const Text('Start broadcast'),
+                    }
+                    return Row(
+                      children: [
+                        Expanded(child: cancelButton),
+                        const SizedBox(width: DS.s12),
+                        Expanded(child: createButton),
+                      ],
+                    );
+                  },
+                ),
+              ),
             ),
           ],
         ),
       ),
     );
-    nameCtrl.dispose();
   }
 }
 
@@ -2322,9 +2754,10 @@ class _LiveLogViewer extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const AppSheetHeader(
-              title: 'Recent server activity',
-              subtitle: 'Events from this server, newest first',
+              title: 'Server activity',
+              subtitle: 'Newest events first',
               icon: LucideIcons.terminal,
+              horizontalPadding: DS.s16,
             ),
             Expanded(
               child: logs.isEmpty
@@ -2336,9 +2769,9 @@ class _LiveLogViewer extends StatelessWidget {
                   : SelectionArea(
                       child: ListView.builder(
                         padding: const EdgeInsets.fromLTRB(
-                          DS.s24,
+                          DS.s16,
                           0,
-                          DS.s24,
+                          DS.s16,
                           DS.s24,
                         ),
                         itemCount: logs.length,
@@ -2407,8 +2840,9 @@ class _TrafficMonitorState extends State<_TrafficMonitor> {
         children: [
           AppSheetHeader(
             title: 'Live throughput',
-            subtitle: 'Live throughput over the last 30 seconds',
+            subtitle: 'Last 30 seconds',
             icon: LucideIcons.barChart,
+            horizontalPadding: DS.s16,
             trailing: Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: DS.s12,
@@ -2429,9 +2863,9 @@ class _TrafficMonitorState extends State<_TrafficMonitor> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
-              DS.s24,
+              DS.s16,
               0,
-              DS.s24,
+              DS.s16,
               DS.s24,
             ),
             child: Column(
@@ -2555,7 +2989,7 @@ class _DirRowState extends State<_DirRow> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: DS.s24,
+        horizontal: DS.s16,
         vertical: DS.s4,
       ),
       child: AppCard(

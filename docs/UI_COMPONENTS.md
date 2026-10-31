@@ -1,6 +1,6 @@
 # Shared UI Components
 
-This guide describes the shared Flutter UI layer used by STREAMZ screens.
+This guide describes the shared Flutter UI layer used by Hestia screens.
 
 ## Component architecture
 
@@ -19,7 +19,9 @@ Routes and screen-level state
 - **Shared primitives:** `AppBackButton`, `AppButton`, `CompactBtn`, `AppCard`, `AppPanel`, `AppActionGrid`, `AppActionCard`, `AppListTileCard`, `AppLiveStationCard`, `AppSheetHeader`, `AppSheetOption`, `SkeletonBox`, `NetworkImageFade`, and `AppStateView` provide common interaction, responsive layout, and state visuals.
 - **Feature widgets:** `ClientLibraryStateView` composes the generic state component for the mobile and TV library. Other domain-specific controls stay beside their feature. Screens and ViewModels own loading, retry, and navigation decisions; widgets receive values and callbacks.
 
-The two native-host browser clients are separate HTML/CSS implementations. Keep their visual tokens, responsive breakpoints, focus-visible treatment, and reduced-motion behavior aligned with this design system while preserving their independent browser playback and network flows.
+`AppBrandIcon(size, transparent, borderRadius)` selects between the full dark-background icon and the transparent device mark. Use the full icon where it needs a contained image surface; use the mark in splash screens and brand lockups over existing backgrounds. Keep app bars free of a repeated brand icon.
+
+The native-host browser UI is implemented by one modern HTML/CSS/JavaScript template with responsive spacing and media controls. Keep network and playback behavior inside this shared client.
 
 Shared components should not read a ViewModel, service locator, route, or platform singleton. Pass the data needed to render and callbacks for actions. This keeps components testable and lets mobile, TV, Windows, and Web screens share presentation without sharing feature state.
 
@@ -28,6 +30,8 @@ The Appearance screen uses `ThemeService` to persist font family, title weight, 
 ## Typography and actions
 
 Use a semantic `AppTextStyles` role (`caption`, `supporting`, `body`, `bodyLarge`, `title`, `titleLarge`, `sectionTitle`, or `headline`) and customize it with `copyWith`. `AppTextStyles.style`, `heading`, and `display` cover fluid sizes. System text scaling remains enabled; captions have a 12 logical pixel minimum.
+
+`AppFontFamily` offers Manrope, Inter, Roboto, and Lora from variable font files in `assets/fonts`. Keep each family’s OFL notice beside its font. Flutter loads these through `pubspec.yaml`; the native host serves the same files to its browser client from `/assets/fonts`, and the Flutter Web launch splash uses the bundled Manrope file. Keep font loading local so the app typography works without an external font service.
 
 `AppActionGrid` chooses its column count through `DS.responsiveColumns`, using available width and text scale, and grows tile height for larger text. Media grids use the same column helper so category and file cards stay readable at narrow widths and larger text settings. `AppActionCard` supplies a focusable, touch-friendly card with a two-line label and optional active state. Its public inputs are `label`, `icon`, `onTap`, and `isActive`. Use it for repeated action grids; keep feature-specific card composition local when its layout has different information or behavior.
 
@@ -71,7 +75,7 @@ The helper returns at least one column and reduces the count as text scale grows
 
 `AppBackButton` gives app bars a single back-arrow icon, tooltip, and touch target. Keep route-specific pop, disconnect, or section-back behavior in the supplied `onPressed` callback; TV screens may adjust `iconSize` while using the same icon.
 
-`PlaybackRecoveryOverlay` is shared by the mobile/desktop/Web and TV players. Its API accepts a classified `PlaybackIssue`, retry/recovery state, `isTV`, and Retry/Back callbacks. The player ViewModel owns position capture, reconnect policy, error-stream handling, and persistence; the overlay only renders diagnosis and actions. Keep the platform-specific HTML clients' matching recovery panel behavior in both `web_html.dart` and `modern_web_html.dart`.
+`PlaybackRecoveryOverlay` is shared by the mobile/desktop/Web and TV players. Its API accepts a classified `PlaybackIssue`, retry/recovery state, `isTV`, and Retry/Back callbacks. The player ViewModel owns position capture, reconnect policy, error-stream handling, and persistence; the overlay only renders diagnosis and actions. Keep the host-served HTML client's matching recovery panel behavior in `web_interface_html.dart` for both appearance modes.
 
 ## `AppStateView` API
 

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:streamz/core/constants/app_strings.dart';
 import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
@@ -112,7 +113,7 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
   Widget _buildHeader(BuildContext context) {
     final tokens = context.tokens;
     final size = MediaQuery.sizeOf(context);
-    final horizontalPad = (size.width * 0.05).clamp(32.0, 88.0);
+    final horizontalPad = DS.hPad(size.width);
     final verticalPad = (size.height * 0.035).clamp(20.0, 40.0);
 
     return Padding(
@@ -127,6 +128,7 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
         children: [
           AppBrandIcon(
             size: (size.height * 0.085).clamp(44.0, 64.0).toDouble(),
+            transparent: true,
           ),
           SizedBox(width: (size.width * 0.015).clamp(16.0, 28.0)),
           Expanded(
@@ -135,7 +137,7 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'STREAMZ',
+                  AppStrings.appTitle,
                   style: AppTextStyles.style(
                     color: tokens.textPrimary,
                     fontSize: (size.width * 0.03).clamp(32.0, 52.0),
@@ -157,10 +159,8 @@ class _RoleSelectionScreenTVState extends State<RoleSelectionScreenTV> {
             ),
           ),
           Focus(
-            onKeyEvent: (_, event) => handleTVSelectKey(
-              event,
-              () => context.push('/settings'),
-            ),
+            onKeyEvent: (_, event) =>
+                handleTVSelectKey(event, () => context.push('/settings')),
             child: IconButton(
               tooltip: 'Appearance settings',
               onPressed: () => context.push('/settings'),
@@ -217,7 +217,9 @@ class _TVActionCardState extends State<_TVActionCard> {
             borderRadius: BorderRadius.circular(DS.radius(24)),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              height: (size.height * 0.43).clamp(250.0, 380.0),
+              constraints: BoxConstraints(
+                minHeight: (size.height * 0.43).clamp(250.0, 380.0).toDouble(),
+              ),
               padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
                 color: _isFocused
@@ -260,6 +262,8 @@ class _TVActionCardState extends State<_TVActionCard> {
                   Text(
                     widget.label,
                     textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.style(
                       color: tokens.textPrimary,
                       fontSize: (size.width * 0.022).clamp(24.0, 40.0),
@@ -270,6 +274,8 @@ class _TVActionCardState extends State<_TVActionCard> {
                   Text(
                     widget.subLabel,
                     textAlign: TextAlign.center,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.style(
                       color: tokens.textSecondary,
                       fontSize: (size.width * 0.010).clamp(14.0, 18.0),

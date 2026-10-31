@@ -13,10 +13,12 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:on_audio_query/on_audio_query.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:streamz/core/constants/app_strings.dart';
 import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/presentation/shared/app_back_button.dart';
+import 'package:streamz/presentation/shared/app_summary_components.dart';
 
 /// True when this platform needs no runtime permissions.
 bool get _isAutoGrantPlatform =>
@@ -83,7 +85,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
       final ps = await PhotoManager.requestPermissionExtend();
       if (mounted) {
         setState(() => _photos = ps.isAuth);
-        if (!ps.isAuth) _showDeniedSnack('STORAGE', 'VIDEO & PHOTO SCANNING');
+        if (!ps.isAuth) _showDeniedSnack('Storage', 'video and photo scanning');
       }
     } catch (e) {
       debugPrint('[Permission] Photo error: $e');
@@ -99,7 +101,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
       final ok = await OnAudioQuery().checkAndRequest(retryRequest: true);
       if (mounted) {
         setState(() => _audio = ok);
-        if (!ok) _showDeniedSnack('AUDIO', 'MUSIC BROADCASTS');
+        if (!ok) _showDeniedSnack('Audio', 'music broadcasts');
       }
     } catch (e) {
       debugPrint('[Permission] Audio error: $e');
@@ -114,7 +116,7 @@ class _PermissionScreenState extends State<PermissionScreen> {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       try {
         const config = FlutterBackgroundAndroidConfig(
-          notificationTitle: 'VOIDCAST — Uplink Active',
+          notificationTitle: '${AppStrings.appTitle} is active',
           notificationText: 'Broadcasting on local network.',
           notificationImportance: AndroidNotificationImportance.normal,
           notificationIcon: AndroidResource(
@@ -140,13 +142,13 @@ class _PermissionScreenState extends State<PermissionScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '$permission ACCESS DENIED. OPEN DEVICE SETTINGS TO ENABLE $feature.',
+          '$permission access was denied. Open device settings to enable $feature.',
           style: AppTextStyles.caption.copyWith(
-            color: tokens.background,
+            color: tokens.textPrimary,
             fontWeight: FontWeight.w500,
           ),
         ),
-        backgroundColor: tokens.textPrimary,
+        backgroundColor: tokens.surface3,
         duration: const Duration(seconds: 4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DS.radius(12))),
       ),
@@ -163,13 +165,13 @@ class _PermissionScreenState extends State<PermissionScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'MEDIA STORAGE ACCESS IS MANDATORY.',
+            'Allow media access to continue.',
             style: AppTextStyles.caption.copyWith(
-              color: tokens.background,
+              color: tokens.textPrimary,
               fontWeight: FontWeight.w500,
             ),
           ),
-          backgroundColor: tokens.textPrimary,
+          backgroundColor: tokens.surface3,
           duration: const Duration(seconds: 3),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(DS.radius(12)),
@@ -251,10 +253,9 @@ class _PermissionScreenState extends State<PermissionScreen> {
   }
 
   Widget _buildBody(bool isMobile) {
-    final tokens = context.tokens;
     return SliverList(
       delegate: SliverChildListDelegate([
-        _AuthAnalysisCard(
+        _PermissionSummaryCard(
           isMobile: isMobile,
           photos: _photos,
           audio: _audio,
@@ -262,100 +263,59 @@ class _PermissionScreenState extends State<PermissionScreen> {
         ),
 
         AppActionGrid(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          spacing: 8,
+          minTileWidth: 80,
+          maxColumns: 3,
           children: [
             AppActionCard(
               label: 'Photos & video',
               icon: LucideIcons.folderOpen,
               isActive: _photos,
+              statusLabel: _photos ? 'Granted' : 'Required',
               onTap: _requestPhotos,
             ),
             AppActionCard(
               label: 'Audio',
               icon: LucideIcons.music,
               isActive: _audio,
+              statusLabel: _audio ? 'Enabled' : 'Optional',
               onTap: _requestAudio,
             ),
             AppActionCard(
               label: 'Background',
               icon: LucideIcons.zap,
               isActive: _background,
+              statusLabel: _background ? 'Enabled' : 'Optional',
               onTap: _requestBackground,
             ),
           ],
         ),
 
         Padding(
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const _ArchitectureTile(
-                title: 'Media library',
-                subtitle: 'Allow access to scan videos and photos',
-                icon: LucideIcons.database,
-                isFirst: true,
-              ),
-              const _ArchitectureTile(
-                title: 'Music library',
-                subtitle: 'Allow access to scan audio',
-                icon: LucideIcons.activity,
-              ),
-              const _ArchitectureTile(
-                title: 'Background activity',
-                subtitle: 'Keep sharing active while the app is minimized',
-                icon: LucideIcons.cpu,
-              ),
-
-              GestureDetector(
+              AppButton(
+                label: 'Continue',
                 onTap: _proceed,
-                child: Container(
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: _photos ? tokens.surface3 : tokens.surface2,
-                    borderRadius: BorderRadius.circular(DS.radius(16)),
-                    border: Border.all(
-                      color: _photos
-                          ? tokens.focusColor.withValues(alpha: 0.85)
-                          : tokens.border.withValues(alpha: 0.55),
-                    ),
-                  ),
-                  child: Center(
-                    child: _proceeding
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: tokens.background,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : Text(
-                            'Continue',
-                            style: AppTextStyles.style(
-                              color: _photos
-                                  ? tokens.background
-                                  : tokens.textMuted,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.5,
-                              fontSize: isMobile ? 12 : 14,
-                            ),
-                          ),
-                  ),
-                ),
+                isPrimary: _photos,
+                isLoading: _proceeding,
+                height: 56,
               ),
             ],
           ),
         ),
 
-        const SizedBox(height: 100),
+        const SizedBox(height: DS.s24),
       ]),
     );
   }
 }
 
-class _AuthAnalysisCard extends StatelessWidget {
-  const _AuthAnalysisCard({
+class _PermissionSummaryCard extends StatelessWidget {
+  const _PermissionSummaryCard({
     required this.isMobile,
     required this.photos,
     required this.audio,
@@ -386,18 +346,46 @@ class _AuthAnalysisCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Permissions overview',
-                style: AppTextStyles.titleLarge.copyWith(
-                  color: tokens.textPrimary,
-                  fontWeight: AppTextStyles.titleFontWeight,
-                ),
+          AppSummaryHeader(
+            title: 'Device access',
+            titleStyle: AppTextStyles.titleLarge.copyWith(
+              color: tokens.textPrimary,
+              fontWeight: AppTextStyles.titleFontWeight,
+            ),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: DS.s12,
+                vertical: DS.s8,
               ),
-              _BlinkingDot(isOnline: photos),
-            ],
+              decoration: BoxDecoration(
+                color: (photos ? tokens.success : tokens.warning).withValues(
+                  alpha: 0.12,
+                ),
+                borderRadius: BorderRadius.circular(DS.radius(99)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    photos
+                        ? LucideIcons.circleCheck
+                        : LucideIcons.circleAlert,
+                    size: 16,
+                    color: photos ? tokens.success : tokens.warning,
+                  ),
+                  const SizedBox(width: DS.s8),
+                  Flexible(
+                    child: Text(
+                      photos ? 'Ready' : 'Permission needed',
+                      style: AppTextStyles.caption.copyWith(
+                        color: tokens.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
           SizedBox(height: isMobile ? 16 : 24),
           Row(
@@ -407,7 +395,7 @@ class _AuthAnalysisCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'MANDATORY AUTH',
+                      'Media access',
                       style: AppTextStyles.caption.copyWith(
                         color: tokens.textMuted,
                         letterSpacing: 0.2,
@@ -415,7 +403,7 @@ class _AuthAnalysisCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      photos ? 'GRANTED' : 'REQUIRED',
+                      photos ? 'Granted' : 'Required',
                       style: AppTextStyles.body.copyWith(
                         color: photos ? tokens.success : tokens.error,
                         fontWeight: FontWeight.w500,
@@ -429,7 +417,7 @@ class _AuthAnalysisCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      'TOTAL MODULES',
+                      'Permissions complete',
                       style: AppTextStyles.caption.copyWith(
                         color: tokens.textMuted,
                         letterSpacing: 0.2,
@@ -462,20 +450,18 @@ class _AuthAnalysisCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _legend(
-                  context,
-                  'CORE',
-                  photos ? 'READY' : 'WAITING',
-                  tokens.textPrimary,
+                child: AppSummaryLegend(
+                  label: 'Media library',
+                  value: photos ? 'Ready' : 'Waiting',
+                  markerColor: tokens.textPrimary,
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _legend(
-                  context,
-                  'EXTENSIONS',
-                  audio ? 'ACTIVE' : 'OPTIONAL',
-                  tokens.textSecondary,
+                child: AppSummaryLegend(
+                  label: 'Audio access',
+                  value: audio ? 'Enabled' : 'Optional',
+                  markerColor: tokens.textSecondary,
                 ),
               ),
             ],
@@ -485,174 +471,5 @@ class _AuthAnalysisCard extends StatelessWidget {
     );
   }
 
-  Widget _legend(
-    BuildContext context,
-    String label,
-    String value,
-    Color color,
-  ) {
-    final tokens = context.tokens;
-    return Row(
-      children: [
-        Container(width: 8, height: 8, color: color),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            label,
-            style: AppTextStyles.caption.copyWith(color: tokens.textMuted),
-          ),
-        ),
-        Text(
-          value,
-          style: AppTextStyles.caption.copyWith(
-            fontWeight: FontWeight.w500,
-            color: tokens.textPrimary,
-          ),
-        ),
-      ],
-    );
-  }
 }
 
-class _ArchitectureTile extends StatefulWidget {
-  const _ArchitectureTile({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    this.isFirst = false,
-  });
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final bool isFirst;
-
-  @override
-  State<_ArchitectureTile> createState() => _ArchitectureTileState();
-}
-
-class _ArchitectureTileState extends State<_ArchitectureTile> {
-  bool _focused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Focus(
-      onFocusChange: (v) {
-        setState(() => _focused = v);
-        if (v) handleTVFocusScroll(v, context);
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: _focused
-              ? tokens.textPrimary.withValues(alpha: 0.05)
-              : tokens.surface1,
-          border: Border(
-            bottom: BorderSide(color: tokens.border.withValues(alpha: 0.15)),
-            top: widget.isFirst
-                ? BorderSide(color: tokens.border.withValues(alpha: 0.15))
-                : BorderSide.none,
-          ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: tokens.surface2,
-                border: Border.all(
-                  color: _focused
-                      ? tokens.textPrimary
-                      : tokens.border.withValues(alpha: 0.15),
-                ),
-              ),
-              child: Icon(
-                widget.icon,
-                color: _focused ? tokens.textPrimary : tokens.textSecondary,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.title.toUpperCase(),
-                    style: AppTextStyles.title.copyWith(
-                      color: tokens.textPrimary,
-                      fontWeight: AppTextStyles.titleFontWeight,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    widget.subtitle,
-                    style: AppTextStyles.caption.copyWith(
-                      color: tokens.textMuted,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (_focused)
-              Icon(
-                LucideIcons.chevronRight,
-                color: tokens.textPrimary,
-                size: 16,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BlinkingDot extends StatefulWidget {
-  const _BlinkingDot({required this.isOnline});
-  final bool isOnline;
-
-  @override
-  State<_BlinkingDot> createState() => _BlinkingDotState();
-}
-
-class _BlinkingDotState extends State<_BlinkingDot>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    if (!widget.isOnline) {
-      return Container(width: 8, height: 8, color: tokens.textDisabled);
-    }
-    return FadeTransition(
-      opacity: _ctrl,
-      child: Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: tokens.success,
-          boxShadow: [BoxShadow(color: tokens.success, blurRadius: 4)],
-        ),
-      ),
-    );
-  }
-}

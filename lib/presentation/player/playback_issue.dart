@@ -1,3 +1,5 @@
+import 'package:streamz/core/constants/app_strings.dart';
+
 enum PlaybackIssueKind { connection, codec, device, unknown }
 
 class PlaybackIssue {
@@ -65,12 +67,14 @@ class PlaybackIssue {
 
   String get description => switch (kind) {
     PlaybackIssueKind.connection =>
-      'The media host or network stopped responding. STREAMZ will retry and continue near your last position. Check that both devices are on the same Wi-Fi and the host is still running.',
+      'The host or Wi-Fi stopped responding. ${AppStrings.appTitle} will retry '
+      'and resume near your last position. Check that the host is running on '
+      'the same network.',
     PlaybackIssueKind.codec =>
-      'The file format or codec may not be supported by this device or browser. Try another file, or play this one on a device with broader codec support.',
+      'This file may use a format unsupported by this device or browser. Try another file or a different playback device.',
     PlaybackIssueKind.device =>
-      'The browser or device blocked playback. Choose Retry to start it again; on the Web, check autoplay and media permissions if it keeps happening.',
+      'Playback was blocked. Choose Retry; check autoplay or media permissions if it happens again.',
     PlaybackIssueKind.unknown =>
-      'Check that the media host and network are reachable, then try another file. If other files play, this file may use an unsupported format or codec.',
+      'Check the host connection, then retry. If other files play, this file may use an unsupported format.',
   };
 }

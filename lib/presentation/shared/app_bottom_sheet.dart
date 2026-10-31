@@ -32,65 +32,116 @@ class AppSheetHeader extends StatelessWidget {
     this.subtitle,
     this.icon,
     this.trailing,
+    this.horizontalPadding = DS.s24,
   });
 
   final String title;
   final String? subtitle;
   final IconData? icon;
   final Widget? trailing;
+  final double horizontalPadding;
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(DS.s24, DS.s16, DS.s24, DS.s16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (icon != null) ...[
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: tokens.surface2,
-                borderRadius: BorderRadius.circular(DS.radius(14)),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = trailing != null &&
+            (constraints.maxWidth < 520 ||
+                MediaQuery.textScalerOf(context).scale(14) > 17);
+        final titleBlock = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.heading(
+                18,
+                spacing: -0.2,
+                color: tokens.textPrimary,
               ),
-              child: Icon(icon, size: 20, color: tokens.textSecondary),
             ),
-            const SizedBox(width: DS.s12),
+            if (subtitle != null) ...[
+              const SizedBox(height: DS.s4),
+              Text(
+                subtitle!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.text(13, color: tokens.textMuted),
+              ),
+            ],
           ],
-          Expanded(
+        );
+        final leading = icon == null
+            ? null
+            : Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: tokens.surface2,
+                  borderRadius: BorderRadius.circular(DS.radius(14)),
+                ),
+                child: Icon(icon, size: 20, color: tokens.textSecondary),
+              );
+
+        if (compact) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              DS.s16,
+              horizontalPadding,
+              DS.s16,
+            ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.heading(
-                    18,
-                    spacing: -0.2,
-                    color: tokens.textPrimary,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (leading != null) ...[
+                      leading,
+                      const SizedBox(width: DS.s12),
+                    ],
+                    Expanded(child: titleBlock),
+                  ],
+                ),
+                const SizedBox(height: DS.s8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                    child: trailing,
                   ),
                 ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: DS.s4),
-                  Text(
-                    subtitle!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.text(13, color: tokens.textMuted),
-                  ),
-                ],
               ],
             ),
+          );
+        }
+
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            DS.s16,
+            horizontalPadding,
+            DS.s16,
           ),
-          if (trailing != null) ...[
-            const SizedBox(width: DS.s8),
-            trailing!,
-          ],
-        ],
-      ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (leading != null) ...[
+                leading,
+                const SizedBox(width: DS.s12),
+              ],
+              Expanded(child: titleBlock),
+              if (trailing != null) ...[
+                const SizedBox(width: DS.s8),
+                Flexible(child: trailing!),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

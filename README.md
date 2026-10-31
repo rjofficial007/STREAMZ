@@ -1,6 +1,6 @@
-# STREAMZ
+# Hestia
 
-STREAMZ is a local-network media library and playback app. A native Android or Windows device can host a media library over HTTP, while Flutter clients and ordinary browsers connect over the LAN. Android TV uses the Android app with a Leanback launcher entry and remote-friendly screens.
+Hestia is a local-network media library and playback app. A native Android or Windows device can host a media library over HTTP, while Flutter clients and ordinary browsers connect over the LAN. Android TV uses the Android app with a Leanback launcher entry and remote-friendly screens.
 
 ## Supported targets
 
@@ -9,25 +9,26 @@ STREAMZ is a local-network media library and playback app. A native Android or W
 | Android phones and tablets | Flutter app; can host or connect as a client; scans configured/shared media sources | Android permissions, device codecs, storage access, and background-service policies affect behavior. |
 | Android TV | Android app declares the Leanback launcher feature; TV detection, D-pad/Select shortcuts, focus-aware screens, and a TV banner are present | It is the Android build, not a separate TV binary. Validate navigation and playback on actual TV hardware. |
 | Windows | Flutter desktop app; can host or connect as a client; scans configured folders | Media support depends on the bundled MediaKit backend and available system resources. Build and verify on Windows. |
-| Flutter Web | Flutter browser build intended for client use | Browser codecs determine playback support. Web media scanning is disabled; local hosting and native UDP discovery are not supported by the current flow. |
-| Browser client | The native host serves one of two HTML/JavaScript clients at `http://<host-ip>:8080/`, selected by host settings | This is separate from the Flutter Web build. Both variants share the premium visual direction; playback uses the browser's media element and codec support. |
+| Flutter Web | Flutter browser build intended for client use | Browser codecs determine playback support. Web media scanning is disabled; local hosting and native LAN discovery are not supported by the current flow. |
+| Browser client | The native host serves one responsive modern HTML/JavaScript client at `http://<host-ip>:8080/` | This is separate from the Flutter Web build. Playback uses the browser's media element and codec support. |
 
 The repository has Android, Windows, and Web Flutter targets. That alone does not establish feature parity on every device. See [Architecture and platform notes](docs/ARCHITECTURE.md) for the implemented data flows, known limits, and a verification matrix.
 
 ## What the app does
 
 - Scans configured local media on native host platforms and exposes media metadata, thumbnails, files, and byte-range streams over HTTP.
-- Discovers native hosts on the LAN with UDP, or lets a client connect using the host IP and pairing link/code.
-- Uses WebSockets for playback commands, session status, station/queue updates, and remote control.
+- Discovers native hosts on the LAN with Bonjour/mDNS, keeps the existing UDP fallback, or lets a client connect using the host IP and pairing link/code.
+- Uses a WebSocket ready handshake, heartbeat, capped reconnect backoff, and state refresh for playback commands, session status, station/queue updates, and remote control.
 - Supports host-managed broadcast stations and synchronized playback flows.
 - Saves client playback progress locally, surfaces Continue Watching, and retries interrupted remote streams while retaining the last useful playback position.
+- Opens the host's browser client inside Hestia on Android/TV and Windows. Flutter Web embeds it in an iframe, subject to the browser's same-origin and mixed-content rules.
 - Uses MediaKit for Flutter playback. Browser playback uses browser-provided media support; supported codecs vary by browser and device.
 
 Streaming sends the original media bytes without server-side transcoding. Playback smoothness and maximum resolution depend on the source file, client decoder, network throughput, and device performance. The app cannot guarantee 4K playback merely because a TV panel is 4K.
 
 ## Architecture
 
-The app is organized into presentation/ViewModels, domain models and services, data repositories, and platform/network infrastructure. GetIt registers shared services and the main client/server ViewModels; Provider exposes them to Flutter screens. The host's HTTP/WebSocket service, UDP discovery, local scanning, MediaKit playback, and the browser client are described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The app is organized into presentation/ViewModels, domain models and services, data repositories, and platform/network infrastructure. GetIt registers shared services and the main client/server ViewModels; Provider exposes them to Flutter screens. The host's HTTP/WebSocket service, mDNS/UDP discovery, local scanning, MediaKit playback, and the browser client are described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 Shared typography, the blue-glow scaffold, transparent/scroll-blurred app bars, responsive grids, focus handling, and accessible UI primitives are documented in [docs/UI_COMPONENTS.md](docs/UI_COMPONENTS.md). `ThemeService` persists font family, title weight, scaffold glow color, and shared corner radius on the device. The route inventory, UI review, and latest validation record are in [docs/UX_REVIEW.md](docs/UX_REVIEW.md).
 
@@ -53,15 +54,15 @@ flutter build windows
 flutter build web
 ```
 
-Windows builds require a Windows development environment. Android TV uses the Android APK; validate on a TV or equivalent D-pad device. The browser-served client is provided by a running native host and is not launched by `flutter run -d chrome`.
+Windows builds require a Windows development environment and the NuGet CLI on `PATH` for the embedded WebView. Android TV uses the Android APK; validate on a TV or equivalent D-pad device. The browser-served client is provided by a running native host and is not launched by `flutter run -d chrome`.
 
-Latest UI review validation (29 October 2026): the previous UI pass passed all 47 Flutter tests; those results predate the playback-recovery and TV home follow-up. Both embedded host-browser scripts pass `node --check`. Flutter analysis/tests could not be rerun: the Flutter wrapper could not write its protected SDK cache, and the direct Dart binary crashed in its macOS CPU-info startup path. Windows and physical device/TV verification remain to be run on matching hardware/toolchains. See [docs/UX_REVIEW.md](docs/UX_REVIEW.md) for details.
+Latest verification (31 October 2026): all 73 Flutter tests pass, including host-loss reconnect, 32-client WebSocket and eight-file-stream admission, LAN browse capacity, large-library paging/indexing, and reconnect snapshot/catalog revision coverage. The current Android debug APK builds successfully, and the Web release build succeeded in the previous verification. Full analysis has five existing info-level findings in unrelated files; the LAN scanner and integration-test files analyze cleanly. Windows builds and physical Android/TV Wi-Fi interruption checks still require matching hardware/toolchains. See [docs/UX_REVIEW.md](docs/UX_REVIEW.md) for UI-specific review notes.
 
 ## LAN and security notes
 
-- The native host listens on TCP port `8080`; UDP discovery uses port `8888` and multicast/broadcast. Firewalls, guest Wi-Fi isolation, and router multicast settings can prevent discovery or streaming.
+- The native host listens on TCP port `8080`; native discovery uses Bonjour/mDNS with UDP fallback on port `8888`. Firewalls, guest Wi-Fi isolation, and router multicast settings can prevent discovery or streaming. Flutter Web discovery remains disabled.
 - The pairing token is required for the WebSocket control connection. HTTP metadata, file, thumbnail, and stream routes are not protected by that WebSocket pairing check.
-- LAN traffic is plain HTTP/WebSocket without TLS. Run STREAMZ only on a network you trust; do not expose these ports directly to the public internet.
+- LAN traffic is plain HTTP/WebSocket without TLS. Run Hestia only on a network you trust; do not expose these ports directly to the public internet.
 - Streaming is source-bitrate. A high-bitrate file needs sufficient LAN throughput; there is no adaptive bitrate or transcoding fallback.
 
 ## TV and responsive behavior

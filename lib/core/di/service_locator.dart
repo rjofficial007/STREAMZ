@@ -54,7 +54,9 @@ Future<void> setupServiceLocator() async {
     // ── Network services ──────────────────────────────────────────────────────
     ..registerLazySingleton<PlatformService>(PlatformService.new)
     ..registerLazySingleton<NetworkService>(NetworkService.new)
-    ..registerLazySingleton<ServerLifecycleService>(ServerLifecycleService.new)
+    ..registerLazySingleton<ServerLifecycleService>(
+      () => ServerLifecycleService(networkService: sl<NetworkService>()),
+    )
     ..registerLazySingleton<HttpServerService>(
       () => HttpServerService(
         scanner: sl<MediaScanner>(),
@@ -82,7 +84,9 @@ Future<void> setupServiceLocator() async {
     // ── Domain services ───────────────────────────────────────────────────────
     ..registerLazySingleton<DeviceIdService>(() => DeviceIdService(sl<SharedPreferences>()))
     ..registerLazySingleton<DownloadService>(DownloadService.new)
-    ..registerLazySingleton<RemoteCommandService>(RemoteCommandService.new)
+    ..registerLazySingleton<RemoteCommandService>(
+      () => RemoteCommandService(clientId: sl<DeviceIdService>().id),
+    )
     ..registerLazySingleton<StationService>(StationService.new)
     ..registerLazySingleton<QueueService>(QueueService.new)
     ..registerLazySingleton<MediaService>(() => MediaService(repo: sl<MediaRepository>()))

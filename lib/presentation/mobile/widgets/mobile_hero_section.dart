@@ -5,9 +5,9 @@ import 'package:streamz/core/constants/app_icons.dart';
 import 'package:streamz/core/constants/app_strings.dart';
 import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
+import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/domain/models/media_item.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
-import 'package:streamz/core/theme/design_tokens.dart';
 
 class MobileHeroSection extends StatefulWidget {
   const MobileHeroSection({
@@ -55,7 +55,7 @@ class _MobileHeroSectionState extends State<MobileHeroSection> {
   }
 
   void _play(BuildContext context, MediaItem item) {
-    final idx = widget.allItems.indexOf(item);
+    final idx = widget.allItems.indexWhere((candidate) => candidate.id == item.id);
     context.push(
       '/player',
       extra: {'items': widget.allItems, 'startIndex': idx >= 0 ? idx : 0},

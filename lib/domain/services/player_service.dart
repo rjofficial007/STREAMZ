@@ -20,7 +20,9 @@ import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 
 import 'package:streamz/core/di/service_locator.dart';
+import 'package:streamz/core/utils/logger.dart';
 import 'package:streamz/data/repositories/media_repository.dart';
+import 'package:streamz/domain/models/broadcast_station.dart';
 import 'package:streamz/domain/models/media_item.dart';
 import 'package:streamz/domain/models/remote_command.dart';
 import 'package:streamz/domain/services/device_id_service.dart';
@@ -31,6 +33,7 @@ class PlayerService extends ChangeNotifier {
   PlayerService({required MediaRepository repo, required RemoteCommandService remote}) : player = Player(), _repo = repo, _remote = remote {
     // [A3] Auto-advance for station (broadcast) playlists — see _onCompleted.
     _completedSub = player.stream.completed.listen(_onCompleted);
+    _remote.addListener(_onRemoteConnectionChanged);
   }
   final Player player;
   final MediaRepository _repo;
@@ -43,6 +46,8 @@ class PlayerService extends ChangeNotifier {
   String _sessionId = '';
   bool _isStopped = false;
   bool _shouldBePlaying = false;
+  String? _stationId;
+  int _stationRevision = -1;
   List<String>? _remoteVibeColors;
 
   bool isSyncMaster = false;
@@ -51,11 +56,17 @@ class PlayerService extends ChangeNotifier {
   Timer? _saveTimer;
   Timer? _statusTimer;
   Timer? _syncTimer;
+  DateTime? _lastSyncSentAt;
   StreamSubscription<RemoteCommand>? _cmdSub;
   StreamSubscription<bool>? _completedSub;
   bool _opening = false;
+  bool _stationRestoreRunning = false;
   bool _disposed = false;
   int _statusTickCount = 0;
+  int _lastSyncSequence = -1;
+  int _syncLatencyTotalMs = 0;
+  int _syncLatencySamples = 0;
+  DateTime? _syncMetricStartedAt;
 
   Future<String?> Function()? snapshotCallback;
 
@@ -102,7 +113,7 @@ class PlayerService extends ChangeNotifier {
 
   // ── Load ──────────────────────────────────────────────────────────────────
 
-  Future<void> load({required List<MediaItem> items, required int startIndex, bool isPathBased = false, Duration? startOffset, bool autoPlay = true}) async {
+  Future<void> load({required List<MediaItem> items, required int startIndex, bool isPathBased = false, Duration? startOffset, bool autoPlay = true, String? stationId, int? stationRevision}) async {
     _loadVersion++;
     final currentV = _loadVersion;
 
@@ -113,16 +124,22 @@ class PlayerService extends ChangeNotifier {
 
     _playlist = items;
     // FIX: clamp only if list is non-empty; otherwise default to 0.
-    _currentIndex = items.isEmpty ? 0 : startIndex.clamp(0, items.length - 1);
+    _currentIndex = items.isEmpty
+        ? 0
+        : startIndex.clamp(0, items.length - 1).toInt();
     _isPathBased = isPathBased;
     _isStopped = false;
     _shouldBePlaying = autoPlay;
+    _stationId = items.any((item) => item.isBroadcast) ? stationId : null;
+    _stationRevision = _stationId == null ? -1 : stationRevision ?? -1;
+    _lastSyncSentAt = null;
+    _syncLatencyTotalMs = 0;
+    _syncLatencySamples = 0;
+    _syncMetricStartedAt = null;
     // [A3] Leaving a station playlist exits sync mode — master/slave is
     // station-scoped (the CLI /sync command can re-establish ad-hoc sync).
-    if (!items.any((m) => m.isBroadcast)) {
-      isSyncMaster = false;
-      isSyncSlave = false;
-    }
+    isSyncMaster = false;
+    isSyncSlave = false;
     _sessionId = 'SESSION_${DateTime.now().millisecondsSinceEpoch}';
 
     await _openCurrent(startOffset: startOffset, version: currentV, autoPlay: autoPlay);
@@ -229,6 +246,7 @@ class PlayerService extends ChangeNotifier {
   void setSyncMode(String mode) {
     isSyncMaster = mode == 'master';
     isSyncSlave = mode == 'slave';
+    _lastSyncSentAt = null;
     notifyListeners();
   }
 
@@ -327,14 +345,28 @@ class PlayerService extends ChangeNotifier {
 
     _syncTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (isSyncMaster && !_isStopped && player.state.playing) {
+        final now = DateTime.now();
+        // Station playback keeps the existing 2 Hz correction cadence. A
+        // manual sync session without station subscribers needs fewer clock
+        // updates, so send it at 1 Hz while keeping the same drift correction.
+        final interval = _stationId == null
+            ? const Duration(seconds: 1)
+            : const Duration(milliseconds: 500);
+        final lastSent = _lastSyncSentAt;
+        if (lastSent != null && now.difference(lastSent) < interval) return;
+        _lastSyncSentAt = now;
+
         // [A3] itemIndex/mediaId let slaves follow the master across track
         // boundaries, not just within one track.
         _remote.send(RemoteCommand('media', 'sync_state', {
           'pos': player.state.position.inMilliseconds,
-          'ts': DateTime.now().millisecondsSinceEpoch,
+          'ts': now.millisecondsSinceEpoch,
           'rate': player.state.rate,
           'itemIndex': _currentIndex,
           'mediaId': current?.id,
+          if (_stationId != null) 'stationId': _stationId,
+          if (_stationId != null && _stationRevision >= 0)
+            'stationRevision': _stationRevision,
         }));
       }
     });
@@ -349,10 +381,33 @@ class PlayerService extends ChangeNotifier {
           case 'sync_state':
             if (isSyncSlave && cmd.value is Map) {
               final data = cmd.value as Map;
+              final syncStationId = data['stationId']?.toString();
+              if (data.containsKey('stationId') &&
+                  syncStationId != _stationId) {
+                break;
+              }
+              final stationRevision =
+                  (data['stationRevision'] as num?)?.toInt();
+              if (syncStationId != null &&
+                  stationRevision != null &&
+                  _stationRevision >= 0 &&
+                  stationRevision != _stationRevision) {
+                if (stationRevision > _stationRevision) {
+                  unawaited(_restoreStationSession());
+                }
+                break;
+              }
+              final sequence = (data['sequence'] as num?)?.toInt();
+              if (sequence != null && sequence <= _lastSyncSequence) break;
+              if (sequence != null) _lastSyncSequence = sequence;
               final targetMs = (data['pos'] as num?)?.toInt() ?? 0;
               final senderTs = (data['ts'] as num?)?.toInt() ?? 0;
               final now = DateTime.now().millisecondsSinceEpoch;
-              final latency = (now - senderTs).clamp(0, 1000);
+              final measuredLatency = now - senderTs;
+              final latency = measuredLatency.clamp(0, 1000).toInt();
+              if (senderTs > 0) {
+                _recordSyncLatency(measuredLatency.clamp(0, 60000).toInt());
+              }
 
               final adjustedTarget = targetMs + latency;
 
@@ -432,8 +487,34 @@ class PlayerService extends ChangeNotifier {
         }
       }
 
+      if (cmd.type == 'system' &&
+          cmd.action == 'sync_master_available' &&
+          cmd.value is Map &&
+          _playlist.any((item) => item.isBroadcast)) {
+        final data = cmd.value as Map;
+        final stationId = data['stationId']?.toString();
+        final expectedIds = (data['mediaIds'] as List?)
+            ?.map((id) => id.toString())
+            .toSet();
+        final activeIds = _playlist.map((item) => item.id).toSet();
+        if (stationId != null &&
+            expectedIds != null &&
+            setEquals(activeIds, expectedIds)) {
+          unawaited(_claimStationSyncRole(stationId));
+        }
+      }
+
       if (cmd.type == 'system') {
         switch (cmd.action) {
+          case 'ready':
+            // A server process restart resets its per-process sequence counter.
+            _lastSyncSequence = -1;
+            if (_stationId != null && !_isStopped) {
+              isSyncMaster = false;
+              isSyncSlave = false;
+              unawaited(_restoreStationSession());
+            }
+            break;
           case 'vibe_sync':
             if (cmd.value is List) {
               _remoteVibeColors = (cmd.value as List).cast<String>();
@@ -441,10 +522,14 @@ class PlayerService extends ChangeNotifier {
             }
             break;
           case 'volume_up':
-            player.setVolume((player.state.volume + 10.0).clamp(0.0, 100.0));
+            player.setVolume(
+              (player.state.volume + 10.0).clamp(0.0, 100.0).toDouble(),
+            );
             break;
           case 'volume_down':
-            player.setVolume((player.state.volume - 10.0).clamp(0.0, 100.0));
+            player.setVolume(
+              (player.state.volume - 10.0).clamp(0.0, 100.0).toDouble(),
+            );
             break;
           case 'mute':
             player.setVolume(player.state.volume > 0 ? 0.0 : 100.0);
@@ -452,6 +537,99 @@ class PlayerService extends ChangeNotifier {
         }
       }
     });
+  }
+
+  void _recordSyncLatency(int latencyMs) {
+    final now = DateTime.now();
+    _syncMetricStartedAt ??= now;
+    _syncLatencyTotalMs += latencyMs;
+    _syncLatencySamples++;
+    if (now.difference(_syncMetricStartedAt!) < const Duration(seconds: 30)) {
+      return;
+    }
+    final averageMs = _syncLatencyTotalMs ~/ _syncLatencySamples;
+    logger.i(
+      '[PlaybackSync] station=${_stationId ?? 'adhoc'} '
+      'samples=$_syncLatencySamples avg_latency_ms=$averageMs '
+      'last_latency_ms=$latencyMs',
+    );
+    _syncLatencyTotalMs = 0;
+    _syncLatencySamples = 0;
+    _syncMetricStartedAt = now;
+  }
+
+  Future<void> _claimStationSyncRole(String stationId) async {
+    await _restoreStationSession(stationId);
+  }
+
+  void _onRemoteConnectionChanged() {
+    if (_remote.isConnected || (!isSyncMaster && !isSyncSlave)) return;
+    isSyncMaster = false;
+    isSyncSlave = false;
+    _lastSyncSequence = -1;
+    if (!_disposed) notifyListeners();
+  }
+
+  Future<void> _restoreStationSession([String? requestedStationId]) async {
+    final stationId = requestedStationId ?? _stationId;
+    if (stationId == null ||
+        (requestedStationId != null && requestedStationId != _stationId) ||
+        _disposed ||
+        _isStopped ||
+        !_remote.isConnected ||
+        _stationRestoreRunning) {
+      return;
+    }
+    _stationRestoreRunning = true;
+    final version = _loadVersion;
+    try {
+      final response = await _repo.joinStation(stationId);
+      if (response == null || !_remote.isConnected) return;
+      await _applyStationSnapshot(
+        response,
+        stationId: stationId,
+        version: version,
+      );
+    } catch (error) {
+      debugPrint('[PlayerService] Station recovery failed: $error');
+    } finally {
+      _stationRestoreRunning = false;
+    }
+  }
+
+  Future<void> _applyStationSnapshot(
+    StationJoinResponse response, {
+    required String stationId,
+    required int version,
+  }) async {
+    if (_disposed || _isStopped || version != _loadVersion) return;
+    if (response.playlist.isEmpty) return;
+    for (var wait = 0; _opening && wait < 30; wait++) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      if (_disposed || _isStopped || version != _loadVersion) return;
+    }
+    if (_opening || !_remote.isConnected) return;
+    final restoreVersion = ++_loadVersion;
+    _saveCurrentProgress();
+    _stationId = stationId;
+    _stationRevision = response.stationRevision;
+    _lastSyncSequence = -1;
+    final resumePlayback = _shouldBePlaying && !response.isPaused;
+    _playlist = response.playlist;
+    _currentIndex = response.itemIndex
+        .clamp(0, response.playlist.length - 1)
+        .toInt();
+    _shouldBePlaying = resumePlayback;
+    await _openCurrent(
+      startOffset: response.position,
+      version: restoreVersion,
+      autoPlay: resumePlayback,
+    );
+    if (_disposed || _isStopped || restoreVersion != _loadVersion) return;
+    isSyncMaster = response.syncRole == 'master';
+    isSyncSlave = response.syncRole == 'slave';
+    _lastSyncSentAt = null;
+    notifyListeners();
   }
 
   void _saveCurrentProgress() {
@@ -466,7 +644,7 @@ class PlayerService extends ChangeNotifier {
     if (item == null || _isStopped) return;
     final dur = player.state.duration.inSeconds;
     final pos = player.state.position.inSeconds;
-    final prog = dur > 0 ? (pos / dur).clamp(0.0, 1.0) : 0.0;
+    final prog = dur > 0 ? (pos / dur).clamp(0.0, 1.0).toDouble() : 0.0;
 
     String? snapshot;
     // [FIX C13] ~10s snapshot cadence via a tick counter (the status timer
@@ -517,6 +695,10 @@ class PlayerService extends ChangeNotifier {
     _saveTimer?.cancel();
     _statusTimer?.cancel();
     _syncTimer?.cancel();
+    _stationId = null;
+    _stationRevision = -1;
+    isSyncMaster = false;
+    isSyncSlave = false;
     await _cmdSub?.cancel();
 
     final item = current;
@@ -541,6 +723,7 @@ class PlayerService extends ChangeNotifier {
     // cleanup, and the stopped-report.
     _disposed = true;
     _loadVersion++; // Abort any active load
+    _remote.removeListener(_onRemoteConnectionChanged);
     _completedSub?.cancel();
     stop();
     player.dispose();

@@ -1,5 +1,4 @@
 import 'package:flutter/widgets.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 enum AppFontFamily {
   manrope('Manrope'),
@@ -28,18 +27,10 @@ enum AppTitleWeight {
 /// The app's type scale. Screens choose a role; responsive display sizes use
 /// [style]. User text scaling remains controlled by Flutter's MediaQuery.
 abstract final class AppTextStyles {
-  static AppFontFamily _fontFamily = AppFontFamily.manrope;
-  static AppTitleWeight _titleWeight = AppTitleWeight.medium;
+  static AppFontFamily fontFamily = AppFontFamily.manrope;
+  static AppTitleWeight titleWeight = AppTitleWeight.medium;
 
-  static AppFontFamily get fontFamily => _fontFamily;
-
-  static set fontFamily(AppFontFamily value) => _fontFamily = value;
-
-  static AppTitleWeight get titleWeight => _titleWeight;
-
-  static set titleWeight(AppTitleWeight value) => _titleWeight = value;
-
-  static FontWeight get titleFontWeight => _titleWeight.weight;
+  static FontWeight get titleFontWeight => titleWeight.weight;
 
   static TextStyle get caption => style(fontSize: 12);
   static TextStyle get supporting => style(fontSize: 13);
@@ -59,20 +50,23 @@ abstract final class AppTextStyles {
     FontWeight? fontWeight,
     double? letterSpacing,
     double? height,
-    TextDecoration? decoration,
+    TextDecoration? decoration = TextDecoration.none,
   }) {
     final size = (fontSize ?? 14).clamp(12.0, double.infinity).toDouble();
-    final familyStyle = switch (_fontFamily) {
-      AppFontFamily.manrope => GoogleFonts.manrope(),
-      AppFontFamily.inter => GoogleFonts.inter(),
-      AppFontFamily.roboto => GoogleFonts.roboto(),
-      AppFontFamily.lora => GoogleFonts.lora(),
+    final selectedWeight = fontWeight ?? FontWeight.w400;
+    final weightAxis = switch (fontFamily) {
+      AppFontFamily.manrope => selectedWeight.value.clamp(200, 800),
+      AppFontFamily.inter => selectedWeight.value.clamp(100, 900),
+      AppFontFamily.roboto => selectedWeight.value.clamp(100, 900),
+      AppFontFamily.lora => selectedWeight.value.clamp(400, 700),
     };
-    return familyStyle.copyWith(
+    return TextStyle(
+      fontFamily: fontFamily.label,
       fontSize: size,
       decoration: decoration,
       color: color,
-      fontWeight: fontWeight ?? FontWeight.w400,
+      fontWeight: selectedWeight,
+      fontVariations: [FontVariation('wght', weightAxis.toDouble())],
       letterSpacing: (letterSpacing ?? (size >= 24 ? -0.4 : 0))
           .clamp(-1.0, 0.8)
           .toDouble(),

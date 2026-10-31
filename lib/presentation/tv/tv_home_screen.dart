@@ -3,6 +3,8 @@
 // STREAMZ — TV Home Screen
 // ============================================================================
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -16,9 +18,13 @@ import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/core/theme/theme_tokens.dart';
 import 'package:streamz/domain/models/media_item.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/client/media_title_search.dart';
+import 'package:streamz/presentation/client/widgets/client_connection_notice.dart';
 import 'package:streamz/presentation/client/widgets/client_library_state.dart';
 import 'package:streamz/presentation/shared/app_back_button.dart';
-import 'package:streamz/presentation/shared/app_brand_icon.dart';
+import 'package:streamz/presentation/shared/app_state_view.dart';
+import 'package:streamz/presentation/shared/media_details_text.dart';
+import 'package:streamz/presentation/shared/media_favorite_button.dart';
 import 'package:streamz/presentation/tv/widgets/tv_content_rail.dart';
 import 'package:streamz/presentation/tv/widgets/tv_hero_section.dart';
 import 'package:streamz/presentation/tv/widgets/tv_station_rail.dart';
@@ -72,6 +78,7 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
     final allMedia = vm.remoteMedia;
     final stations = vm.stations;
     final continueWatching = vm.continueWatching;
+    final favorites = vm.favoriteItems;
     final recentlyPlayed = vm.recentlyPlayed;
     final videos = vm.videos;
     final audio = vm.audio;
@@ -79,16 +86,33 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
 
     final size = MediaQuery.sizeOf(context);
     final tokens = context.tokens;
-    final sidePadding = (size.width * 0.03).clamp(16.0, 48.0);
+    final sidePadding = DS.hPad(size.width);
     final vSpacing = (size.height * 0.03).clamp(16.0, 40.0);
 
-    final featuredItems = [...continueWatching, ...videos].take(5).toList();
+    final continueIds = continueWatching.map((item) => item.id).toSet();
+    final featuredItems = videos
+        .where((item) => !continueIds.contains(item.id))
+        .take(1)
+        .toList();
+    final featuredIds = featuredItems.map((item) => item.id).toSet();
+    final continueRailItems = continueWatching;
+    final recentRailItems = recentlyPlayed
+        .where(
+          (item) =>
+              !continueIds.contains(item.id) && !featuredIds.contains(item.id),
+        )
+        .toList();
+    final videoRailItems = videos
+        .where((item) => !featuredIds.contains(item.id))
+        .toList();
     var nextRailIndex = 0;
+    final favoritesRailIndex = favorites.isNotEmpty ? nextRailIndex++ : -1;
+    final continueRailIndex = continueRailItems.isNotEmpty
+        ? nextRailIndex++
+        : -1;
     final stationsRailIndex = stations.isNotEmpty ? nextRailIndex++ : -1;
-    final continueRailIndex =
-        continueWatching.isNotEmpty ? nextRailIndex++ : -1;
-    final recentRailIndex = recentlyPlayed.isNotEmpty ? nextRailIndex++ : -1;
-    final videoRailIndex = videos.isNotEmpty ? nextRailIndex++ : -1;
+    final recentRailIndex = recentRailItems.isNotEmpty ? nextRailIndex++ : -1;
+    final videoRailIndex = videoRailItems.isNotEmpty ? nextRailIndex++ : -1;
     final audioRailIndex = audio.isNotEmpty ? nextRailIndex++ : -1;
     final imageRailIndex = images.isNotEmpty ? nextRailIndex++ : -1;
 
@@ -104,21 +128,31 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
           physics: const ClampingScrollPhysics(),
           slivers: [
             _buildAppBar(context, vm, tokens, sidePadding),
+            if (allMedia.isNotEmpty)
+              SliverToBoxAdapter(
+                child: ClientConnectionNotice(
+                  phase: vm.connectionPhase,
+                  error: vm.connectionError,
+                  onReconnect: () => context.go('/client/connect'),
+                  onRetry: () => unawaited(vm.refresh()),
+                ),
+              ),
             if (allMedia.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: ClientLibraryStateView(
                   isLoading: vm.isLoading,
-                  isConnected: vm.isConnected,
+                  connectionPhase: vm.connectionPhase,
                   error: vm.connectionError,
                   onReconnect: () => context.go('/client/connect'),
+                  onRefresh: vm.refresh,
                 ),
               )
             else ...[
               if (featuredItems.isNotEmpty)
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: size.height * 0.75,
+                    height: (size.height * 0.56).clamp(340.0, 640.0).toDouble(),
                     width: double.infinity,
                     child: TVHeroSection(
                       items: featuredItems,
@@ -126,11 +160,37 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
                       allItems: allMedia,
                     ),
                   ),
-                )
-              else
-                const SliverToBoxAdapter(child: SizedBox(height: 100)),
-
+                ),
               SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
+
+              if (favorites.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: TVContentRail(
+                    title: AppStrings.favorites,
+                    items: favorites,
+                    railIndex: favoritesRailIndex,
+                    focusedRail: _railFocus,
+                    onRailFocus: (i) => setState(() => _railFocus = i),
+                    vm: vm,
+                  ),
+                ),
+                SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
+              ],
+
+              if (continueRailItems.isNotEmpty) ...[
+                SliverToBoxAdapter(
+                  child: TVContentRail(
+                    title: AppStrings.continueWatching,
+                    items: continueRailItems,
+                    showProgress: true,
+                    railIndex: continueRailIndex,
+                    focusedRail: _railFocus,
+                    onRailFocus: (i) => setState(() => _railFocus = i),
+                    vm: vm,
+                  ),
+                ),
+                SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
+              ],
 
               if (stations.isNotEmpty) ...[
                 SliverToBoxAdapter(
@@ -144,26 +204,11 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
                 SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
               ],
 
-              if (continueWatching.isNotEmpty) ...[
-                SliverToBoxAdapter(
-                  child: TVContentRail(
-                    title: AppStrings.continueWatching,
-                    items: continueWatching,
-                    showProgress: true,
-                    railIndex: continueRailIndex,
-                    focusedRail: _railFocus,
-                    onRailFocus: (i) => setState(() => _railFocus = i),
-                    vm: vm,
-                  ),
-                ),
-                SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
-              ],
-
-              if (recentlyPlayed.isNotEmpty) ...[
+              if (recentRailItems.isNotEmpty) ...[
                 SliverToBoxAdapter(
                   child: TVContentRail(
                     title: AppStrings.recentlyPlayed,
-                    items: recentlyPlayed,
+                    items: recentRailItems,
                     railIndex: recentRailIndex,
                     focusedRail: _railFocus,
                     onRailFocus: (i) => setState(() => _railFocus = i),
@@ -173,11 +218,11 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
                 SliverToBoxAdapter(child: SizedBox(height: vSpacing)),
               ],
 
-              if (videos.isNotEmpty) ...[
+              if (videoRailItems.isNotEmpty) ...[
                 SliverToBoxAdapter(
                   child: TVContentRail(
                     title: AppStrings.videoArchive,
-                    items: videos,
+                    items: videoRailItems,
                     railIndex: videoRailIndex,
                     focusedRail: _railFocus,
                     onRailFocus: (i) => setState(() => _railFocus = i),
@@ -255,27 +300,16 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
           ),
         ),
       ),
-      title: Row(
-        children: [
-          AppBrandIcon(
-            size: (size.width * 0.03).clamp(28.0, 44.0).toDouble(),
-          ),
-          SizedBox(width: (size.width * 0.01).clamp(10.0, 16.0)),
-          Flexible(
-            child: Text(
-              AppStrings.streamzStudio,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.display(
-                (size.width * 0.015).clamp(18.0, 28.0),
-                spacing: 4,
-                color: tokens.textPrimary,
-              ),
-            ),
-          ),
-        ],
+      title: Text(
+        AppStrings.appTitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppTextStyles.display(
+          (size.width * 0.015).clamp(18.0, 28.0),
+          spacing: 4,
+          color: tokens.textPrimary,
+        ),
       ),
-      centerTitle: false,
       actions: [
         Padding(
           padding: EdgeInsets.only(right: sidePadding),
@@ -308,10 +342,8 @@ class _TVHomeScreenState extends State<TVHomeScreen> {
         Padding(
           padding: EdgeInsets.only(right: sidePadding),
           child: Focus(
-            onKeyEvent: (_, event) => handleTVSelectKey(
-              event,
-              () => context.push('/settings'),
-            ),
+            onKeyEvent: (_, event) =>
+                handleTVSelectKey(event, () => context.push('/settings')),
             child: IconButton(
               tooltip: 'Appearance settings',
               icon: Icon(
@@ -354,14 +386,31 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
   String _query = '';
   final _ctrl = TextEditingController();
   final _focus = FocusNode();
+  late final MediaTitleSearch _search = MediaTitleSearch(widget.allMedia);
+  Timer? _searchDebounce;
+  List<MediaItem> _results = const [];
+  bool _hasMoreResults = false;
+  bool _isSearching = false;
 
-  List<MediaItem> get _results {
-    if (_query.isEmpty) return [];
-    final q = _query.toLowerCase();
-    return widget.allMedia
-        .where((m) => m.title.toLowerCase().contains(q))
-        .take(50)
-        .toList();
+  void _onQueryChanged(String value) {
+    _searchDebounce?.cancel();
+    setState(() {
+      _query = value;
+      _isSearching = value.trim().isNotEmpty;
+      _results = const [];
+      _hasMoreResults = false;
+    });
+    if (value.trim().isEmpty) return;
+
+    _searchDebounce = Timer(const Duration(milliseconds: 180), () {
+      if (!mounted) return;
+      final result = _search.search(value);
+      setState(() {
+        _results = result.items;
+        _hasMoreResults = result.hasMore;
+        _isSearching = false;
+      });
+    });
   }
 
   @override
@@ -372,6 +421,7 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _ctrl.dispose();
     _focus.dispose();
     super.dispose();
@@ -408,48 +458,74 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
                         hintStyle: TextStyle(color: DS.textMuted),
                         border: InputBorder.none,
                       ),
-                      onChanged: (v) => setState(() => _query = v),
+                      onChanged: _onQueryChanged,
                     ),
                   ),
                 ],
               ),
             ),
             Expanded(
-              child: results.isEmpty
-                  ? Center(
-                      child: Text(
-                        _query.trim().isEmpty
-                            ? 'TYPE TO SEARCH YOUR MEDIA'
-                            : 'NO MATCHING MEDIA',
-                        style: AppTextStyles.text(
-                          16,
-                          spacing: 4,
-                          color: tokens.textMuted,
-                        ),
-                      ),
+              child: _query.trim().isEmpty
+                  ? const AppStateView(
+                      title: 'Search your media',
+                      description:
+                          'Type a title to find items in this library.',
+                      icon: AppIcons.search,
                     )
-                  : GridView.builder(
-                      padding: const EdgeInsets.all(48),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount:
-                            (MediaQuery.sizeOf(context).width /
-                                    (320 *
-                                        MediaQuery.textScalerOf(
-                                          context,
-                                        ).scale(20) /
-                                        20))
-                                .floor()
-                                .clamp(2, 8),
-                        crossAxisSpacing: 24,
-                        mainAxisSpacing: 24,
-                        childAspectRatio: 1.0,
-                      ),
-                      itemCount: results.length,
-                      itemBuilder: (ctx, i) => _TVSearchCard(
-                        item: results[i],
-                        allItems: results,
-                        onFocus: () {},
-                      ),
+                  : _isSearching
+                  ? const AppStateView(
+                      title: 'Searching media',
+                      kind: AppStateKind.loading,
+                    )
+                  : results.isEmpty
+                  ? const AppStateView(
+                      title: 'No matching media',
+                      description: 'Try another title.',
+                      icon: AppIcons.search,
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(48, 0, 48, 0),
+                          child: Text(
+                            _hasMoreResults
+                                ? 'Showing 50 of 50+ matches'
+                                : '${results.length} results',
+                            style: AppTextStyles.caption.copyWith(
+                              color: tokens.textMuted,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: GridView.builder(
+                            padding: const EdgeInsets.all(48),
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount:
+                                      (MediaQuery.sizeOf(context).width /
+                                              (320 *
+                                                  MediaQuery.textScalerOf(
+                                                    context,
+                                                  ).scale(20) /
+                                                  20))
+                                          .floor()
+                                          .clamp(2, 8),
+                                  crossAxisSpacing: 24,
+                                  mainAxisSpacing: 24,
+                                  childAspectRatio: 0.88,
+                                ),
+                            itemCount: results.length,
+                            itemBuilder: (ctx, i) => _TVSearchCard(
+                              key: ValueKey(results[i].id),
+                              item: results[i],
+                              allItems: results,
+                              vm: context.read<ClientViewModel>(),
+                              onFocus: () {},
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
             ),
           ],
@@ -461,12 +537,15 @@ class _TVSearchScreenState extends State<_TVSearchScreen> {
 
 class _TVSearchCard extends StatefulWidget {
   const _TVSearchCard({
+    super.key,
     required this.item,
     required this.allItems,
+    required this.vm,
     required this.onFocus,
   });
   final MediaItem item;
   final List<MediaItem> allItems;
+  final ClientViewModel vm;
   final VoidCallback onFocus;
 
   @override
@@ -475,21 +554,41 @@ class _TVSearchCard extends StatefulWidget {
 
 class _TVSearchCardState extends State<_TVSearchCard> {
   bool _focused = false;
+  late final FocusNode _focusNode;
 
-  void _play() {
-    context.push(
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode(debugLabel: 'TV search ${widget.item.id}');
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _play() async {
+    await context.push<void>(
       '/tv-player',
       extra: {
         'items': widget.allItems,
         'startIndex': widget.allItems.indexOf(widget.item),
       },
     );
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _focusNode.requestFocus();
+      handleTVFocusScroll(true, context);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     return Focus(
+      focusNode: _focusNode,
       onFocusChange: (v) {
         setState(() => _focused = v);
         if (v) widget.onFocus();
@@ -514,25 +613,49 @@ class _TVSearchCardState extends State<_TVSearchCard> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: NetworkImageFade(
-                    url: context.read<ClientViewModel>().thumbnailUrl(
-                      widget.item.id,
+                  child: Center(
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          NetworkImageFade(
+                            url: widget.vm.thumbnailUrl(widget.item.id),
+                            fit: BoxFit.cover,
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: MediaFavoriteButton(
+                              item: widget.item,
+                              viewModel: widget.vm,
+                              tvFocus: true,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    fit: BoxFit.cover,
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    widget.item.title.toUpperCase(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.text(
-                      10,
-                      color: _focused
-                          ? tokens.textPrimary
-                          : tokens.textSecondary,
-                    ),
+                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        widget.item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.text(
+                          10,
+                          color: _focused
+                              ? tokens.textPrimary
+                              : tokens.textSecondary,
+                        ),
+                      ),
+                      MediaDetailsText(item: widget.item),
+                    ],
                   ),
                 ),
               ],

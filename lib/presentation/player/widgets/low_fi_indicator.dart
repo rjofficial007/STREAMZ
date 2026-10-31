@@ -28,7 +28,7 @@ class LowFiIndicator extends StatelessWidget {
           border: Border.all(color: tokens.borderStrong),
         ),
         child: Text(
-          isTV ? 'LOW-FI SIGNAL RECOVERY ACTIVATED' : 'LOW-FI SIGNAL RECOVERY',
+          'Reduced quality playback',
           style: AppTextStyles.style(color: tokens.textPrimary, fontSize: fontSize, fontWeight: FontWeight.w500),
         ),
       ),

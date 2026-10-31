@@ -31,14 +31,14 @@ Not lazy about: understanding the problem (read it fully and trace the real flow
 
 (Yes, this file also applies to agents working on the ponytail repo itself. Especially to them.)
 
-## STREAMZ project context
+## Hestia project context
 
-- Project targets are native Android (including the Android TV launcher/UI path), Windows, and Flutter Web; the native host serves two selectable HTML/JavaScript browser-client implementations.
+- Project targets are native Android (including the Android TV launcher/UI path), Windows, and Flutter Web; the native host serves one responsive modern HTML/JavaScript browser client.
 - Preserve existing cross-platform behavior. Web media scanning and UDP discovery are disabled; browser decoding follows browser codec support.
 - Android TV is not a separate binary. Verify D-pad/focus behavior and representative HD/1080p and 4K display modes; do not infer compatibility from TV diagonal size.
 - MediaKit is the current Flutter player. Do not replace it without checking track selection, seeking, thumbnail/screenshot behavior, codecs, TV input, and build packaging.
 - Playback recovery is shared by mobile, TV, Windows, and Flutter Web player flows: preserve the current resume position, retry remote connection failures with a capped backoff, and keep user pause intent. Native and browser error labels use best-effort platform diagnostics; do not present them as definitive codec detection.
 - TV home shelves use the existing local playback history and progress store. Keep Continue Watching, Recently played, and D-pad focus/resume behavior connected to those existing data sources.
-- The established Flutter visual direction is the shared near-black scaffold with a blue top glow, Manrope-led typography, transparent/scroll-blurred app bars, and reusable responsive/focus-aware components. `ThemeService` exposes device-local appearance options; keep both host-served HTML clients visually aligned while preserving their separate browser playback flows.
+- The established Flutter visual direction is the shared near-black scaffold with a blue top glow, locally bundled Manrope-led variable font families, transparent/scroll-blurred app bars, and reusable responsive/focus-aware components. `ThemeService` exposes device-local appearance options. `AppBrandIcon` uses the full icon for contained surfaces and the transparent mark for splash/lockups; keep app bars free of repeated brand icons. Keep the host-served HTML client aligned while preserving its browser playback behavior.
 - `DS.responsiveColumns` is the shared responsive grid calculation. Prefer existing shared components and tokens before adding screen-specific equivalents.
 - See [README.md](README.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the current platform matrix, data flow, LAN security boundary, and verification checklist.

@@ -25,14 +25,15 @@ import 'package:streamz/domain/models/media_item.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
 import 'package:streamz/presentation/player/playback_issue.dart';
 import 'package:streamz/presentation/player/player_viewmodel.dart';
-import 'package:streamz/presentation/player/widgets/playback_recovery_overlay.dart';
 import 'package:streamz/presentation/player/widgets/low_fi_indicator.dart';
+import 'package:streamz/presentation/player/widgets/playback_recovery_overlay.dart';
 import 'package:streamz/presentation/player/widgets/player_action_button.dart';
 import 'package:streamz/presentation/player/widgets/player_options_sheet.dart';
 import 'package:streamz/presentation/player/widgets/player_sync_tile.dart';
 import 'package:streamz/presentation/player/widgets/player_track_tile.dart';
 import 'package:streamz/presentation/shared/app_list_tile_card.dart';
 import 'package:streamz/presentation/shared/app_state_view.dart';
+import 'package:streamz/presentation/shared/media_details_text.dart';
 import 'package:streamz/widget/technical_overlay.dart';
 
 class PlayerScreen extends StatefulWidget {
@@ -179,13 +180,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaPause) {
-      _vm.pause();
-      _vm.wakeOSD();
+      _vm
+        ..pause()
+        ..wakeOSD();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaPlayPause) {
-      _vm.togglePlayback();
-      _vm.wakeOSD();
+      _vm
+        ..togglePlayback()
+        ..wakeOSD();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaStop) {
@@ -354,26 +357,30 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     if (_showTechnicalOverlay)
                       Positioned(
                         top: DS.s80,
-                        right: DS.s24,
-                        width: 320,
-                        height: 400,
+                        right: DS.s16,
+                        width: (MediaQuery.sizeOf(context).width - DS.s32)
+                            .clamp(1.0, 320.0)
+                            .toDouble(),
+                        height: (MediaQuery.sizeOf(context).height - DS.s96)
+                            .clamp(1.0, 400.0)
+                            .toDouble(),
                         child: TechnicalOverlay(
                           stats: {
-                            'TITLE': item?.title ?? 'N/A',
-                            'TYPE': item?.isVideo == true
-                                ? 'VIDEO'
-                                : (item?.isAudio == true ? 'AUDIO' : 'IMAGE'),
-                            'POSITION': _vm.player.state.position
+                            'Title': item?.title ?? 'Unavailable',
+                            'Type': item?.isVideo == true
+                                ? 'Video'
+                                : (item?.isAudio == true ? 'Audio' : 'Image'),
+                            'Position': _vm.player.state.position
                                 .toString()
                                 .split('.')
                                 .first,
-                            'DURATION': _vm.player.state.duration
+                            'Duration': _vm.player.state.duration
                                 .toString()
                                 .split('.')
                                 .first,
-                            'VOLUME': '${_vm.player.state.volume.toInt()}%',
-                            'RATE': '${_vm.player.state.rate}X',
-                            'BUFFER': '${_vm.player.state.buffer.inSeconds}S',
+                            'Volume': '${_vm.player.state.volume.toInt()}%',
+                            'Speed': '${_vm.player.state.rate}×',
+                            'Buffer': '${_vm.player.state.buffer.inSeconds} sec',
                           },
                           onClose: () =>
                               setState(() => _showTechnicalOverlay = false),
@@ -387,12 +394,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         ),
                       ),
                     _buildToolsSidebar(context),
-                    Selector<PlayerViewModel, (PlaybackIssue?, bool, bool, int)>(
+                    Selector<
+                      PlayerViewModel,
+                      (PlaybackIssue?, bool, bool, int, Duration)
+                    >(
                       selector: (_, vm) => (
                         vm.playbackIssue,
                         vm.isRecovering,
                         vm.isRetryInFlight,
                         vm.retryAttempt,
+                        vm.recoveryPosition,
                       ),
                       builder: (context, state, _) {
                         final issue = state.$1;
@@ -402,6 +413,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           isRecovering: state.$2,
                           isRetryInFlight: state.$3,
                           retryAttempt: state.$4,
+                          resumePosition: state.$5,
                           isTV: false,
                           onRetry: () => _vm.retryPlayback(),
                           onBack: () => context.pop(),
@@ -562,6 +574,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Widget _buildTopBar(BuildContext context) {
     final tokens = context.tokens;
     final item = _vm.current;
+    final nextItem = _vm.currentIndex + 1 < _vm.playlist.length
+        ? _vm.playlist[_vm.currentIndex + 1]
+        : null;
     return Positioned(
       top: 0,
       left: 0,
@@ -607,6 +622,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (item != null) MediaDetailsText(item: item),
                   Row(
                     children: [
                       Text(
@@ -637,12 +653,44 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       ],
                     ],
                   ),
+                  if (nextItem != null)
+                    Semantics(
+                      button: true,
+                      label: '${AppStrings.upNext}: ${nextItem.title}',
+                      child: InkWell(
+                        onTap: _vm.next,
+                        borderRadius: BorderRadius.circular(DS.radius(8)),
+                        child: SizedBox(
+                          height: 40,
+                          child: Row(
+                            children: [
+                              Icon(
+                                LucideIcons.skipForward,
+                                size: 14,
+                                color: tokens.textMuted,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  '${AppStrings.upNext} · ${nextItem.title}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTextStyles.caption.copyWith(
+                                    color: tokens.textMuted,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
             PlayerActionButton(
               icon: LucideIcons.settings2,
-              label: 'Player settings',
+              label: 'Player options',
               size: 48,
               onPressed: () {
                 setState(() => _showSidebar = true);
@@ -691,42 +739,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
             const SizedBox(height: 12),
           ],
           Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               PlayerActionButton(
-                icon: LucideIcons.subtitles,
-                label: 'Subtitle tracks',
+                icon: LucideIcons.skipBack,
+                label: 'Previous item',
                 size: 28,
-                onPressed: () => _showTrackModal(context, 'subtitles'),
+                onPressed: _vm.prev,
               ),
-              SizedBox(width: compact ? 0 : 4),
-              const Spacer(),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  PlayerActionButton(
-                    icon: LucideIcons.skipBack,
-                    label: 'Previous item',
-                    size: 28,
-                    onPressed: _vm.prev,
-                  ),
-                  SizedBox(width: compact ? 8 : 16),
-                  _buildPlayPauseBtn(context),
-                  SizedBox(width: compact ? 8 : 16),
-                  PlayerActionButton(
-                    icon: LucideIcons.skipForward,
-                    label: 'Next item',
-                    size: 28,
-                    onPressed: _vm.next,
-                  ),
-                ],
-              ),
-              const Spacer(),
-
+              SizedBox(width: compact ? 8 : 16),
+              _buildPlayPauseBtn(context),
+              SizedBox(width: compact ? 8 : 16),
               PlayerActionButton(
-                icon: LucideIcons.activity,
-                label: 'Audio tracks',
+                icon: LucideIcons.skipForward,
+                label: 'Next item',
                 size: 28,
-                onPressed: () => _showTrackModal(context, 'audio'),
+                onPressed: _vm.next,
               ),
             ],
           ),
@@ -749,8 +777,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
           size: 44,
           isPrimary: true,
           onPressed: () {
-            _vm.togglePlayback();
-            _vm.wakeOSD();
+            _vm
+              ..togglePlayback()
+              ..wakeOSD();
           },
         );
       },
@@ -804,7 +833,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Tools',
+                      'Options',
                       style: AppTextStyles.title.copyWith(
                         fontWeight: AppTextStyles.titleFontWeight,
                         color: tokens.textPrimary,

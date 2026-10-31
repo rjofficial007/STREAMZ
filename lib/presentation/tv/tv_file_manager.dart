@@ -17,20 +17,11 @@ import 'package:streamz/domain/models/broadcast_station.dart';
 import 'package:streamz/domain/models/media_item.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
 import 'package:streamz/presentation/shared/app_back_button.dart';
+import 'package:streamz/presentation/shared/app_bottom_sheet.dart';
 import 'package:streamz/presentation/shared/app_live_station_card.dart';
 import 'package:streamz/presentation/shared/app_state_view.dart';
 import 'package:streamz/presentation/shared/file_item.dart';
 import 'package:streamz/presentation/tv/tv_player_screen.dart';
-
-// --- Web UI Color Palette & Styles (Sync with TVHomeScreen) ---
-// DEPRECATED: Use context.tokens instead
-const Color kWebBlack = DS.bg;
-const Color kWebSurface = DS.surface1;
-const Color kWebSurface2 = DS.surface2;
-const Color kWebWhite = DS.accent;
-const Color kWebBorder = DS.borderDefault;
-const Color kWebTextMuted = DS.textMuted;
-const Color kWebText = DS.textSecondary;
 
 class TVFileManagerScreen extends StatefulWidget {
   const TVFileManagerScreen({super.key});
@@ -43,13 +34,20 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
   final List<String?> _navStack = [null];
   final ScrollController _scrollController = ScrollController();
   final FocusNode _searchFocusNode = FocusNode();
+  final TextEditingController _searchController = TextEditingController();
 
   List<SFileItem> _items = [];
   List<SFileItem> _allItems = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _browseHasMore = false;
+  int _browseOffset = 0;
+  int _browseGeneration = 0;
+  String? _loadedBrowsePath;
   String? _error;
 
   String _searchQuery = '';
+  Timer? _searchDebounce;
   String _activeCategory = 'video';
 
   List<SFileItem> _activePlaylist = [];
@@ -58,6 +56,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onBrowseScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadHome();
     });
@@ -65,8 +64,10 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _scrollController.dispose();
     _searchFocusNode.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -111,52 +112,117 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
     }
   }
 
-  Future<void> _loadPath(String path) async {
+  Future<void> _loadPath(String path, {String query = ''}) async {
+    _searchDebounce?.cancel();
+    final generation = ++_browseGeneration;
     setState(() {
       _isLoading = true;
+      _isLoadingMore = false;
+      _browseHasMore = false;
+      _browseOffset = 0;
+      _loadedBrowsePath = path;
       _error = null;
-      _searchQuery = '';
+      _searchQuery = query.toLowerCase();
+      if (query.isEmpty) _searchController.clear();
     });
     try {
-      final raw = await context.read<ClientViewModel>().browseRemote(path);
-      final items = raw.map(SFileItem.fromJson).toList()
+      final page = await context.read<ClientViewModel>().browseRemotePage(
+        path,
+        offset: 0,
+        query: query,
+      );
+      final items = page.items.map(SFileItem.fromJson).toList()
         ..sort((a, b) {
           if (a.isDirectory && !b.isDirectory) return -1;
           if (!a.isDirectory && b.isDirectory) return 1;
           return a.name.toLowerCase().compareTo(b.name.toLowerCase());
         });
-      if (mounted) {
+      if (mounted && generation == _browseGeneration) {
         setState(() {
           _items = items;
+          _browseOffset = items.length;
+          _browseHasMore = page.hasMore;
           _isLoading = false;
         });
+        WidgetsBinding.instance.addPostFrameCallback((_) => _onBrowseScroll());
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && generation == _browseGeneration) {
         setState(() {
-          _error = 'CONNECTION FAILED';
+          _error = 'Connection failed. Check the server and try again.';
           _isLoading = false;
         });
       }
     }
   }
 
+  void _onBrowseScroll() {
+    if (_scrollController.hasClients &&
+        _scrollController.position.extentAfter < 500) {
+      _loadMoreBrowseItems();
+    }
+  }
+
+  Future<void> _loadMoreBrowseItems() async {
+    final path = _loadedBrowsePath;
+    if (!mounted ||
+        _isLoading ||
+        _isLoadingMore ||
+        !_browseHasMore ||
+        path == null) {
+      return;
+    }
+    final generation = _browseGeneration;
+    setState(() => _isLoadingMore = true);
+    try {
+      final page = await context.read<ClientViewModel>().browseRemotePage(
+        path,
+        offset: _browseOffset,
+        query: _searchQuery,
+      );
+      if (!mounted || generation != _browseGeneration) return;
+      setState(() {
+        _items = [..._items, ...page.items.map(SFileItem.fromJson)]
+          ..sort((a, b) {
+            if (a.isDirectory && !b.isDirectory) return -1;
+            if (!a.isDirectory && b.isDirectory) return 1;
+            return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          });
+        _browseOffset += page.items.length;
+        _browseHasMore = page.hasMore;
+        _isLoadingMore = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _onBrowseScroll());
+    } catch (_) {
+      if (mounted && generation == _browseGeneration) {
+        setState(() => _isLoadingMore = false);
+      }
+    }
+  }
+
   void _switchCategory(String cat, SFileType? filter) {
+    _searchDebounce?.cancel();
+    _searchController.clear();
     setState(() {
       _activeCategory = cat;
       _searchQuery = '';
     });
     if (cat == 'folder') {
+      _loadedBrowsePath = '';
       _navStack
         ..clear()
         ..add('');
       _loadPath('');
     } else if (cat == 'station') {
+      _loadedBrowsePath = null;
+      _browseHasMore = false;
       context.read<ClientViewModel>().refresh();
       setState(() {
         _isLoading = false;
       });
     } else {
+      _loadedBrowsePath = null;
+      _browseHasMore = false;
       setState(() {
         _items = filter != null
             ? _allItems.where((i) => i.type == filter).toList()
@@ -195,7 +261,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
         _activePlayIndex = idx >= 0 ? idx : 0;
       });
     } else {
-      _showOptionsModal(item);
+      _showOptionsSheet(item);
     }
   }
 
@@ -233,81 +299,59 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'CMD // DOWNLOADING ${item.name.toUpperCase()}',
+          'Downloading ${item.name}',
           style: AppTextStyles.bodyLarge.copyWith(
-            color: kWebBlack,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.5,
+            color: context.tokens.textPrimary,
           ),
         ),
-        backgroundColor: kWebWhite,
+        backgroundColor: context.tokens.surface3,
         duration: const Duration(seconds: 2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DS.radius(12))),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(DS.radius(12)),
+        ),
       ),
     );
   }
 
-  void _showOptionsModal(SFileItem item) {
-    final size = MediaQuery.sizeOf(context);
-    showGeneralDialog(
+  void _showOptionsSheet(SFileItem item) {
+    showAppBottomSheet<void>(
       context: context,
-      barrierColor: kWebBlack.withValues(alpha: 0.9),
-      barrierDismissible: true,
-      barrierLabel: 'Dismiss',
-      pageBuilder: (ctx, _, _) => Center(
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            width: (size.width * 0.4).clamp(400.0, 600.0),
-            decoration: BoxDecoration(
-              color: kWebSurface,
-              border: Border.all(color: kWebWhite, width: 2),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: kWebBorder)),
-                  ),
-                  child: Text(
-                    item.name.toUpperCase(),
-                    style: AppTextStyles.sectionTitle.copyWith(
-                      color: kWebWhite,
-                      fontWeight: AppTextStyles.titleFontWeight,
-                      letterSpacing: 0.2,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (item.isPlayable)
-                  _TVModalBtn(
-                    label: 'PLAY / VIEW MEDIA',
-                    autoFocus: true,
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _openItem(item);
-                    },
-                  ),
-                if (!item.isDirectory)
-                  _TVModalBtn(
-                    label: 'DOWNLOAD TO LOCAL',
-                    autoFocus: !item.isPlayable,
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _triggerDownload(item);
-                    },
-                  ),
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppSheetHeader(
+                title: item.name,
+                subtitle: item.isDirectory ? 'Folder options' : 'Media options',
+                icon: item.isDirectory ? LucideIcons.folder : LucideIcons.file,
+              ),
+              if (item.isPlayable)
                 _TVModalBtn(
-                  label: 'CANCEL OPERATION',
-                  isDestructive: true,
-                  onTap: () => Navigator.pop(ctx),
+                  label: 'Play media',
+                  autoFocus: true,
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _openItem(item);
+                  },
                 ),
-              ],
-            ),
+              if (!item.isDirectory)
+                _TVModalBtn(
+                  label: 'Download to device',
+                  autoFocus: !item.isPlayable,
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _triggerDownload(item);
+                  },
+                ),
+              _TVModalBtn(
+                label: 'Cancel',
+                onTap: () => Navigator.pop(sheetContext),
+              ),
+            ],
           ),
         ),
       ),
@@ -315,10 +359,40 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
   }
 
   List<SFileItem> get _displayItems {
-    if (_searchQuery.isEmpty) return _items;
-    return _items
-        .where((i) => i.name.toLowerCase().contains(_searchQuery.toLowerCase()))
-        .toList();
+    final query = _searchQuery.trim();
+    if (query.isEmpty) return _items;
+    return _items.where((i) => i.name.toLowerCase().contains(query)).toList();
+  }
+
+  void _scheduleSearch(String query) {
+    _searchDebounce?.cancel();
+    if (query.trim().isEmpty) {
+      if (_activeCategory == 'folder' && _loadedBrowsePath != null) {
+        _loadPath(_loadedBrowsePath!);
+      } else {
+        setState(() => _searchQuery = '');
+      }
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 180), () {
+      if (!mounted) return;
+      final normalized = query.trim().toLowerCase();
+      if (_activeCategory == 'folder' && _loadedBrowsePath != null) {
+        _loadPath(_loadedBrowsePath!, query: normalized);
+      } else {
+        setState(() => _searchQuery = normalized);
+      }
+    });
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    if (_activeCategory == 'folder' && _loadedBrowsePath != null) {
+      _loadPath(_loadedBrowsePath!);
+    } else {
+      setState(() => _searchQuery = '');
+    }
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -327,7 +401,8 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
   Widget build(BuildContext context) {
     final vm = context.watch<ClientViewModel>();
     final size = MediaQuery.sizeOf(context);
-    final sidePadding = (size.width * 0.04).clamp(32.0, 80.0);
+    final tokens = context.tokens;
+    final sidePadding = DS.hPad(size.width);
 
     return PopScope(
       canPop: false,
@@ -382,7 +457,7 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
                           if (!_goBack()) Navigator.pop(context);
                         }),
                         child: AppBackButton(
-                          color: kWebWhite,
+                          color: tokens.textPrimary,
                           iconSize: (size.width * 0.015).clamp(20.0, 28.0),
                           onPressed: () {
                             if (!_goBack()) Navigator.pop(context);
@@ -392,26 +467,28 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
                     ),
                   ),
                   title: Text(
-                    'STREAMZ',
+                    'Browse media',
                     style: AppTextStyles.style(
-                      fontSize: (size.width * 0.015).clamp(18.0, 28.0),
-                      letterSpacing: 0.8,
-                      color: kWebWhite,
-                      fontWeight: FontWeight.w300,
+                      fontSize: (size.width * 0.015).clamp(18.0, 26.0),
+                      color: tokens.textPrimary,
+                      fontWeight: AppTextStyles.titleFontWeight,
                     ),
                   ),
-                  centerTitle: false,
                   actions: [
                     Center(
                       child: Row(
                         children: [
-                          Container(width: 6, height: 6, color: kWebWhite),
+                          Icon(
+                            LucideIcons.wifi,
+                            size: 16,
+                            color: tokens.textSecondary,
+                          ),
                           const SizedBox(width: DS.s8),
                           Text(
-                            'TGT // ${vm.targetIp}',
+                            vm.targetIp,
                             style: AppTextStyles.style(
-                              color: kWebText,
-                              fontSize: (size.width * 0.008).clamp(9.0, 12.0),
+                              color: tokens.textSecondary,
+                              fontSize: 13,
                             ),
                           ),
                           const SizedBox(width: DS.s24),
@@ -423,45 +500,42 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
 
                 // Category Rail
                 SliverToBoxAdapter(
-                  child: Container(
-                    height: (size.height * 0.08).clamp(50.0, 70.0),
-                    margin: EdgeInsets.zero,
-                    decoration: const BoxDecoration(
-                      border: Border.symmetric(
-                        horizontal: BorderSide(color: kWebBorder),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: sidePadding),
+                    child: SizedBox(
+                      height: (size.height * 0.08).clamp(50.0, 70.0),
+                      child: Row(
+                        children: [
+                          _TopNavBtn(
+                            label: 'Videos',
+                            isActive: _activeCategory == 'video',
+                            onTap: () =>
+                                _switchCategory('video', SFileType.video),
+                          ),
+                          _TopNavBtn(
+                            label: 'Audio',
+                            isActive: _activeCategory == 'audio',
+                            onTap: () =>
+                                _switchCategory('audio', SFileType.audio),
+                          ),
+                          _TopNavBtn(
+                            label: 'Photos',
+                            isActive: _activeCategory == 'image',
+                            onTap: () =>
+                                _switchCategory('image', SFileType.image),
+                          ),
+                          _TopNavBtn(
+                            label: 'Folders',
+                            isActive: _activeCategory == 'folder',
+                            onTap: () => _switchCategory('folder', null),
+                          ),
+                          _TopNavBtn(
+                            label: 'Stations',
+                            isActive: _activeCategory == 'station',
+                            onTap: () => _switchCategory('station', null),
+                          ),
+                        ],
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        _TopNavBtn(
-                          label: 'VIDEOS',
-                          isActive: _activeCategory == 'video',
-                          onTap: () =>
-                              _switchCategory('video', SFileType.video),
-                        ),
-                        _TopNavBtn(
-                          label: 'AUDIO',
-                          isActive: _activeCategory == 'audio',
-                          onTap: () =>
-                              _switchCategory('audio', SFileType.audio),
-                        ),
-                        _TopNavBtn(
-                          label: 'PHOTOS',
-                          isActive: _activeCategory == 'image',
-                          onTap: () =>
-                              _switchCategory('image', SFileType.image),
-                        ),
-                        _TopNavBtn(
-                          label: 'NETWORK',
-                          isActive: _activeCategory == 'folder',
-                          onTap: () => _switchCategory('folder', null),
-                        ),
-                        _TopNavBtn(
-                          label: 'STATIONS',
-                          isActive: _activeCategory == 'station',
-                          onTap: () => _switchCategory('station', null),
-                        ),
-                      ],
                     ),
                   ),
                 ),
@@ -469,7 +543,12 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
                 // Search Bar
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.zero,
+                    padding: EdgeInsets.fromLTRB(
+                      sidePadding,
+                      DS.s12,
+                      sidePadding,
+                      DS.s8,
+                    ),
                     child: Focus(
                       onKeyEvent: (node, event) {
                         if (event is KeyDownEvent &&
@@ -487,33 +566,34 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
                         return KeyEventResult.ignored;
                       },
                       child: Container(
-                        height: 50,
+                        height: 56,
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         decoration: BoxDecoration(
-                          color: kWebSurface,
-                          border: Border.all(color: kWebBorder),
+                          color: tokens.surface2,
+                          borderRadius: BorderRadius.circular(DS.radiusMd),
+                          border: Border.all(color: tokens.borderSubtle),
                         ),
                         child: Row(
                           children: [
-                            const Icon(
+                            Icon(
                               LucideIcons.search,
-                              color: kWebTextMuted,
+                              color: tokens.textMuted,
                               size: 20,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: TextField(
+                                controller: _searchController,
                                 focusNode: _searchFocusNode,
-                                onChanged: (v) =>
-                                    setState(() => _searchQuery = v),
+                                onChanged: _scheduleSearch,
                                 style: AppTextStyles.body.copyWith(
-                                  color: kWebWhite,
+                                  color: tokens.textPrimary,
                                   letterSpacing: 0.2,
                                 ),
                                 decoration: InputDecoration(
-                                  hintText: 'SEARCH SIGNALS...',
+                                  hintText: 'Search media',
                                   hintStyle: AppTextStyles.body.copyWith(
-                                    color: kWebTextMuted,
+                                    color: tokens.textMuted,
                                   ),
                                   border: InputBorder.none,
                                   isDense: true,
@@ -571,8 +651,8 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
       return AppStateSliver(
         state: AppStateView(
           kind: AppStateKind.error,
-          title: 'Signal error',
-          description: _error?.toUpperCase(),
+          title: 'Couldn’t load media',
+          description: _error,
           icon: LucideIcons.alertTriangle,
           actionLabel: 'Retry connection',
           onAction: _loadHome,
@@ -586,13 +666,19 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
         return const SliverFillRemaining(
           hasScrollBody: false,
           child: AppStateView(
-            title: 'No live broadcasts',
-            description: 'Active broadcasts from your network will appear here.',
+            title: 'No live broadcasts yet',
+            description: 'Active streams from this server will appear here.',
             icon: LucideIcons.radioTower,
           ),
         );
       }
-      final stationColumns = (size.width / 480).floor().clamp(3, 8).toInt();
+      final stationColumns = DS.responsiveColumns(
+        context,
+        availableWidth: size.width - (sidePadding * 2),
+        spacing: DS.s16,
+        minTileWidth: 280,
+        maxColumns: 4,
+      );
       return SliverPadding(
         padding: EdgeInsets.symmetric(horizontal: sidePadding),
         sliver: SliverGrid(
@@ -617,33 +703,35 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
 
     final filtered = _displayItems;
     if (filtered.isEmpty) {
+      final isSearching = _searchQuery.isNotEmpty;
       return SliverFillRemaining(
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 80),
-            decoration: BoxDecoration(
-              border: Border.all(color: kWebBorder, style: BorderStyle.solid),
-            ),
-            child: Text(
-              '0 SIGNALS FOUND',
-              style: AppTextStyles.bodyLarge.copyWith(
-                color: kWebTextMuted,
-                letterSpacing: 0.8,
-              ),
-            ),
-          ),
+        hasScrollBody: false,
+        child: AppStateView(
+          title: isSearching ? 'No matching media' : 'Nothing here yet',
+          description: isSearching
+              ? 'Try a different search or clear the current query.'
+              : 'Media in this category will appear here.',
+          icon: isSearching ? LucideIcons.searchX : LucideIcons.folderOpen,
+          actionLabel: isSearching ? 'Clear search' : null,
+          onAction: isSearching ? _clearSearch : null,
         ),
       );
     }
 
-    final crossAxisCount = (size.width ~/ 220).clamp(3, 10);
+    final crossAxisCount = DS.responsiveColumns(
+      context,
+      availableWidth: size.width - (sidePadding * 2),
+      spacing: DS.s16,
+      minTileWidth: 220,
+      maxColumns: 10,
+    );
 
-    return SliverPadding(
+    final grid = SliverPadding(
       padding: EdgeInsets.symmetric(horizontal: sidePadding),
       sliver: SliverGrid(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: crossAxisCount,
-          childAspectRatio: 1.0,
+          childAspectRatio: 0.75,
           crossAxisSpacing: 16,
           mainAxisSpacing: 16,
         ),
@@ -652,11 +740,33 @@ class _TVFileManagerScreenState extends State<TVFileManagerScreen> {
             item: filtered[i],
             vm: context.read<ClientViewModel>(),
             onTap: () => _openItem(filtered[i]),
-            onLongPress: () => _showOptionsModal(filtered[i]),
+            onLongPress: () => _showOptionsSheet(filtered[i]),
           ),
           childCount: filtered.length,
         ),
       ),
+    );
+    if (!_browseHasMore && !_isLoadingMore) return grid;
+    return SliverMainAxisGroup(
+      slivers: [
+        grid,
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(DS.s24),
+            child: Center(
+              child: _isLoadingMore
+                  ? const CircularProgressIndicator(
+                      semanticsLabel: 'Loading more files',
+                    )
+                  : TextButton.icon(
+                      onPressed: _loadMoreBrowseItems,
+                      icon: const Icon(LucideIcons.chevronDown),
+                      label: const Text('Load more files'),
+                    ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -772,6 +882,7 @@ class _TVGridCardState extends State<_TVGridCard>
 
   @override
   Widget build(BuildContext context) {
+    final tokens = context.tokens;
     String? thumbUrl;
     if (widget.item.isPlayable) {
       thumbUrl = widget.item.isPathBased
@@ -810,11 +921,11 @@ class _TVGridCardState extends State<_TVGridCard>
             scale: _scale,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: _focused ? kWebSurface : kWebSurface2,
+                color: _focused ? tokens.surface3 : tokens.surface1,
                 borderRadius: BorderRadius.circular(DS.radius(18)),
                 border: Border.all(
-                  color: _focused ? kWebWhite : kWebBorder,
-                  width: _focused ? 3 : 1,
+                  color: _focused ? tokens.focusColor : tokens.border,
+                  width: _focused ? 2 : 1,
                 ),
               ),
               child: ClipRRect(
@@ -823,13 +934,13 @@ class _TVGridCardState extends State<_TVGridCard>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(
-                      flex: 78,
+                      flex: 75,
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
                           if (thumbUrl != null)
                             Container(
-                              color: kWebBlack,
+                              color: tokens.background,
                               child: NetworkImageFade(
                                 url: thumbUrl,
                                 fit: BoxFit.cover,
@@ -838,11 +949,11 @@ class _TVGridCardState extends State<_TVGridCard>
                             )
                           else
                             Container(
-                              color: isDir ? kWebSurface : kWebSurface2,
+                              color: isDir ? tokens.surface2 : tokens.surface1,
                               child: Center(
                                 child: Icon(
                                   widget.item.icon,
-                                  color: kWebWhite,
+                                  color: tokens.textSecondary,
                                   size: 40,
                                 ),
                               ),
@@ -851,21 +962,35 @@ class _TVGridCardState extends State<_TVGridCard>
                       ),
                     ),
                     Expanded(
-                      flex: 22,
+                      flex: 25,
                       child: Container(
-                        alignment: Alignment.centerLeft,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: const BoxDecoration(
-                          border: Border(top: BorderSide(color: kWebBorder)),
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
                         ),
-                        child: Text(
-                          widget.item.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.bodyLarge.copyWith(
-                            color: kWebText,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.item.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.bodyLarge.copyWith(
+                                color: tokens.textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            Text(
+                              widget.item.cardMetadata,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.caption.copyWith(
+                                color: tokens.textMuted,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -902,46 +1027,52 @@ class _TopNavBtnState extends State<_TopNavBtn> {
   bool _focused = false;
 
   @override
-  Widget build(BuildContext context) => Expanded(
-    child: Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            widget.onTap();
-            return null;
-          },
-        ),
-      },
-      child: Focus(
-        onFocusChange: (v) => setState(() => _focused = v),
-        onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: Container(
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: widget.isActive
-                  ? kWebWhite
-                  : (_focused
-                        ? kWebWhite.withValues(alpha: 0.1)
-                        : Colors.transparent),
-              border: const Border(right: BorderSide(color: kWebBorder)),
-            ),
-            child: Text(
-              widget.label,
-              style: AppTextStyles.caption.copyWith(
-                fontWeight: widget.isActive
-                    ? FontWeight.w500
-                    : FontWeight.normal,
-                letterSpacing: 0.5,
-                color: widget.isActive ? kWebBlack : kWebWhite,
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Expanded(
+      child: Actions(
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              widget.onTap();
+              return null;
+            },
+          ),
+        },
+        child: Focus(
+          onFocusChange: (v) => setState(() => _focused = v),
+          onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: widget.isActive || _focused
+                    ? tokens.surface3
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(DS.radius(12)),
+                border: Border.all(
+                  color: widget.isActive || _focused
+                      ? tokens.focusColor
+                      : Colors.transparent,
+                ),
+              ),
+              child: Text(
+                widget.label,
+                style: AppTextStyles.caption.copyWith(
+                  fontWeight: widget.isActive
+                      ? FontWeight.w500
+                      : FontWeight.normal,
+                  letterSpacing: 0.5,
+                  color: tokens.textPrimary,
+                ),
               ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -950,12 +1081,10 @@ class _TVModalBtn extends StatefulWidget {
     required this.label,
     required this.onTap,
     this.autoFocus = false,
-    this.isDestructive = false,
   });
   final String label;
   final VoidCallback onTap;
   final bool autoFocus;
-  final bool isDestructive;
 
   @override
   State<_TVModalBtn> createState() => _TVModalBtnState();
@@ -965,41 +1094,43 @@ class _TVModalBtnState extends State<_TVModalBtn> {
   bool _focused = false;
 
   @override
-  Widget build(BuildContext context) => Actions(
-    actions: {
-      ActivateIntent: CallbackAction<ActivateIntent>(
-        onInvoke: (_) {
-          widget.onTap();
-          return null;
-        },
-      ),
-    },
-    child: Focus(
-      autofocus: widget.autoFocus,
-      onFocusChange: (v) => setState(() => _focused = v),
-      onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-          decoration: BoxDecoration(
-            color: _focused
-                ? (widget.isDestructive ? DS.danger : kWebWhite)
-                : Colors.transparent,
-            border: const Border(bottom: BorderSide(color: kWebBorder)),
-          ),
-          child: Text(
-            widget.label,
-            style: AppTextStyles.bodyLarge.copyWith(
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.5,
-              color: _focused
-                  ? kWebBlack
-                  : (widget.isDestructive ? DS.danger : kWebWhite),
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+    return Actions(
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onTap();
+            return null;
+          },
+        ),
+      },
+      child: Focus(
+        autofocus: widget.autoFocus,
+        onFocusChange: (v) => setState(() => _focused = v),
+        onKeyEvent: (_, ev) => handleTVSelectKey(ev, widget.onTap),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+            decoration: BoxDecoration(
+              color: _focused ? tokens.surface3 : Colors.transparent,
+              borderRadius: BorderRadius.circular(DS.radius(14)),
+              border: Border.all(
+                color: _focused ? tokens.focusColor : Colors.transparent,
+              ),
+            ),
+            child: Text(
+              widget.label,
+              style: AppTextStyles.bodyLarge.copyWith(
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.5,
+                color: tokens.textPrimary,
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

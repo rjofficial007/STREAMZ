@@ -6,12 +6,11 @@
 // ============================================================================
 
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_background/flutter_background.dart';
-import 'package:network_info_plus/network_info_plus.dart';
+import 'package:streamz/core/constants/app_strings.dart';
 import 'package:streamz/core/utils/logger.dart';
 import 'package:streamz/domain/services/network_service.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -19,16 +18,23 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 /// Owned by GetIt as a singleton. Handles background execution,
 /// WakeLock, and network monitoring for the server.
 class ServerLifecycleService extends ChangeNotifier {
-  ServerLifecycleService();
+  ServerLifecycleService({NetworkService? networkService})
+    : _networkService = networkService ?? NetworkService();
+
+  final NetworkService _networkService;
 
   bool _backgroundActive = false;
   bool _wakeLockHeld = false;
+  Stopwatch? _wakeLockStopwatch;
   Timer? _networkWatchdog;
+  StreamSubscription<Object?>? _connectivitySubscription;
+  bool _networkCheckRunning = false;
   String _lastKnownIp = '';
+  String _lastKnownInterfaceName = '';
   bool _initialized = false;
 
   /// Callback fired when network IP changes (server needs restart).
-  void Function(String newIp)? onNetworkChange;
+  void Function(String? newIp)? onNetworkChange;
 
   /// Callback fired when background service drops (needs re-acquire).
   void Function()? onBackgroundLost;
@@ -41,6 +47,7 @@ class ServerLifecycleService extends ChangeNotifier {
   /// Call once when server starts. Acquires all keep-alive mechanisms.
   Future<void> acquire({required String serverIp}) async {
     _lastKnownIp = serverIp;
+    _lastKnownInterfaceName = _networkService.currentInterfaceName;
     if (_initialized) {
       _startNetworkWatchdog();
       return;
@@ -69,6 +76,7 @@ class ServerLifecycleService extends ChangeNotifier {
     try {
       await WakelockPlus.enable();
       _wakeLockHeld = true;
+      _wakeLockStopwatch = Stopwatch()..start();
       logger.i('[Lifecycle] WakeLock acquired');
     } catch (e) {
       logger.e('[Lifecycle] WakeLock failed', error: e);
@@ -80,7 +88,12 @@ class ServerLifecycleService extends ChangeNotifier {
     try {
       await WakelockPlus.disable();
       _wakeLockHeld = false;
-      logger.i('[Lifecycle] WakeLock released');
+      final heldFor = _wakeLockStopwatch?.elapsed ?? Duration.zero;
+      _wakeLockStopwatch?.stop();
+      _wakeLockStopwatch = null;
+      logger.i(
+        '[Lifecycle] WakeLock released held_ms=${heldFor.inMilliseconds}',
+      );
     } catch (e) {
       logger.e('[Lifecycle] WakeLock release failed', error: e);
     }
@@ -98,14 +111,19 @@ class ServerLifecycleService extends ChangeNotifier {
       }
 
       const config = FlutterBackgroundAndroidConfig(
-        notificationTitle: 'STREAMZ — Server Active',
+        notificationTitle: '${AppStrings.appTitle} — Server Active',
         notificationText: 'Broadcasting on local network. Tap to open.',
         notificationImportance: AndroidNotificationImportance.normal,
-        notificationIcon: AndroidResource(name: 'ic_launcher', defType: 'mipmap'),
+        notificationIcon: AndroidResource(
+          name: 'ic_launcher',
+          defType: 'mipmap',
+        ),
         enableWifiLock: true,
       );
 
-      final initialized = await FlutterBackground.initialize(androidConfig: config);
+      final initialized = await FlutterBackground.initialize(
+        androidConfig: config,
+      );
       if (!initialized) {
         logger.w('[Lifecycle] Background init failed');
         return;
@@ -139,46 +157,53 @@ class ServerLifecycleService extends ChangeNotifier {
 
   void _startNetworkWatchdog() {
     _stopNetworkWatchdog();
-    _networkWatchdog = Timer.periodic(const Duration(seconds: 15), (_) async {
-      await _checkNetwork();
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      _connectivitySubscription = _networkService.networkChanges.listen(
+        (_) => unawaited(_checkNetwork()),
+      );
+      unawaited(_checkNetwork());
+    }
+    // Native callbacks are not available on every desktop platform; this
+    // bounded fallback also catches missed address changes and resumes.
+    _networkWatchdog = Timer.periodic(const Duration(seconds: 15), (_) {
+      unawaited(_checkNetwork());
     });
   }
 
   void _stopNetworkWatchdog() {
     _networkWatchdog?.cancel();
     _networkWatchdog = null;
+    unawaited(_connectivitySubscription?.cancel());
+    _connectivitySubscription = null;
   }
 
   Future<void> _checkNetwork() async {
-    if (kIsWeb) return;
+    if (kIsWeb || _networkCheckRunning) return;
+    _networkCheckRunning = true;
     try {
-      String? currentIp;
+      final detectedIp = await _networkService.detectIp();
+      final currentIp = detectedIp == 'No Network' || detectedIp == '127.0.0.1'
+          ? null
+          : detectedIp;
+      final normalizedIp = currentIp ?? '';
+      final interfaceName = _networkService.currentInterfaceName;
 
-      final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
-      for (final iface in interfaces) {
-        for (final addr in iface.addresses) {
-          if (addr.isLoopback) continue;
-          // [FIX C10] Share NetworkService's LAN-IP predicate — this watchdog
-          // used to only match 192.168.x/10.x, so an IP change onto a 172.x
-          // network was never detected and the server kept the stale IP.
-          if (NetworkService.isLanIp(addr.address)) {
-            currentIp = addr.address;
-            break;
-          }
-        }
-        if (currentIp != null) break;
-      }
-
-      currentIp ??= await NetworkInfo().getWifiIP();
-
-      if (currentIp != null && currentIp.isNotEmpty && currentIp != _lastKnownIp) {
-        logger.i('[Lifecycle] IP changed: $_lastKnownIp → $currentIp');
-        _lastKnownIp = currentIp;
+      if (normalizedIp != _lastKnownIp ||
+          interfaceName != _lastKnownInterfaceName) {
+        logger.i(
+          '[Lifecycle] Route changed: $_lastKnownIp/$_lastKnownInterfaceName'
+          ' → ${currentIp ?? 'offline'}/$interfaceName',
+        );
+        _lastKnownIp = normalizedIp;
+        _lastKnownInterfaceName = interfaceName;
         onNetworkChange?.call(currentIp);
         notifyListeners();
       }
 
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android && _initialized && !FlutterBackground.isBackgroundExecutionEnabled) {
+      if (!kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.android &&
+          _initialized &&
+          !FlutterBackground.isBackgroundExecutionEnabled) {
         logger.w('[Lifecycle] Background dropped, re-acquiring...');
         await _acquireBackgroundService();
         onBackgroundLost?.call();
@@ -189,6 +214,8 @@ class ServerLifecycleService extends ChangeNotifier {
       }
     } catch (e) {
       logger.e('[Lifecycle] Network check error', error: e);
+    } finally {
+      _networkCheckRunning = false;
     }
   }
 

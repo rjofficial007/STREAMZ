@@ -28,7 +28,7 @@ class TVStationRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final sidePadding = (size.width * 0.03).clamp(16.0, 48.0);
+    final sidePadding = DS.hPad(size.width);
     final cardWidth = (size.width * 0.15).clamp(200.0, 380.0);
     final cardHeight = (cardWidth * 0.68).clamp(164.0, 260.0);
 
@@ -67,18 +67,13 @@ class TVStationRail extends StatelessWidget {
               final station = stations[index];
               return Padding(
                 padding: const EdgeInsets.only(right: DS.s16),
-                child: AppLiveStationCard(
+                child: _TVStationRailCard(
+                  key: ValueKey(station.id),
+                  station: station,
+                  vm: vm,
                   width: cardWidth,
                   height: cardHeight,
-                  title: station.name,
-                  trackTitle: station.nowPlaying?.item.title ??
-                      AppStrings.awaitingSignal,
-                  liveLabel: AppStrings.live,
-                  nowPlayingLabel: AppStrings.statusNowPlaying,
-                  onFocusChanged: (focused) {
-                    if (focused) onRailFocus(railIndex);
-                  },
-                  onTap: () => unawaited(_tuneIn(context, station)),
+                  onFocus: () => onRailFocus(railIndex),
                 ),
               );
             },
@@ -87,11 +82,41 @@ class TVStationRail extends StatelessWidget {
       ],
     );
   }
+}
 
-  Future<void> _tuneIn(BuildContext context, BroadcastStation station) async {
-    final result = await vm.joinStation(station.id);
-    if (result == null || !context.mounted) return;
-    await context.push(
+class _TVStationRailCard extends StatefulWidget {
+  const _TVStationRailCard({
+    super.key,
+    required this.station,
+    required this.vm,
+    required this.width,
+    required this.height,
+    required this.onFocus,
+  });
+
+  final BroadcastStation station;
+  final ClientViewModel vm;
+  final double width;
+  final double height;
+  final VoidCallback onFocus;
+
+  @override
+  State<_TVStationRailCard> createState() => _TVStationRailCardState();
+}
+
+class _TVStationRailCardState extends State<_TVStationRailCard> {
+  final FocusNode _focusNode = FocusNode(debugLabel: 'TV live station');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _tuneIn() async {
+    final result = await widget.vm.joinStation(widget.station.id);
+    if (result == null || !mounted) return;
+    await context.push<void>(
       '/tv-player',
       extra: {
         'items': result.playlist,
@@ -101,5 +126,27 @@ class TVStationRail extends StatelessWidget {
         'autoPlay': !result.isPaused,
       },
     );
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _focusNode.requestFocus();
+      handleTVFocusScroll(true, context);
+    });
   }
+
+  @override
+  Widget build(BuildContext context) => AppLiveStationCard(
+    width: widget.width,
+    height: widget.height,
+    title: widget.station.name,
+    trackTitle:
+        widget.station.nowPlaying?.item.title ?? AppStrings.awaitingSignal,
+    liveLabel: AppStrings.live,
+    nowPlayingLabel: AppStrings.statusNowPlaying,
+    focusNode: _focusNode,
+    onFocusChanged: (focused) {
+      if (focused) widget.onFocus();
+    },
+    onTap: () => unawaited(_tuneIn()),
+  );
 }

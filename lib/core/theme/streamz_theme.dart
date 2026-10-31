@@ -69,6 +69,7 @@ class StreamzTheme {
         backgroundColor: Colors.transparent,
         foregroundColor: themeBase.tokens.textPrimary,
         elevation: 0,
+        centerTitle: true,
       ),
       textTheme: TextTheme(
         displayLarge: AppTextStyles.style(

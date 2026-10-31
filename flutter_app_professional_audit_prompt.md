@@ -1,6 +1,6 @@
-# STREAMZ Flutter Audit Prompt
+# Hestia Flutter Audit Prompt
 
-Use this prompt when reviewing or improving STREAMZ. The repository is a Flutter local-network media app targeting native Android, Android TV, Windows, and Web clients. The native host uses HTTP/WebSocket plus UDP discovery; it serves one of two selectable HTML browser-client implementations. No Firebase integration is present in the current source tree, so do not invent Firebase findings or changes.
+Use this prompt when reviewing or improving Hestia. The repository is a Flutter local-network media app targeting native Android, Android TV, Windows, and Web clients. The native host uses HTTP/WebSocket plus Bonjour/mDNS discovery with UDP fallback; it serves one responsive modern HTML browser client. No Firebase integration is present in the current source tree, so do not invent Firebase findings or changes.
 
 ## Role
 
@@ -15,13 +15,13 @@ Act as a senior Flutter engineer, platform compatibility reviewer, performance e
 5. Pairing currently gates WebSocket connections; HTTP API/media routes use cleartext and are not protected by the WebSocket pairing check. Do not imply that pairing encrypts traffic or protects every endpoint.
 6. Distinguish implemented, built, manually verified, unsupported, and unverified behavior. Do not claim universal platform support based on a folder or successful compile.
 7. Keep changes focused and follow the established premium design direction: near-black scaffolds with the blue top glow, Manrope-led typography, transparent app bars that blur on scroll-under, shared spacing/radius tokens, and responsive focus-aware components. Appearance settings are global and device-local; avoid screen-specific visual forks.
-8. Keep the two host-served HTML clients visually aligned with the Flutter design while preserving their separate JavaScript, network, and browser-media behavior.
+8. Keep the host-served HTML client aligned with the Flutter visual direction and preserve its JavaScript, network, and browser-media behavior.
 
 ## Review scope
 
 ### Architecture and data flow
 
-- Trace app startup, dependency registration, navigation, state ownership, local scan, host HTTP/WebSocket/UDP flow, native client flow, browser client flow, playback, and persistence.
+- Trace app startup, dependency registration, navigation, state ownership, local scan, host HTTP/WebSocket/mDNS/UDP flow, native client flow, browser client flow, playback, and persistence.
 - Identify high-coupling services, duplicate implementations, mutable/global state, unbounded work, and platform-specific APIs.
 - Separate observed defects from risks and recommendations.
 
@@ -40,7 +40,7 @@ Use logical viewport sizes and text scaling rather than physical TV diagonal as 
 ### Reliability, performance, and security
 
 - Check loading/error/empty/retry states, lifecycle and disposal, reconnect behavior, large-library scan latency/memory, thumbnail caching, stream range behavior, and WebSocket fan-out.
-- Trace player stream errors through position persistence and retries on native, TV, Flutter Web, and both host-served HTML clients. Treat codec/device/network labels as likely causes, retain manual retry, and verify that D-pad focus remains actionable during recovery.
+- Trace player stream errors through position persistence and retries on native, TV, Flutter Web, and the host-served HTML client. Treat codec/device/network labels as likely causes, retain manual retry, and verify that D-pad focus remains actionable during recovery.
 - Keep the TV home Continue Watching and Recently played rails backed by existing progress/history data, with D-pad resume behavior preserved.
 - Inspect LAN trust boundaries, folder/path validation, WebSocket pairing checks, CORS, cleartext transport, and sensitive logs. Report precisely what each check protects.
 - Propose optimization only after identifying the measured bottleneck and protecting current behavior with a focused check.

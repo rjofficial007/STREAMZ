@@ -16,6 +16,7 @@ import 'package:streamz/domain/models/broadcast_station.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
 import 'package:streamz/presentation/mobile/mobile_selection_screen_tv.dart';
 import 'package:streamz/presentation/shared/app_back_button.dart';
+import 'package:streamz/presentation/shared/app_connection_badge.dart';
 import 'package:streamz/presentation/shared/app_list_tile_card.dart';
 import 'package:streamz/presentation/shared/app_state_view.dart';
 
@@ -79,7 +80,14 @@ class MobileSelectionScreen extends StatelessWidget {
     final tokens = context.tokens;
     return SliverList(
       delegate: SliverChildListDelegate([
-        _SessionAnalysisCard(vm: vm, mode: 'Mobile'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(DS.s16, DS.s16, DS.s16, DS.s8),
+          child: AppConnectionBadge(
+            hostIp: vm.targetIp,
+            itemCount: vm.remoteMedia.length,
+            connectionPhase: vm.connectionPhase,
+          ),
+        ),
 
         AppActionGrid(
           children: [
@@ -131,7 +139,8 @@ class MobileSelectionScreen extends StatelessWidget {
         if (vm.stations.isEmpty)
           const AppStateView(
             title: 'No live broadcasts',
-            description: 'Active broadcasts from your network will appear here.',
+            description:
+                'Active broadcasts from your network will appear here.',
             icon: LucideIcons.radioTower,
           )
         else
@@ -170,196 +179,5 @@ class MobileSelectionScreen extends StatelessWidget {
         ),
       );
     }
-  }
-}
-
-class _SessionAnalysisCard extends StatelessWidget {
-  const _SessionAnalysisCard({required this.vm, required this.mode});
-  final ClientViewModel vm;
-  final String mode;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: tokens.surface1.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(DS.radius(20)),
-        border: Border.all(color: tokens.border.withValues(alpha: 0.55)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Connection overview',
-                style: AppTextStyles.titleLarge.copyWith(
-                  color: tokens.textPrimary,
-                  fontWeight: AppTextStyles.titleFontWeight,
-                ),
-              ),
-              _BlinkingDot(isOnline: vm.isConnected),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Interface',
-                      style: AppTextStyles.caption.copyWith(
-                        color: tokens.textMuted,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      mode,
-                      style: AppTextStyles.body.copyWith(
-                        color: tokens.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'Server address',
-                      style: AppTextStyles.caption.copyWith(
-                        color: tokens.textMuted,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        vm.targetIp.toUpperCase(),
-                        style: AppTextStyles.body.copyWith(
-                          color: tokens.textPrimary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Stack(
-            children: [
-              Container(height: 8, color: tokens.surface2),
-              if (vm.isConnected)
-                FractionallySizedBox(
-                  widthFactor: 1.0,
-                  child: Container(height: 8, color: tokens.accent),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _legend(
-                  context,
-                  'Library',
-                  '${vm.remoteMedia.length} items',
-                  tokens.textPrimary,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _legend(context, 'Network', 'Connected', tokens.success),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _legend(
-    BuildContext context,
-    String label,
-    String value,
-    Color color,
-  ) {
-    final tokens = context.tokens;
-    return Row(
-      children: [
-        Container(width: 8, height: 8, color: color),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            label,
-            style: AppTextStyles.caption.copyWith(color: tokens.textMuted),
-          ),
-        ),
-        Text(
-          value,
-          style: AppTextStyles.caption.copyWith(
-            fontWeight: FontWeight.w500,
-            color: tokens.textPrimary,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _BlinkingDot extends StatefulWidget {
-  const _BlinkingDot({required this.isOnline});
-  final bool isOnline;
-
-  @override
-  State<_BlinkingDot> createState() => _BlinkingDotState();
-}
-
-class _BlinkingDotState extends State<_BlinkingDot>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    if (!widget.isOnline) {
-      return Container(width: 8, height: 8, color: tokens.textDisabled);
-    }
-    return FadeTransition(
-      opacity: _ctrl,
-      child: Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: tokens.success,
-          boxShadow: [BoxShadow(color: tokens.success, blurRadius: 4)],
-        ),
-      ),
-    );
   }
 }

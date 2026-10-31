@@ -1,7 +1,7 @@
 // test/server_settings_test.dart
 // ============================================================================
 // Runnable check for E1:
-// Server settings (mounted folders, share filters, web-UI toggle, no-trace)
+// Server settings (mounted folders, share filters, no-trace)
 // must survive an app restart — a fresh ServerRepository instance (same
 // prefs) must restore exactly what was saved.
 //
@@ -22,7 +22,6 @@ void main() {
       final repo1 = ServerRepository(prefs);
       await repo1.saveSettings({
         'sharedFolders': ['/mnt/shared/movies', '/mnt/shared/music'],
-        'useModernWebUI': false,
         'shareVideos': true,
         'shareImages': false,
         'shareMusic': true,
@@ -34,7 +33,6 @@ void main() {
       final loaded = repo2.loadSettings();
 
       expect(loaded['sharedFolders'], ['/mnt/shared/movies', '/mnt/shared/music']);
-      expect(loaded['useModernWebUI'], false);
       expect(loaded['shareVideos'], true);
       expect(loaded['shareImages'], false);
       expect(loaded['shareMusic'], true);

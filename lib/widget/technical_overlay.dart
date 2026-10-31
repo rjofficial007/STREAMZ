@@ -1,64 +1,74 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:streamz/core/constants/app_text_styles.dart';
+import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
 
-/// A compact playback diagnostics overlay for monitoring playback and system stats.
+/// Compact, theme-aware playback details panel.
 class TechnicalOverlay extends StatelessWidget {
-
   const TechnicalOverlay({
     super.key,
     required this.stats,
     required this.onClose,
   });
+
   final Map<String, String> stats;
   final VoidCallback onClose;
 
   @override
-  Widget build(BuildContext context) => Container(
-      color: DS.bg.withValues(alpha: 0.85),
-      padding: const EdgeInsets.all(DS.s24),
+  Widget build(BuildContext context) {
+    final tokens = context.tokens;
+
+    return AppPanel(
+      padding: const EdgeInsets.all(DS.s16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'SYSTEM_STATS // V1.0',
-                style: DS.labelLg.copyWith(color: DS.accent),
+              Expanded(
+                child: Text(
+                  'Playback details',
+                  style: AppTextStyles.title.copyWith(
+                    color: tokens.textPrimary,
+                    fontWeight: AppTextStyles.titleFontWeight,
+                  ),
+                ),
               ),
               IconButton(
+                tooltip: 'Close playback details',
                 onPressed: onClose,
-                icon: const Icon(Icons.close, color: DS.accent),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+                icon: Icon(LucideIcons.x, color: tokens.textSecondary),
+                visualDensity: VisualDensity.compact,
               ),
             ],
           ),
-          const SizedBox(height: DS.s24),
-          const Divider(color: DS.borderStrong, height: 1),
-          const SizedBox(height: DS.s24),
+          const SizedBox(height: DS.s8),
           Expanded(
             child: ListView.separated(
               itemCount: stats.length,
-              separatorBuilder: (context, index) => const SizedBox(height: DS.s12),
+              separatorBuilder: (_, _) => const SizedBox(height: DS.s12),
               itemBuilder: (context, index) {
                 final key = stats.keys.elementAt(index);
-                final value = stats[key];
                 return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(
-                      width: 120,
+                      width: 96,
                       child: Text(
-                        key.toUpperCase(),
-                        style: DS.labelMd.copyWith(color: DS.textSecondary),
+                        key,
+                        style: AppTextStyles.caption.copyWith(
+                          color: tokens.textMuted,
+                        ),
                       ),
                     ),
                     Expanded(
                       child: Text(
-                        value ?? 'N/A',
-                        style: DS.labelMd.copyWith(
-                          color: DS.accent,
-                          fontWeight: FontWeight.w500,
+                        stats[key] ?? 'Unavailable',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.caption.copyWith(
+                          color: tokens.textPrimary,
                         ),
                       ),
                     ),
@@ -67,14 +77,8 @@ class TechnicalOverlay extends StatelessWidget {
               },
             ),
           ),
-          const SizedBox(height: DS.s24),
-          const Divider(color: DS.borderStrong, height: 1),
-          const SizedBox(height: DS.s12),
-          Text(
-            'LOG_STREAM: [OK] STREAMING_DATA_RECEIVING...',
-            style: DS.labelSm.copyWith(color: DS.success),
-          ),
         ],
       ),
     );
+  }
 }

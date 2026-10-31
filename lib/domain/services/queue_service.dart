@@ -27,20 +27,27 @@ class QueueItem {
 class QueueService extends ChangeNotifier {
   final List<QueueItem> _queue = [];
   bool _isLocked = false;
+  int _revision = 0;
   
   List<QueueItem> get queue => List.unmodifiable(_queue);
   bool get isLocked => _isLocked;
+  int get revision => _revision;
+
+  void _changed() {
+    _revision++;
+    notifyListeners();
+  }
 
   void setLocked(bool locked) {
     _isLocked = locked;
-    notifyListeners();
+    _changed();
   }
 
   void addItem(MediaItem item, String userId) {
     if (_isLocked && userId != 'SERVER') return;
     _queue.add(QueueItem(media: item, addedBy: userId));
     _sort();
-    notifyListeners();
+    _changed();
   }
 
   void voteItem(String mediaId, int delta) {
@@ -48,14 +55,14 @@ class QueueService extends ChangeNotifier {
     if (idx != -1) {
       _queue[idx].votes += delta;
       _sort();
-      notifyListeners();
+      _changed();
     }
   }
 
   void removeTop() {
     if (_queue.isNotEmpty) {
       _queue.removeAt(0);
-      notifyListeners();
+      _changed();
     }
   }
 
@@ -84,6 +91,6 @@ class QueueService extends ChangeNotifier {
         _queue.add(QueueItem.fromJson(item as Map<String, dynamic>));
       }
     }
-    notifyListeners();
+    _changed();
   }
 }

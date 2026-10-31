@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
-import 'package:streamz/presentation/player/widgets/player_action_button.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/presentation/player/widgets/player_action_button.dart';
 
 /// PlayerSyncTile provides controls to adjust audio or subtitle sync offsets.
 /// It features clear, focusable minus/plus controls for touch and TV remotes.

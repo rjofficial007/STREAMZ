@@ -11,7 +11,7 @@ abstract final class DS {
   static const bpTablet = 900.0;
   static const bpDesktop = 1200.0;
   static const bpTV = 1600.0;
-  static const contentMaxWidth = 1280.0;
+  static const contentMaxWidth = 1536.0;
 
   // ── 8pt Spacing Grid ─────────────────────────────────────────────────────
   static const s4 = 4.0;
@@ -178,9 +178,9 @@ abstract final class DS {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   static double hPad(double width) {
-    if (width >= bpTV) return s80;
-    if (width >= bpDesktop) return s48;
-    if (width >= bpTablet) return s32;
+    if (width >= bpTV) return s48;
+    if (width >= bpDesktop) return s32;
+    if (width >= bpTablet) return s24;
     return s16;
   }
 

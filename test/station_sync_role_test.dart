@@ -22,8 +22,10 @@ void main() {
         'positionMs': 5000,
         'isPaused': false,
         'syncRole': 'master',
+        'stationRevision': 7,
       });
       expect(res.syncRole, 'master');
+      expect(res.stationRevision, 7);
     });
 
     test('StationJoinResponse defaults to no role (web / legacy server)', () {
@@ -35,6 +37,7 @@ void main() {
         'isPaused': false,
       });
       expect(res.syncRole, '');
+      expect(res.stationRevision, -1);
     });
   });
 }

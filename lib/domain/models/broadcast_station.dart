@@ -95,6 +95,7 @@ class StationJoinResponse {
     required this.position,
     required this.isPaused,
     this.syncRole = '',
+    this.stationRevision = -1,
   });
 
   factory StationJoinResponse.fromJson(Map<String, dynamic> json) => StationJoinResponse(
@@ -103,6 +104,7 @@ class StationJoinResponse {
     position: Duration(milliseconds: json['positionMs'] ?? 0),
     isPaused: json['isPaused'] ?? false,
     syncRole: json['syncRole']?.toString() ?? '',
+    stationRevision: (json['stationRevision'] as num?)?.toInt() ?? -1,
   );
   final List<MediaItem> playlist;
   final int itemIndex;
@@ -111,4 +113,5 @@ class StationJoinResponse {
 
   /// [A3] Sync role elected by the server: 'master' | 'slave' | '' (non-participant).
   final String syncRole;
+  final int stationRevision;
 }

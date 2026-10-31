@@ -13,13 +13,13 @@ import 'package:get_thumbnail_video/video_thumbnail.dart';
 import 'package:media_kit/media_kit.dart';
 
 class VideoThumbnailService {
-  // Headless player used for frame extraction on platforms without robust native support (Windows).
-  // ponytail (C8): created once (lazy singleton) and lives for the app's
-  // lifetime — dispose() exists but has no caller, since there's no
-  // app-exit hook to wire it to. Cost is bounded (one native player); a
-  // half-wired teardown risks breaking thumbnail generation, so this is a
-  // documented limitation rather than a speculative lifecycle change.
-  final _player = Player(configuration: const PlayerConfiguration(logLevel: MPVLogLevel.error));
+  // Most platforms use native thumbnail extraction. Create MPV only for
+  // Windows or when the native extractor fails, so ordinary Android startup
+  // does not leave an unnecessary native player running.
+  Player? _player;
+  Player get _mpvPlayer => _player ??= Player(
+        configuration: const PlayerConfiguration(logLevel: MPVLogLevel.error),
+      );
 
   // Semaphore to ensure only one video is being decoded by the generator at a time.
   final _lock = _SimpleLock();
@@ -31,19 +31,20 @@ class VideoThumbnailService {
     if (!File(path).existsSync()) return 0;
     return _lock.synchronized(() async {
       try {
-        await _player.open(Media(path), play: false);
+        final player = _mpvPlayer;
+        await player.open(Media(path), play: false);
         var waited = 0;
-        while (_player.state.duration == Duration.zero && waited < 8) {
+        while (player.state.duration == Duration.zero && waited < 8) {
           await Future.delayed(const Duration(milliseconds: 250));
           waited++;
         }
-        final duration = _player.state.duration;
-        await _player.stop();
+        final duration = player.state.duration;
+        await player.stop();
         return duration.inSeconds;
       } catch (e) {
         debugPrint('[ThumbService] Duration probe failed for $path: $e');
         try {
-          await _player.stop();
+          await _player?.stop();
         } catch (_) {}
         return 0;
       }
@@ -111,25 +112,26 @@ class VideoThumbnailService {
   Future<Uint8List?> _extractMpv(String path) async {
     try {
       debugPrint('[ThumbService] Starting MPV extraction for $path');
+      final player = _mpvPlayer;
 
       // 1. Open the file
-      await _player.open(Media(path), play: false);
+      await player.open(Media(path), play: false);
 
       // 2. Wait for duration metadata to decide where to seek
       // We wait up to 2 seconds for metadata to load
       var waitCount = 0;
-      while (_player.state.duration == Duration.zero && waitCount < 4) {
+      while (player.state.duration == Duration.zero && waitCount < 4) {
         await Future.delayed(const Duration(milliseconds: 500));
         waitCount++;
       }
 
-      final duration = _player.state.duration;
+      final duration = player.state.duration;
 
       // We want ~10% into the video or 5 seconds, whichever is smaller.
       final seekTarget = duration > const Duration(seconds: 10) ? const Duration(seconds: 5) : (duration > Duration.zero ? duration ~/ 2 : Duration.zero);
 
       if (seekTarget > Duration.zero) {
-        await _player.seek(seekTarget);
+        await player.seek(seekTarget);
         // Small delay for the decoder to push the frame
         await Future.delayed(const Duration(milliseconds: 500));
       } else {
@@ -138,9 +140,9 @@ class VideoThumbnailService {
       }
 
       // 3. Take screenshot
-      final bytes = await _player.screenshot();
+      final bytes = await player.screenshot();
 
-      await _player.stop();
+      await player.stop();
 
       if (bytes == null || bytes.isEmpty) {
         debugPrint('[ThumbService] MPV extraction returned empty/null for $path');
@@ -150,14 +152,14 @@ class VideoThumbnailService {
     } catch (e) {
       debugPrint('[ThumbService] MPV extraction failed for $path: $e');
       try {
-        await _player.stop();
+        await _player?.stop();
       } catch (_) {}
       return null;
     }
   }
 
   void dispose() {
-    _player.dispose();
+    unawaited(_player?.dispose());
   }
 }
 

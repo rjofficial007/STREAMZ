@@ -19,6 +19,7 @@ import 'package:streamz/presentation/shared/app_back_button.dart';
 import 'package:streamz/presentation/shared/app_bottom_sheet.dart';
 import 'package:streamz/presentation/shared/app_list_tile_card.dart';
 import 'package:streamz/presentation/shared/app_state_view.dart';
+import 'package:streamz/presentation/shared/app_summary_components.dart';
 
 class ClientConnectScreen extends StatefulWidget {
   const ClientConnectScreen({super.key});
@@ -32,6 +33,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
   // [SECURITY B1] Optional pairing-code field (manual handshake).
   final _codeCtrl = TextEditingController();
   late final ClientViewModel _clientViewModel;
+  bool _showAllHistory = false;
 
   @override
   void initState() {
@@ -44,11 +46,11 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
   }
 
   void _startDiscovery() {
-    _clientViewModel.startDiscovery((ip, token) {
+    unawaited(_clientViewModel.startDiscovery((ip, token) {
       if (!mounted || _ctrl.text.isNotEmpty) return;
       _ctrl.text = ip;
-      unawaited(_connect(ip, token));
-    });
+      unawaited(_connect(ip, token, true));
+    }));
   }
 
   @override
@@ -59,14 +61,18 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
     super.dispose();
   }
 
-  Future<void> _connect([String? manualIp, String? pairingToken]) async {
+  Future<void> _connect([
+    String? manualIp,
+    String? pairingToken,
+    bool keepDiscovery = false,
+  ]) async {
     final ip = (manualIp ?? _ctrl.text).trim();
     if (ip.isEmpty) return;
     // Explicit token (QR/discovery) wins; otherwise fall back to the field.
     final code = (pairingToken ?? _codeCtrl.text).trim();
 
     FocusScope.of(context).unfocus();
-    _clientViewModel.stopDiscovery();
+    if (!keepDiscovery) _clientViewModel.stopDiscovery();
 
     final ok = await _clientViewModel.connect(
       ip,
@@ -133,20 +139,27 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
 
   Widget _buildBody(ClientViewModel vm) {
     final tokens = context.tokens;
+    final supportsQr = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+    final visibleHistory = _showAllHistory
+        ? vm.ipHistory
+        : vm.ipHistory.take(5).toList();
     return SliverList(
       delegate: SliverChildListDelegate([
         _HandshakeAnalysisCard(vm: vm),
 
         AppActionGrid(
           children: [
+            if (supportsQr)
+              AppActionCard(
+                label: 'Scan QR',
+                icon: LucideIcons.qrCode,
+                onTap: _scanQR,
+              ),
             AppActionCard(
-              label: 'Scan QR',
-              icon: LucideIcons.qrCode,
-              onTap: _scanQR,
-            ),
-            AppActionCard(
-              label: 'Manual IP',
-              icon: LucideIcons.terminal,
+              label: 'Enter address',
+              icon: LucideIcons.network,
               onTap: _showManualIpSheet,
             ),
             AppActionCard(
@@ -157,6 +170,30 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
             ),
           ],
         ),
+
+        if (vm.discoveredHosts.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(DS.s16, DS.s16, DS.s16, DS.s8),
+            child: Text(
+              'Found on your network',
+              style: AppTextStyles.heading(
+                18,
+                color: tokens.textPrimary,
+              ),
+            ),
+          ),
+          ...vm.discoveredHosts.map(
+            (host) => AppListTileCard(
+              title: host.name,
+              subtitle: host.ip,
+              icon: LucideIcons.server,
+              onTap: () {
+                _ctrl.text = host.ip;
+                _showManualIpSheet();
+              },
+            ),
+          ),
+        ],
 
         if (vm.connectionError != null)
           _ErrorBanner(error: vm.connectionError!),
@@ -192,8 +229,22 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
         if (vm.ipHistory.isEmpty)
           const _EmptyHistoryPlaceholder()
         else
-          ...vm.ipHistory.map(
+          ...visibleHistory.map(
             (ip) => _HistoryTile(ip: ip, onTap: () => _connect(ip)),
+          ),
+
+        if (vm.ipHistory.length > 5)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: DS.s16),
+            child: TextButton.icon(
+              onPressed: () => setState(() => _showAllHistory = !_showAllHistory),
+              icon: Icon(
+                _showAllHistory
+                    ? LucideIcons.chevronUp
+                    : LucideIcons.chevronDown,
+              ),
+              label: Text(_showAllHistory ? 'Show less' : 'Show all servers'),
+            ),
           ),
 
         const SizedBox(height: 100),
@@ -202,22 +253,9 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
   }
 
   Future<void> _scanQR() async {
-    final tokens = context.tokens;
     if (kIsWeb ||
         (defaultTargetPlatform != TargetPlatform.android &&
             defaultTargetPlatform != TargetPlatform.iOS)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'QR SCAN ONLY AVAILABLE ON MOBILE',
-            style: AppTextStyles.style(
-              color: tokens.background,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          backgroundColor: tokens.textPrimary,
-        ),
-      );
       return;
     }
     final raw = await context.push<String>('/qr-scanner');
@@ -266,7 +304,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
                       autofocus: true,
                       style: AppTextStyles.style(color: tokens.textPrimary),
                       decoration: const InputDecoration(
-                        hintText: 'IP address',
+                        hintText: 'Server address',
                         prefixIcon: Icon(LucideIcons.network),
                       ),
                       keyboardType: TextInputType.number,
@@ -291,7 +329,7 @@ class _ClientConnectScreenState extends State<ClientConnectScreen> {
                     ),
                     const SizedBox(height: DS.s20),
                     AppButton(
-                      label: 'Initiate connection',
+                      label: 'Connect',
                       icon: LucideIcons.link,
                       onTap: () {
                         ctx.pop();
@@ -327,162 +365,39 @@ class _HandshakeAnalysisCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Connection status',
-                style: AppTextStyles.titleLarge.copyWith(
-                  color: tokens.textPrimary,
-                  fontWeight: AppTextStyles.titleFontWeight,
-                ),
-              ),
-              _BlinkingDot(isOnline: vm.isDiscovering),
-            ],
+          AppSummaryHeader(
+            title: 'Nearby servers',
+            titleStyle: AppTextStyles.titleLarge.copyWith(
+              color: tokens.textPrimary,
+              fontWeight: AppTextStyles.titleFontWeight,
+            ),
+            trailing: _BlinkingDot(isOnline: vm.isDiscovering),
+            stackBelowWidth: 0,
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Discovery',
-                      style: AppTextStyles.caption.copyWith(
-                        color: tokens.textMuted,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      vm.isDiscovering ? 'Searching' : 'Paused',
-                      style: AppTextStyles.bodyLarge.copyWith(
-                        color: tokens.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'Most recent',
-                      style: AppTextStyles.caption.copyWith(
-                        color: tokens.textMuted,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      vm.ipHistory.firstOrNull ?? 'None',
-                      style: AppTextStyles.bodyLarge.copyWith(
-                        color: tokens.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          const SizedBox(height: DS.s8),
+          Text(
+            vm.isDiscovering
+                ? 'Searching for servers…'
+                : vm.discoveryState == 'timedOut'
+                    ? 'No servers found. Check Wi-Fi and try again.'
+                    : vm.discoveryState == 'failed'
+                        ? 'Could not search this network. Check Wi-Fi and try again.'
+                        : 'Discovery paused',
+            style: AppTextStyles.supporting.copyWith(color: tokens.textMuted),
           ),
-          const SizedBox(height: 20),
-          Stack(
-            children: [
-              Container(height: 8, color: tokens.surface2),
-              if (vm.isDiscovering) const _DiscoveryProgressBar(),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _legend(
-                  context,
-                  'History',
-                  '${vm.ipHistory.length} servers',
-                  tokens.textPrimary,
-                ),
+          if (vm.isDiscovering) ...[
+            const SizedBox(height: DS.s12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: LinearProgressIndicator(
+                minHeight: 4,
+                color: tokens.accent,
+                backgroundColor: tokens.surface2,
+                semanticsLabel: 'Searching for nearby servers',
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _legend(
-                  context,
-                  'Network',
-                  'Ready',
-                  tokens.textSecondary,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ],
-      ),
-    );
-  }
-
-  Widget _legend(
-    BuildContext context,
-    String label,
-    String value,
-    Color color,
-  ) {
-    final tokens = context.tokens;
-    return Row(
-      children: [
-        Container(width: 8, height: 8, color: color),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            label,
-            style: AppTextStyles.caption.copyWith(color: tokens.textMuted),
-          ),
-        ),
-        Text(
-          value,
-          style: AppTextStyles.caption.copyWith(
-            fontWeight: FontWeight.w500,
-            color: tokens.textPrimary,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DiscoveryProgressBar extends StatefulWidget {
-  const _DiscoveryProgressBar();
-
-  @override
-  State<_DiscoveryProgressBar> createState() => _DiscoveryProgressBarState();
-}
-
-class _DiscoveryProgressBarState extends State<_DiscoveryProgressBar>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, _) => FractionallySizedBox(
-        widthFactor: _ctrl.value,
-        child: Container(height: 8, color: tokens.accent),
       ),
     );
   }
@@ -496,7 +411,6 @@ class _HistoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AppListTileCard(
     title: ip,
-    subtitle: 'Previously connected server',
     icon: LucideIcons.hardDrive,
     onTap: onTap,
   );

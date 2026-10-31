@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:streamz/core/constants/app_strings.dart';
 import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/di/service_locator.dart';
 import 'package:streamz/core/theme/app_theme.dart';
@@ -133,10 +134,10 @@ class _BrandLockup extends StatelessWidget {
 
     return Column(
       children: [
-        const AppBrandIcon(size: 64),
+        const AppBrandIcon(size: 64, transparent: true),
         const SizedBox(height: 24),
         Text(
-          'STREAMZ',
+          AppStrings.appTitle,
           textAlign: TextAlign.center,
           style: AppTextStyles.style(
             color: tokens.textPrimary,

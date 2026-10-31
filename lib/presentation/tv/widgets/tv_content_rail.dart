@@ -5,6 +5,8 @@ import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/domain/models/media_item.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/shared/media_details_text.dart';
+import 'package:streamz/presentation/shared/media_favorite_button.dart';
 
 /// TVContentRail displays a horizontal list of media items.
 /// Optimized for D-pad navigation with scale and focus effects.
@@ -31,11 +33,10 @@ class TVContentRail extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final size = MediaQuery.sizeOf(context);
-    final sidePadding = (size.width * 0.03).clamp(16.0, 48.0);
+    final sidePadding = DS.hPad(size.width);
     final cardW = (size.width * 0.22).clamp(DS.railCardWTV, 420.0);
-    final cardH = cardW * 9 / 16;
     final audioCardSize = (cardW * 0.64).clamp(DS.railCardWTVSq, 250.0);
-    final listHeight = (cardH > audioCardSize ? cardH : audioCardSize) + 56;
+    final listHeight = cardW * 1.05 + 64;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,13 +64,13 @@ class TVContentRail extends StatelessWidget {
             itemBuilder: (ctx, i) => Padding(
               padding: const EdgeInsets.only(right: 24),
               child: _TVContentCard(
+                key: ValueKey(items[i].id),
                 item: items[i],
                 allItems: items,
                 vm: vm,
                 showProgress: showProgress,
                 onFocus: () => onRailFocus(railIndex),
-                cardW: items[i].isAudio ? audioCardSize : cardW,
-                cardH: items[i].isAudio ? audioCardSize : cardH,
+                cardSize: items[i].isAudio ? audioCardSize : cardW,
               ),
             ),
           ),
@@ -81,21 +82,20 @@ class TVContentRail extends StatelessWidget {
 
 class _TVContentCard extends StatefulWidget {
   const _TVContentCard({
+    super.key,
     required this.item,
     required this.allItems,
     required this.vm,
     this.showProgress = false,
     required this.onFocus,
-    required this.cardW,
-    required this.cardH,
+    required this.cardSize,
   });
   final MediaItem item;
   final List<MediaItem> allItems;
   final ClientViewModel vm;
   final bool showProgress;
   final VoidCallback onFocus;
-  final double cardW;
-  final double cardH;
+  final double cardSize;
 
   @override
   State<_TVContentCard> createState() => _TVContentCardState();
@@ -103,15 +103,34 @@ class _TVContentCard extends StatefulWidget {
 
 class _TVContentCardState extends State<_TVContentCard> {
   bool _focused = false;
+  late final FocusNode _focusNode;
 
-  void _play() {
-    context.push(
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode(debugLabel: 'TV media ${widget.item.id}');
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  Future<void> _play() async {
+    await context.push<void>(
       '/tv-player',
       extra: {
         'items': widget.allItems,
         'startIndex': widget.allItems.indexOf(widget.item),
       },
     );
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _focusNode.requestFocus();
+      handleTVFocusScroll(true, context);
+    });
   }
 
   @override
@@ -120,6 +139,7 @@ class _TVContentCardState extends State<_TVContentCard> {
     final size = MediaQuery.sizeOf(context);
 
     return Focus(
+      focusNode: _focusNode,
       onFocusChange: (v) {
         setState(() => _focused = v);
         if (v) {
@@ -138,8 +158,8 @@ class _TVContentCardState extends State<_TVContentCard> {
               scale: _focused ? 1.05 : 1.0,
               duration: const Duration(milliseconds: 150),
               child: Container(
-                width: widget.cardW,
-                height: widget.cardH,
+                width: widget.cardSize,
+                height: widget.cardSize,
                 decoration: BoxDecoration(
                   color: tokens.surface2,
                   borderRadius: BorderRadius.circular(DS.radius(16)),
@@ -158,6 +178,15 @@ class _TVContentCardState extends State<_TVContentCard> {
                       NetworkImageFade(
                         url: widget.vm.thumbnailUrl(widget.item.id),
                         fit: BoxFit.cover,
+                      ),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: MediaFavoriteButton(
+                          item: widget.item,
+                          viewModel: widget.vm,
+                          tvFocus: true,
+                        ),
                       ),
                       // Progress Indicator (if item is partially watched)
                       if (widget.showProgress && widget.item.watchProgress > 0)
@@ -186,7 +215,7 @@ class _TVContentCardState extends State<_TVContentCard> {
             const SizedBox(height: 12),
             // Card title
             SizedBox(
-              width: widget.cardW,
+              width: widget.cardSize,
               child: Text(
                 widget.item.title,
                 style: AppTextStyles.text(
@@ -196,6 +225,13 @@ class _TVContentCardState extends State<_TVContentCard> {
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            SizedBox(
+              width: widget.cardSize,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 3),
+                child: MediaDetailsText(item: widget.item),
               ),
             ),
           ],

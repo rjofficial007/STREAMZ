@@ -1,6 +1,6 @@
-// data/network/web_html.dart
+// data/network/web_interface_html.dart
 // ============================================================================
-// STREAMZ — Built-in Web Interface HTML (Refined Studio Edition)
+// STREAMZ — Built-in Web Interface HTML
 // ============================================================================
 
 const String kWebInterfaceHtml = r"""
@@ -8,10 +8,38 @@ const String kWebInterfaceHtml = r"""
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>STREAMZ // STUDIO</title>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#060606">
+<title>Hestia // STUDIO</title>
 <style>
+  @font-face {
+    font-family: 'Manrope';
+    src: url('/assets/fonts/Manrope-Variable.ttf') format('truetype');
+    font-style: normal;
+    font-weight: 200 800;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Inter';
+    src: url('/assets/fonts/Inter-Variable.ttf') format('truetype');
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Roboto';
+    src: url('/assets/fonts/Roboto-Variable.ttf') format('truetype');
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'Lora';
+    src: url('/assets/fonts/Lora-Variable.ttf') format('truetype');
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: swap;
+  }
   :root {
     --black: #000000;
     --white: #ffffff;
@@ -36,6 +64,7 @@ const String kWebInterfaceHtml = r"""
     font-weight: 300;
     overflow: hidden;
     height: 100vh;
+    height: 100dvh; /* For modern mobile browsers */
     display: flex;
     flex-direction: column;
     cursor: default;
@@ -46,9 +75,10 @@ const String kWebInterfaceHtml = r"""
   ::-webkit-scrollbar-thumb { background: var(--white-border); }
   ::-webkit-scrollbar-thumb:hover { background: var(--white); }
 
+  /* ================== TOP DASHBOARD ================== */
   .top-dashboard {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: stretch;
     height: 72px;
     border-bottom: 1px solid var(--white-border);
@@ -62,17 +92,21 @@ const String kWebInterfaceHtml = r"""
     align-items: center;
     border-right: 1px solid var(--white-border);
   }
-  .brand-title {
-    font-family: var(--font-display);
-    font-size: 24px;
+  .brand-mark { display: block; width: 64px; height: 32px; object-fit: contain; }
+  .status-badge {
+    background: var(--white);
+    color: var(--black);
+    padding: 4px 10px;
+    font-family: var(--font-mono);
+    font-size: 9px;
     font-weight: 500;
-    letter-spacing: 0.8px;
-    color: var(--white);
-    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-left: 16px;
+    white-space: nowrap;
   }
-  .nav-switches { display: flex; flex-grow: 1; }
+  .nav-switches { display: flex; flex-grow: 0; }
   .nav-btn {
-    flex: 1;
+    flex: 0 0 auto;
     background: transparent;
     border: none;
     border-right: 1px solid var(--white-border);
@@ -87,6 +121,7 @@ const String kWebInterfaceHtml = r"""
   }
   .nav-btn:hover, .nav-btn:focus { background: var(--white-dim); color: var(--white); }
   .nav-btn.active { background: var(--white); color: var(--black); font-weight: 500; }
+  
   .search-container { display: flex; align-items: center; min-width: 300px; background: var(--black); position: relative; }
   .search-box {
     background: transparent;
@@ -105,31 +140,14 @@ const String kWebInterfaceHtml = r"""
   .search-box:focus { background: var(--white-dim); }
   .search-icon { position: absolute; left: 16px; font-size: 14px; color: var(--white-muted); }
 
+  /* ================== WORKSPACE & GRID ================== */
   .workspace { display: flex; flex-grow: 1; overflow: hidden; position: relative; }
   .content-area {
     flex-grow: 1;
-    padding: 40px;
+    padding: 0; /* Edge to edge */
     overflow-y: auto;
     position: relative;
     scroll-behavior: smooth;
-  }
-  .page-header { margin-bottom: 64px; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid var(--white-border); padding-bottom: 24px;}
-  .page-title {
-    font-family: var(--font-display);
-    font-size: clamp(40px, 8vw, 96px);
-    font-weight: 500;
-    letter-spacing: -2px;
-    line-height: 0.85;
-    text-transform: uppercase;
-  }
-  .page-meta {
-    font-family: var(--font-mono);
-    color: var(--white-muted);
-    font-size: 11px;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    text-align: right;
-    padding-bottom: 8px;
   }
 
   .grid-container {
@@ -138,6 +156,8 @@ const String kWebInterfaceHtml = r"""
     gap: 1px;
     background: var(--white-border);
     border: 1px solid var(--white-border);
+    border-left: none;
+    border-right: none;
   }
   .card {
     background: var(--surface-2);
@@ -197,6 +217,7 @@ const String kWebInterfaceHtml = r"""
   }
   .card:hover .action-btn, .card:focus .action-btn { color: var(--black); font-weight: bold; border-color: var(--black); }
 
+  /* ================== LIST VIEW ================== */
   .list-container { display: flex; flex-direction: column; border-top: 1px solid var(--white-border); }
   .list-item {
     display: flex;
@@ -219,6 +240,7 @@ const String kWebInterfaceHtml = r"""
   .list-download-icon { color: var(--white-text); text-decoration: none; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.5px; outline: none; text-transform: uppercase; border: 1px solid var(--white-border); padding: 4px 8px; }
   .list-item:hover .list-download-icon { color: var(--black); font-weight: bold; border-color: var(--black); }
 
+  /* ================== PLAYER CONSOLE ================== */
   .player-console {
     height: 100px;
     border-top: 1px solid var(--white-border);
@@ -267,6 +289,7 @@ const String kWebInterfaceHtml = r"""
   .hw-btn.play { width: 140px; background: var(--white); color: var(--black); font-weight: 500; }
   .hw-btn.play:hover, .hw-btn.play:focus { background: rgba(255,255,255,0.9); }
 
+  /* ================== FULLSCREEN PLAYER ================== */
   .fs-overlay {
     position: fixed;
     inset: 0;
@@ -338,6 +361,8 @@ const String kWebInterfaceHtml = r"""
   .playback-error-actions button { min-height: 46px; padding: 0 18px; border: 1px solid var(--white-border); border-radius: 12px; color: var(--white); background: #151821; font: 600 13px var(--font-body); cursor: pointer; }
   .playback-error-actions button:first-child { color: #05070b; background: var(--white); }
   .playback-error-actions button:focus-visible { outline: 3px solid #8cb2ff; outline-offset: 3px; }
+  .browse-more { display: block; min-height: 46px; margin: 18px auto; padding: 0 20px; border: 1px solid var(--white-border); border-radius: 12px; color: var(--white); background: #151821; font: 600 13px var(--font-body); cursor: pointer; }
+  .browse-more:focus-visible { outline: 3px solid #8cb2ff; outline-offset: 3px; }
 
   .empty-state {
     padding: 160px 20px;
@@ -351,18 +376,86 @@ const String kWebInterfaceHtml = r"""
     margin-top: 40px;
   }
 
-  .status-badge {
-    background: var(--white);
-    color: var(--black);
-    padding: 4px 10px;
-    font-family: var(--font-mono);
-    font-size: 9px;
+  /* ================== BOTTOM NAV (MOBILE) ================== */
+  .bottom-navbar {
+    display: none;
+    height: 60px;
+    border-top: 1px solid var(--white-border);
+    background: var(--surface);
+    z-index: 100;
+    flex-shrink: 0;
+  }
+  .bottom-navbar .nav-btn {
+    font-size: 12px;
     font-weight: 500;
-    letter-spacing: 0.5px;
-    margin-right: 16px;
+  }
+  .bottom-navbar .nav-btn:last-child {
+    border-right: none;
   }
 
-  /* Shared STREAMZ premium surface and type treatment. */
+  /* ================== RESPONSIVE MEDIA QUERIES ================== */
+  
+  /* Tablet / Smaller Desktop */
+  @media (max-width: 1024px) {
+    .content-area { padding: 0; }
+  }
+
+  /* Mobile Device */
+  @media (max-width: 768px) {
+    /* Top Bar adjustments */
+    .branding { display: none; }
+    .nav-switches { display: none; }
+    .top-dashboard { height: 56px; }
+    .search-container { min-width: 0; flex-grow: 1; }
+    
+    /* Enable Bottom Navbar */
+    .bottom-navbar { display: flex; }
+    
+    /* Workspace adjustments */
+    .content-area { padding: 0; }
+    
+    /* Request: 4 Grid Items on Mobile */
+    .grid-container { grid-template-columns: repeat(4, 1fr); gap: 1px; }
+    .card-info { padding: 0 4px; justify-content: center; height: 25%; }
+    .card-poster-wrap { height: 75%; }
+    .card-title { font-size: 8px; text-align: center; width: 100%; white-space: nowrap; }
+    .action-btn { display: none; } /* Hidden to allow 4 items to fit cleanly */
+
+    /* List View adjustments */
+    .list-item { padding: 16px 12px; }
+    .list-index { width: 40px; font-size: 8px; letter-spacing: 0.2px; }
+    .list-art { width: 32px; height: 32px; margin-right: 12px; }
+    .list-title { font-size: 10px; }
+    .list-meta { display: none; } /* Hidden for space */
+    .list-download-icon { font-size: 8px; padding: 4px; margin-left: 8px; }
+
+    /* Player Console Mobile Flow */
+    .player-console { height: auto; flex-direction: column; }
+    .now-playing-lcd { border-right: none; border-bottom: 1px solid var(--white-border); padding: 16px; gap: 16px; }
+    .lcd-art { width: 48px; height: 48px; }
+    .lcd-title { font-size: 20px; }
+    .lcd-label { font-size: 8px; margin-bottom: 4px; }
+    
+    .hardware-controls { height: 50px; }
+    .hw-btn { flex: 1; border-left: none; border-right: 1px solid var(--white-border); font-size: 10px; }
+    .hw-btn:last-child { border-right: none; }
+    .hw-btn.play { width: auto; }
+
+    /* Fullscreen Player Mobile Adjustments */
+    .video-container { width: 100vw; height: 100vh; height: 100dvh; border: none; }
+    .window-btn { width: 48px; height: 48px; font-size: 12px; }
+    .vid-controls-overlay { padding: 0 16px; gap: 16px; height: 72px; opacity: 1; } /* Always visible on touch */
+    .vid-time { font-size: 10px !important; }
+  }
+
+  /* Small Mobile Devices (Fold, older iPhones) */
+  @media (max-width: 380px) {
+    .grid-container { grid-template-columns: repeat(3, 1fr); } /* Drop to 3 if screen gets unreadably small, otherwise keeps 4 */
+    .lcd-title { font-size: 16px; }
+  }
+
+
+  /* Shared Hestia premium surface and type treatment. */
   :root {
     --white-dim: rgba(235,240,255,0.055);
     --white-mid: rgba(235,240,255,0.09);
@@ -378,7 +471,6 @@ const String kWebInterfaceHtml = r"""
     backdrop-filter: blur(22px);
   }
   .branding { border-right: 0; padding-inline: clamp(20px, 3vw, 40px); }
-  .brand-title { font-weight: 400; letter-spacing: -0.4px; text-transform: none; }
   .nav-btn {
     border: 0;
     border-radius: 12px;
@@ -525,7 +617,6 @@ const String kWebInterfaceHtml = r"""
     backdrop-filter: blur(22px);
     -webkit-backdrop-filter: blur(22px);
   }
-  .brand-title { font-weight: 600; letter-spacing: -0.3px; }
   .nav-btn, .hw-btn {
     min-height: 44px;
     font-family: 'Manrope', sans-serif;
@@ -539,7 +630,7 @@ const String kWebInterfaceHtml = r"""
   }
   .search-container { background: rgba(14, 18, 27, 0.72); }
   .search-box { min-height: 48px; font-size: 14px; }
-  .content-area { max-width: 1600px; width: 100%; margin-inline: auto; }
+  .content-area { width: 100%; margin-inline: 0; }
   .page-header { border: 0; padding-bottom: 0; align-items: center; }
   .page-meta { font-size: 12px; }
   .grid-container { gap: 16px; }
@@ -617,92 +708,331 @@ const String kWebInterfaceHtml = r"""
       transition-duration: 0.01ms !important;
     }
   }
+
+  /* Shared responsive polish for the host-served browser client. */
+  :root {
+    --web-blue: #7198ff;
+    --web-blue-soft: rgba(47, 91, 181, 0.2);
+    --web-blue-line: rgba(112, 151, 255, 0.32);
+  }
+  body { min-height: 100dvh; }
+  .top-dashboard {
+    justify-content: flex-start;
+    gap: 8px;
+    padding-inline: clamp(8px, 1vw, 16px);
+    border-bottom: 1px solid rgba(220, 228, 245, 0.07);
+  }
+  .branding { flex: 0 0 auto; padding-inline: clamp(8px, 1vw, 16px); }
+  .nav-switches { flex: 0 0 auto; min-width: 0; gap: 4px; }
+  .nav-btn {
+    flex: 0 0 auto;
+    min-width: 88px;
+    padding-inline: 12px;
+  }
+  .nav-btn.active {
+    background: var(--web-blue-soft);
+    box-shadow: inset 0 0 0 1px var(--web-blue-line);
+  }
+  .search-container { flex: 0 1 320px; max-width: 34vw; margin-left: auto; }
+  .search-container::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 16px;
+    width: 11px;
+    height: 11px;
+    border: 1.5px solid var(--white-muted);
+    border-radius: 50%;
+    transform: translateY(-60%);
+    pointer-events: none;
+  }
+  .search-container::after {
+    content: '';
+    position: absolute;
+    top: calc(50% + 4px);
+    left: 27px;
+    width: 6px;
+    height: 1.5px;
+    background: var(--white-muted);
+    transform: rotate(45deg);
+    transform-origin: left center;
+    pointer-events: none;
+  }
+  .search-container:focus-within {
+    border-color: var(--web-blue-line);
+    box-shadow: 0 0 0 3px var(--web-blue-soft);
+  }
+  .search-box { text-transform: none; }
+  .workspace { min-height: 0; }
+  .content-area {
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    margin-inline: 0;
+    padding-inline: clamp(16px, 2vw, 32px);
+    scrollbar-gutter: stable;
+  }
+  .page-title { font-weight: 500; }
+  .grid-container { grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); }
+  .card { min-width: 0; }
+  .card:hover, .card:focus-visible {
+    border-color: var(--web-blue-line);
+    box-shadow: 0 14px 36px rgba(12, 58, 168, 0.18);
+  }
+  .card-poster, .list-art, .lcd-art img { background: var(--surface-2); }
+  .card-poster { filter: none; }
+  .list-item { min-height: 68px; }
+  .list-item:hover, .list-item:focus-visible { border-color: var(--web-blue-line); }
+  .browse-row {
+    min-height: 68px;
+    gap: 14px;
+    padding: 10px 14px;
+    border-color: rgba(220, 228, 245, 0.08);
+    background: rgba(14, 18, 27, 0.34);
+  }
+  .browse-row:hover, .browse-row:focus-visible {
+    background: rgba(20, 28, 44, 0.72);
+    border-color: var(--web-blue-line);
+  }
+  .browse-leading {
+    display: grid;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    color: #cbd8ff;
+    border: 1px solid rgba(112, 151, 255, 0.18);
+    border-radius: 12px;
+    background: linear-gradient(145deg, rgba(47, 91, 181, 0.2), rgba(14, 18, 27, 0.72));
+  }
+  .browse-leading svg, .browse-chevron {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .browse-row:hover .browse-leading, .browse-row:focus-visible .browse-leading {
+    color: #e5edff;
+    border-color: var(--web-blue-line);
+    background: var(--web-blue-soft);
+  }
+  .browse-row-copy { flex: 1; min-width: 0; }
+  .browse-row-title {
+    overflow: hidden;
+    color: var(--white);
+    font-size: 14px;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .browse-kind { margin-top: 3px; color: var(--white-muted); font-size: 11px; }
+  .browse-chevron { flex: 0 0 18px; width: 18px; height: 18px; color: var(--white-muted); }
+  .browse-parent-row { background: rgba(14, 18, 27, 0.18); }
+  .browse-file-row .list-art {
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
+    margin: 0;
+    border-radius: 12px;
+  }
+  .browse-file-row .list-title { min-width: 0; font-family: var(--font-body); font-size: 14px; text-transform: none; }
+  .browse-file-size {
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0 8px 0 auto;
+    color: var(--white-muted);
+    font-size: 12px;
+    text-align: right;
+  }
+  .action-btn, .list-download-icon {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .hw-btn { min-width: 44px; }
+  .hw-btn.play { background: linear-gradient(135deg, #f4f6fb, #cbd5e8); }
+  .window-btn { min-width: 48px; min-height: 48px; }
+  .video-container:focus-within .vid-controls-overlay { opacity: 1; }
+  .empty-state { line-height: 1.6; background: rgba(14, 18, 27, 0.35); }
+  .browse-more { transition: background var(--transition-snap), border-color var(--transition-snap); }
+  .browse-more:hover:not(:disabled) { background: var(--web-blue-soft); border-color: var(--web-blue-line); }
+  button:disabled { cursor: progress; opacity: 0.6; }
+  :where(button, input, a, .card, .list-item):focus-visible {
+    outline: 2px solid var(--web-blue);
+    outline-offset: 3px;
+  }
+  @media (max-width: 1024px) and (min-width: 769px) {
+    .top-dashboard { gap: 4px; padding-inline: 8px; }
+    .branding { padding-inline: 8px; }
+    .nav-switches { gap: 0; }
+    .nav-btn { min-width: 0; padding-inline: 6px; font-size: 11px; }
+    .search-container { flex-basis: 180px; min-width: 120px; }
+  }
+  @media (max-width: 850px) and (min-width: 769px) {
+    .branding { display: none; }
+    .search-container { flex-basis: 160px; max-width: 24vw; }
+  }
+  @media (max-width: 768px) {
+    .top-dashboard { height: 62px; padding-inline: 8px; }
+    .search-container { width: 100%; max-width: none; flex: 1 1 auto; margin: 4px 0; }
+    .content-area { padding: 16px; }
+    .page-header { align-items: flex-start; }
+    .bottom-navbar {
+      display: flex;
+      height: calc(64px + env(safe-area-inset-bottom, 0px));
+      gap: 4px;
+      padding: 6px max(8px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+      border-top: 1px solid rgba(220, 228, 245, 0.08);
+      background: rgba(5, 7, 12, 0.78);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+    }
+    .bottom-navbar .nav-btn { flex: 1 1 0; min-width: 44px; margin: 0; padding-inline: 2px; font-size: clamp(10px, 2.8vw, 12px); }
+    .player-console { flex-direction: column; height: auto; }
+    .now-playing-lcd { min-width: 0; padding: 12px 16px; gap: 12px; border-right: 0; border-bottom: 1px solid var(--white-border); }
+    .lcd-data { min-width: 0; }
+    .hardware-controls { min-height: 56px; }
+    .hardware-controls .hw-btn { flex: 1; width: auto; margin: 4px; }
+    .grid-container { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .card { aspect-ratio: 0.9; }
+    .list-item { gap: 10px; padding: 10px 12px; }
+    .browse-row { gap: 10px; }
+    .browse-file-size { display: none; }
+    .list-index { min-width: 38px; width: auto; }
+    .list-title { min-width: 0; }
+    .list-art { flex: 0 0 40px; margin-right: 0; }
+    .list-download-icon { flex: 0 0 auto; margin-left: auto; padding-inline: 10px; }
+    .empty-state { margin-top: 20px; }
+  }
+  @media (max-width: 380px) {
+    .content-area { padding: 12px; }
+    .bottom-navbar { gap: 2px; padding-inline: 4px; }
+    .bottom-navbar .nav-btn { min-width: 40px; }
+    .card-info { padding-inline: 8px; }
+    .card-title { font-size: 11px; }
+  }
+
 </style>
 </head>
 <body>
 
 <div class="top-dashboard">
-  <div class="branding"><div class="brand-title">STREAMZ</div></div>
-  <div class="nav-switches">
-    <button class="nav-btn active" id="nav-video" onclick="switchTab('video')">VIDEOS</button>
+  <div class="branding">
+    <img class="brand-mark" src="/assets/images/app_mark.png" alt="Hestia" width="64" height="32">
+  </div>
+  <div class="nav-switches" role="navigation" aria-label="Media categories">
+    <button class="nav-btn active" id="nav-video" aria-current="page" onclick="switchTab('video')">VIDEOS</button>
     <button class="nav-btn" id="nav-audio" onclick="switchTab('audio')">AUDIO</button>
     <button class="nav-btn" id="nav-image" onclick="switchTab('image')">PHOTOS</button>
     <button class="nav-btn" id="nav-folder" onclick="switchTab('folder')">NETWORK</button>
+    <button class="nav-btn" id="nav-station" onclick="switchTab('station')">STATIONS</button>
   </div>
   <div class="search-container">
-    <input type="text" class="search-box" id="searchInput" placeholder="SEARCH QUERY..." oninput="handleSearch()">
+    <input type="text" class="search-box" id="searchInput" aria-label="Search shared media" placeholder="Search media" autocomplete="off" enterkeyhint="search" oninput="handleSearch()">
   </div>
 </div>
 
 <div class="workspace">
-  <div class="content-area">
+  <main class="content-area">
     <div class="page-header">
-      <div class="page-title" id="page-title">VIDEO ARCHIVE</div>
-      <div class="page-meta" id="page-subtitle">PATH // ROOT/MEDIA</div>
+      <h1 class="page-title" id="page-title">Videos</h1>
+      <div class="page-meta" id="page-subtitle">Browse shared media</div>
     </div>
-    <div id="content-area"></div>
-  </div>
+    <div id="content-area" role="region" aria-label="Media results"></div>
+  </main>
 </div>
 
 <div class="player-console">
   <div class="now-playing-lcd">
     <div class="lcd-art">
-      <img id="np-art-img" src="/assets/images/audio_thumbnail.png" onerror="this.style.display='none'">
+    <img id="np-art-img" src="/assets/images/app_icon.png" alt="Now playing artwork" onerror="this.style.display='none'">
     </div>
     <div class="lcd-data">
-      <div class="lcd-label" id="lcd-status-label">STATUS // IDLE</div>
-      <div class="lcd-title" id="np-title">AWAITING SIGNAL...</div>
+      <div class="lcd-label" id="lcd-status-label">Idle</div>
+      <div class="lcd-title" id="np-title">Nothing playing</div>
       <div class="lcd-progress-wrapper" id="np-progress">
         <div class="lcd-progress-bar" id="np-progress-bar"></div>
       </div>
     </div>
   </div>
   <div class="hardware-controls">
-    <button class="hw-btn" onclick="seekGlobal(-10)">-10S</button>
-    <button class="hw-btn play" onclick="toggleMedia()" id="globalPlayPause">PLAY</button>
-    <button class="hw-btn" onclick="seekGlobal(10)">+10S</button>
+    <button class="hw-btn" aria-label="Seek backward 10 seconds" onclick="seekGlobal(-10)">-10S</button>
+    <button class="hw-btn play" aria-label="Toggle playback" onclick="toggleMedia()" id="globalPlayPause">PLAY</button>
+    <button class="hw-btn" aria-label="Seek forward 10 seconds" onclick="seekGlobal(10)">+10S</button>
   </div>
 </div>
+
+<nav class="bottom-navbar" aria-label="Media categories">
+  <button class="nav-btn active" id="m-nav-video" aria-current="page" onclick="switchTab('video')">VIDEOS</button>
+  <button class="nav-btn" id="m-nav-audio" onclick="switchTab('audio')">AUDIO</button>
+  <button class="nav-btn" id="m-nav-image" onclick="switchTab('image')">PHOTOS</button>
+  <button class="nav-btn" id="m-nav-folder" onclick="switchTab('folder')">NETWORK</button>
+  <button class="nav-btn" id="m-nav-station" onclick="switchTab('station')">STATIONS</button>
+</nav>
 
 <div class="fs-overlay" id="fsOverlay">
   <div class="video-container" id="mediaContainer">
     <div class="window-controls">
-      <button class="window-btn" onclick="toggleFullscreen()">FS</button>
-      <button class="window-btn" onclick="closePlayer()">ESC</button>
+      <button class="window-btn" aria-label="Toggle fullscreen" onclick="toggleFullscreen()">FS</button>
+      <button class="window-btn" aria-label="Close player" onclick="closePlayer()">ESC</button>
     </div>
-    <video id="videoPlayer" onclick="toggleMedia()" ondblclick="toggleFullscreen()"></video>
-    <img id="fs-img" style="display:none;">
-    <audio id="audioPlayer" style="display:none;"></audio>
+    <video id="videoPlayer" aria-label="Video player" onclick="toggleMedia()" ondblclick="toggleFullscreen()" playsinline></video>
+    <img id="fs-img" alt="Now playing image" style="display:none;">
+    <audio id="audioPlayer" aria-label="Audio player" style="display:none;"></audio>
     <div class="vid-controls-overlay" id="vidControls" style="display:none;">
-      <button class="hw-btn play" onclick="toggleMedia()" id="vidPlayBtn" style="height:54px;width:120px;border:none;">PAUSE</button>
+      <button class="hw-btn play" aria-label="Toggle playback" onclick="toggleMedia()" id="vidPlayBtn" style="height:48px;width:100px;border:none;">PAUSE</button>
       <div class="lcd-progress-wrapper" id="vid-progress" style="display:block;flex-grow:1;margin:0;">
         <div class="lcd-progress-bar" id="vid-progress-bar"></div>
       </div>
-      <div class="lcd-label" id="vid-time" style="margin:0;font-size:12px;letter-spacing:0.5px;color:var(--white);">00:00 / 00:00</div>
+      <div class="lcd-label" id="vid-time" style="margin:0;font-size:11px;letter-spacing:0.2px;color:var(--white);">00:00 / 00:00</div>
     </div>
   </div>
 </div>
 
 <div class="playback-error" id="playbackError" role="alert" aria-live="assertive" hidden>
   <section class="playback-error-card" aria-labelledby="playbackErrorTitle">
-    <span class="playback-error-kicker">PLAYBACK DIAGNOSTIC</span>
+    <span class="playback-error-kicker">Playback issue</span>
     <h2 class="playback-error-title" id="playbackErrorTitle"></h2>
     <p class="playback-error-message" id="playbackErrorMessage"></p>
     <p class="playback-error-status" id="playbackErrorStatus"></p>
     <div class="playback-error-actions">
-      <button type="button" id="playbackErrorRetry" onclick="retryBrowserPlayback()">TRY AGAIN</button>
-      <button type="button" onclick="closePlayer()">BACK TO LIBRARY</button>
+      <button type="button" id="playbackErrorRetry" onclick="retryBrowserPlayback()">Try again</button>
+      <button type="button" onclick="closePlayer()">Back to library</button>
     </div>
   </section>
 </div>
 
 <script>
   let allMedia = [];
+  let mediaEtag = '';
   let currentTab = 'video';
   let currentBrowsePath = '';
+  let browseGeneration = 0;
+  let browseOffset = 0;
   let ws;
+  let wsReady = false;
+  let wsReconnectAttempt = 0;
+  let wsReconnectTimer = null;
+  let wsReadyTimer = null;
+  let wsHeartbeatTimer = null;
+  let wsLastHeartbeatResponse = 0;
+  let wsHeartbeatSequence = 0;
+  let wsHasBeenReady = false;
+  let searchTimer = null;
+  const tabMeta = {
+    video: { title: 'Videos', sub: 'Browse shared media' },
+    audio: { title: 'Music', sub: 'Browse shared media' },
+    image: { title: 'Photos', sub: 'Browse shared media' },
+    folder: { title: 'Shared folders', sub: 'Browse shared folders' },
+    station: { title: 'Live stations', sub: 'Join an active broadcast' },
+  };
   const webClientId = localStorage.getItem('streamz_web_id') || ('WEB_' + Math.floor(Math.random() * 99999));
   localStorage.setItem('streamz_web_id', webClientId);
+  const webSocketClientId = webClientId + '_' + Math.random().toString(36).slice(2);
   // [SECURITY B2] HTML-escape untrusted media names/titles before they are
   // interpolated into innerHTML — a crafted filename must not inject markup.
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -722,36 +1052,136 @@ const String kWebInterfaceHtml = r"""
   let playbackRetryTimer = null;
 
   const fallbacks = {
-    video: '/assets/images/video_thumbnail.png',
-    audio: '/assets/images/audio_thumbnail.png',
-    image: '/assets/images/photo_thumbnail.png',
-    file:  '/assets/images/video_thumbnail.png',
-  };
-
-  const tabMeta = {
-    video:  { title: 'VIDEO ARCHIVE', sub: 'PATH // ROOT/VIDEO' },
-    audio:  { title: 'AUDIO MATRIX',  sub: 'PATH // ROOT/AUDIO' },
-    image:  { title: 'PHOTO DB',      sub: 'PATH // ROOT/IMAGE' },
-    folder: { title: 'NETWORK SYS',   sub: 'PATH // ROOT/FS'   },
+    video: '/assets/images/app_icon.png',
+    audio: '/assets/images/app_icon.png',
+    image: '/assets/images/app_icon.png',
+    file:  '/assets/images/app_icon.png',
   };
 
   function connectWS() {
+    if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
     const host  = window.location.hostname || '127.0.0.1';
     const wsUrl = `ws://${host}:8080/ws`;
     // [SECURITY B1] Pairing token is presented as the WS subprotocol.
-    ws = new WebSocket(wsUrl, pairingToken ? [pairingToken] : []);
-    ws.onmessage = (e) => {
+    const socket = new WebSocket(wsUrl, pairingToken ? [pairingToken] : []);
+    ws = socket;
+    wsReady = false;
+    wsReadyTimer = setTimeout(() => {
+      if (ws === socket && !wsReady) socket.close();
+    }, 10000);
+    socket.onopen = () => {
+      if (ws !== socket) return;
+      clearTimeout(wsReadyTimer);
+      wsReadyTimer = setTimeout(() => {
+        if (ws === socket && !wsReady) socket.close();
+      }, 10000);
+    };
+    socket.onmessage = (e) => {
+      if (ws !== socket) return;
       try {
         const cmd = JSON.parse(e.data);
+        if (cmd.type === 'system' && cmd.action === 'ready') {
+          const isReconnect = wsHasBeenReady;
+          wsHasBeenReady = true;
+          wsReady = true;
+          wsReconnectAttempt = 0;
+          clearTimeout(wsReadyTimer);
+          wsReadyTimer = null;
+          wsLastHeartbeatResponse = Date.now();
+          clearInterval(wsHeartbeatTimer);
+          const sendHeartbeat = () => {
+            if (ws !== socket || !wsReady || socket.readyState !== WebSocket.OPEN) return;
+            if (Date.now() - wsLastHeartbeatResponse > 45000) {
+              socket.close();
+              return;
+            }
+            try {
+              socket.send(JSON.stringify({
+                type: 'system', action: 'heartbeat',
+                value: { clientId: webSocketClientId, sequence: ++wsHeartbeatSequence },
+              }));
+            } catch (_) {
+              socket.close();
+            }
+          };
+          sendHeartbeat();
+          wsHeartbeatTimer = setInterval(sendHeartbeat, 15000);
+          if (isReconnect) refreshBrowserSession(socket);
+          return;
+        }
+        if (cmd.type === 'system' && cmd.action === 'heartbeat_ack') {
+          if (ws === socket && wsReady) wsLastHeartbeatResponse = Date.now();
+          return;
+        }
+        if (!wsReady) return;
         if (cmd.type === 'nav')   handleRemoteNav(cmd.action);
         if (cmd.type === 'media') handleRemoteMedia(cmd.action, cmd.value);
       } catch(_) {}
     };
-    ws.onclose = () => setTimeout(connectWS, 3000);
+    socket.onerror = () => {
+      if (ws === socket) socket.close();
+    };
+    socket.onclose = () => {
+      if (ws !== socket) return;
+      ws = null;
+      wsReady = false;
+      clearTimeout(wsReadyTimer);
+      clearInterval(wsHeartbeatTimer);
+      wsReadyTimer = null;
+      wsHeartbeatTimer = null;
+      if (wsReconnectTimer) return;
+      const baseDelay = Math.min(30000, 1000 * (2 ** Math.min(++wsReconnectAttempt, 5)));
+      const delay = Math.floor(baseDelay * (0.5 + Math.random() * 0.5));
+      wsReconnectTimer = setTimeout(() => {
+        wsReconnectTimer = null;
+        connectWS();
+      }, delay);
+    };
+  }
+
+  async function refreshBrowserSession(socket, attempt = 0) {
+    if (ws !== socket || !wsReady) return;
+    try {
+      const healthResponse = await fetch('/api/health', { cache: 'no-store' });
+      if (!healthResponse.ok || !(await healthResponse.json()).ready) {
+        throw new Error('Host is not ready');
+      }
+      const response = await fetch('/api/media', {
+        headers: mediaEtag ? { 'If-None-Match': mediaEtag } : {},
+        cache: 'no-store',
+      });
+      if (response.status === 304) {
+        if (currentTab === 'station' || currentTab === 'folder') {
+          const content = document.getElementById('content-area');
+          const scrollTop = content.scrollTop;
+          if (currentTab === 'station') await buildStationView();
+          else await buildFolderView();
+          content.scrollTop = scrollTop;
+        }
+        return;
+      }
+      if (!response.ok) throw new Error(`Catalog refresh failed: ${response.status}`);
+      allMedia = await response.json();
+      mediaEtag = response.headers.get('etag') || mediaEtag;
+      if (ws !== socket || !wsReady) return;
+      const content = document.getElementById('content-area');
+      const scrollTop = content.scrollTop;
+      if (currentTab === 'station') await buildStationView();
+      else if (currentTab === 'folder') await buildFolderView();
+      else {
+        buildUI(currentTab);
+      }
+      content.scrollTop = scrollTop;
+    } catch (error) {
+      console.warn('Session refresh failed', error);
+      if (attempt < 3 && ws === socket && wsReady) {
+        setTimeout(() => refreshBrowserSession(socket, attempt + 1), 2000 * (attempt + 1));
+      }
+    }
   }
 
   function sendTelemetry(isStopped, player) {
-    if (!ws || ws.readyState !== WebSocket.OPEN || !currentSessionId) return;
+    if (!ws || !wsReady || ws.readyState !== WebSocket.OPEN || !currentSessionId) return;
     if (isStopped) {
       ws.send(JSON.stringify({ type:'report_status', clientId:webClientId, sessionId:currentSessionId, title:currentMediaTitle, progress:0, mediaType:currentMediaType, isStopped:true }));
       currentSessionId = '';
@@ -783,7 +1213,22 @@ const String kWebInterfaceHtml = r"""
   function handleRemoteMedia(action, value) {
     const vid = document.getElementById('videoPlayer');
     const aud = document.getElementById('audioPlayer');
-    const active = vid.style.display === 'block' ? vid : (aud.src ? aud : null);
+    const isFS = document.getElementById('fsOverlay').classList.contains('active');
+    const active = isFS ? vid : (aud.src ? aud : null);
+    
+    if (action === 'station_pause') {
+      if (active) { activePlaybackWantsResume = false; active.pause(); updatePlayBtn(true); }
+      return;
+    }
+    if (action === 'station_resume') {
+      if (active) { requestBrowserPlay(active); updatePlayBtn(false); }
+      return;
+    }
+    if (action === 'station_stop') {
+      closePlayer();
+      return;
+    }
+
     if (!active) return;
     
     if (action === 'play' || action === 'pause' || action === 'toggle_play') {
@@ -800,9 +1245,21 @@ const String kWebInterfaceHtml = r"""
   function toggleFullscreen() {
     const c = document.getElementById('mediaContainer');
     if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-      (c.requestFullscreen || c.webkitRequestFullscreen).call(c);
+      if (c.requestFullscreen) {
+        c.requestFullscreen();
+      } else if (c.webkitRequestFullscreen) {
+        c.webkitRequestFullscreen();
+      } else if (c.msRequestFullscreen) {
+        c.msRequestFullscreen();
+      }
     } else {
-      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
     }
   }
 
@@ -816,30 +1273,55 @@ const String kWebInterfaceHtml = r"""
       if (e.key === 'f')          { toggleFullscreen(); e.preventDefault(); return; }
       if (e.key === 'Escape')     { closePlayer(); e.preventDefault(); return; }
     }
-    if (e.key === 'Enter') { document.activeElement?.click(); e.preventDefault(); }
+    if (e.key === 'Enter' || (e.key === ' ' && document.activeElement?.matches('.card[role="button"]'))) {
+      document.activeElement?.click();
+      e.preventDefault();
+    }
   });
 
   async function init() {
     connectWS();
     try {
-      const res = await fetch('/api/media');
+      const res = await fetch('/api/media', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Catalog load failed: ${res.status}`);
       allMedia  = await res.json();
+      mediaEtag = res.headers.get('etag') || '';
       buildUI('video');
     } catch(_) {
-      document.getElementById('content-area').innerHTML = '<div class="empty-state">SIGNAL ERROR // DISCONNECTED</div>';
+      document.getElementById('content-area').innerHTML = '<div class="empty-state">Unable to load media. Check the server connection.</div>';
     }
   }
 
   function syncNavUI(type) {
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('nav-' + type).classList.add('active');
-    document.getElementById('page-title').innerText    = tabMeta[type].title;
-    document.getElementById('page-subtitle').innerText = currentBrowsePath
-        ? 'PATH // ' + currentBrowsePath.toUpperCase()
-        : tabMeta[type].sub;
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      b.classList.remove('active');
+      b.removeAttribute('aria-current');
+    });
+    
+    // Sync Top Nav
+    const navTop = document.getElementById('nav-' + type);
+    if (navTop) {
+      navTop.classList.add('active');
+      navTop.setAttribute('aria-current', 'page');
+    }
+    
+    // Sync Bottom Nav
+    const navBottom = document.getElementById('m-nav-' + type);
+    if (navBottom) {
+      navBottom.classList.add('active');
+      navBottom.setAttribute('aria-current', 'page');
+    }
+    const page = tabMeta[type];
+    if (page) {
+      document.getElementById('page-title').innerText = page.title;
+      document.getElementById('page-subtitle').innerText = currentBrowsePath
+        ? 'Folder: ' + currentBrowsePath
+        : page.sub;
+    }
   }
 
   function switchTab(type) {
+    clearTimeout(searchTimer);
     currentTab = type;
     if (type === 'folder') currentBrowsePath = '';
     syncNavUI(type);
@@ -849,33 +1331,39 @@ const String kWebInterfaceHtml = r"""
 
   function handleSearch() {
     if (currentTab === 'folder') return;
-    const q = document.getElementById('searchInput').value.toLowerCase();
-    if (!q) { buildUI(currentTab); return; }
-    renderGrid(allMedia.filter(m => m.type === currentTab && m.title.toLowerCase().includes(q)));
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      const q = document.getElementById('searchInput').value.trim().toLowerCase();
+      if (!q) { buildUI(currentTab); return; }
+      renderGrid(allMedia.filter(m => m.type === currentTab && m.title.toLowerCase().includes(q)));
+    }, 120);
   }
 
   function buildUI(type) {
     if (type === 'folder') buildFolderView();
+    else if (type === 'station') buildStationView();
     else renderGrid(allMedia.filter(m => m.type === type));
   }
 
   function renderGrid(items) {
     const container = document.getElementById('content-area');
     container.className = 'grid-container';
-    container.innerHTML = items.length === 0 ? '<div class="empty-state">0 SIGNALS FOUND.</div>' : '';
+    container.innerHTML = items.length === 0 ? '<div class="empty-state">No media found.</div>' : '';
     items.forEach(item => {
       const card     = document.createElement('div');
       card.className = 'card';
       card.setAttribute('tabindex', '0');
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-label', 'Play ' + item.title);
       const thumb    = '/api/thumbnail/' + item.id;
       const fallback = fallbacks[item.type] || fallbacks.video;
       card.innerHTML = `
         <div class="card-poster-wrap">
-          <img class="card-poster" src="${esc(thumb)}" onerror="this.src='${fallback}';this.onerror=null;">
+          <img class="card-poster" src="${esc(thumb)}" alt="${esc(item.title)}" loading="lazy" decoding="async" onerror="this.src='${fallback}';this.onerror=null;">
         </div>
         <div class="card-info">
           <div class="card-title" title="${esc(item.title)}">${esc(item.title)}</div>
-          <a href="/stream/${encodeURIComponent(item.id)}" download="${esc(item.title)}" class="action-btn" tabindex="-1" onclick="event.stopPropagation()">DOWNLOAD</a>
+          <a href="/stream/${encodeURIComponent(item.id)}" download="${esc(item.title)}" class="action-btn" onclick="event.stopPropagation()">Download</a>
         </div>`;
       card.onclick = () => openPlayer(item);
       container.appendChild(card);
@@ -883,65 +1371,188 @@ const String kWebInterfaceHtml = r"""
   }
 
   async function buildFolderView() {
+    const generation = ++browseGeneration;
+    browseOffset = 0;
     const container = document.getElementById('content-area');
     container.className = 'list-container';
-    container.innerHTML = '<div class="empty-state">SCANNING NETWORK...</div>';
     document.getElementById('page-subtitle').innerText = currentBrowsePath
-        ? 'PATH // ' + currentBrowsePath.toUpperCase()
-        : 'PATH // ROOT/FS';
+      ? 'Folder: ' + currentBrowsePath
+      : 'Browse shared folders';
+    container.innerHTML = '';
+    if (currentBrowsePath) {
+      const back = document.createElement('div');
+      back.className = 'list-item browse-row browse-parent-row';
+      back.setAttribute('tabindex', '0');
+      back.setAttribute('role', 'button');
+      back.setAttribute('aria-label', 'Go to parent folder');
+      back.innerHTML = `
+        <div class="browse-leading" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg></div>
+        <div class="browse-row-copy"><div class="browse-row-title">Parent folder</div><div class="browse-kind">Up one level</div></div>`;
+      back.onkeydown = event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          back.click();
+        }
+      };
+      back.onclick = () => {
+        let lastSlash = Math.max(currentBrowsePath.lastIndexOf('/'), currentBrowsePath.lastIndexOf('\\'));
+        if (lastSlash <= 0 || (lastSlash === 2 && currentBrowsePath.charAt(1) === ':')) {
+          currentBrowsePath = '';
+        } else {
+          currentBrowsePath = currentBrowsePath.substring(0, lastSlash);
+          if (currentBrowsePath.endsWith(':')) currentBrowsePath += '\\';
+        }
+        buildFolderView();
+      };
+      container.appendChild(back);
+    }
+    await loadBrowsePage(generation, 0);
+  }
+
+  async function loadBrowsePage(generation, offset, moreButton) {
+    const container = document.getElementById('content-area');
+    let loadingState = null;
+    if (!moreButton && offset === 0) {
+      loadingState = document.createElement('div');
+      loadingState.className = 'empty-state';
+      loadingState.textContent = 'Loading folders…';
+      container.appendChild(loadingState);
+    }
+    if (moreButton) {
+      moreButton.disabled = true;
+      moreButton.textContent = 'Loading…';
+    }
     try {
-      const res   = await fetch('/api/browse?path=' + encodeURIComponent(currentBrowsePath));
-      const items = await res.json();
-      container.innerHTML = '';
-      
-      if (currentBrowsePath) {
-        const back = document.createElement('div');
-        back.className = 'list-item';
-        back.setAttribute('tabindex', '0');
-        back.innerHTML = '<div class="list-index">[&lt;]</div><div class="list-title">.. / PARENT DIRECTORY</div>';
-        back.onclick = () => {
-          let lastSlash = Math.max(currentBrowsePath.lastIndexOf('/'), currentBrowsePath.lastIndexOf('\\'));
-          if (lastSlash <= 0 || (lastSlash === 2 && currentBrowsePath.charAt(1) === ':')) {
-             currentBrowsePath = '';
-          } else {
-             currentBrowsePath = currentBrowsePath.substring(0, lastSlash);
-             if (currentBrowsePath.endsWith(':')) currentBrowsePath += '\\';
-          }
-          buildFolderView();
-        };
-        container.appendChild(back);
+      const params = new URLSearchParams({ path: currentBrowsePath, offset: String(offset), limit: '200' });
+      const res = await fetch('/api/browse?' + params.toString());
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const result = await res.json();
+      if (generation !== browseGeneration) return;
+      const items = Array.isArray(result) ? result : (result.items || []);
+      loadingState?.remove();
+      items.forEach(item => appendBrowseItem(container, item));
+      browseOffset = offset + items.length;
+      if (moreButton) moreButton.remove();
+      if (items.length === 0 && offset === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.textContent = 'No files in this folder.';
+        container.appendChild(empty);
       }
+      if (result.hasMore) {
+        const more = document.createElement('button');
+        more.type = 'button';
+        more.className = 'browse-more';
+        more.textContent = 'Load more files';
+        more.onclick = () => loadBrowsePage(generation, browseOffset, more);
+        container.appendChild(more);
+      }
+    } catch (_) {
+      if (generation !== browseGeneration) return;
+      if (moreButton) {
+        moreButton.disabled = false;
+        moreButton.textContent = 'Retry loading files';
+      } else {
+        loadingState?.remove();
+        const error = document.createElement('div');
+        error.className = 'empty-state';
+        error.textContent = 'Unable to load this folder. Check the host.';
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'browse-more';
+        retry.textContent = 'Retry';
+        retry.onclick = () => {
+          error.remove();
+          retry.remove();
+          loadBrowsePage(generation, 0);
+        };
+        container.appendChild(error);
+        container.appendChild(retry);
+      }
+    }
+  }
+
+  function appendBrowseItem(container, item) {
+    const row = document.createElement('div');
+    row.className = item.isDirectory ? 'list-item browse-row browse-folder-row' : 'list-item browse-row browse-file-row';
+    row.setAttribute('tabindex', '0');
+    if (item.isDirectory) {
+      row.setAttribute('role', 'button');
+      row.setAttribute('aria-label', 'Open folder ' + item.name);
+      row.innerHTML = `
+        <div class="browse-leading" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4l2 2h8A1.5 1.5 0 0 1 20.5 9.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/><path d="M3.5 10h17"/></svg></div>
+        <div class="browse-row-copy"><div class="browse-row-title" title="${esc(item.name)}">${esc(item.name)}</div><div class="browse-kind">Folder</div></div>
+        <svg class="browse-chevron" aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>`;
+      row.onkeydown = event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          row.click();
+        }
+      };
+      row.onclick = () => { currentBrowsePath = item.path; buildFolderView(); };
+    } else {
+      const ext = (item.name.split('.').pop() || '').toLowerCase();
+      let typeKey = 'file';
+      if (['mp4','mkv','webm','avi'].includes(ext)) typeKey = 'video';
+      if (['mp3','wav','m4a','aac','flac'].includes(ext)) typeKey = 'audio';
+      if (['jpg','png','jpeg','webp'].includes(ext)) typeKey = 'image';
+      const thumb = '/api/thumbnail/' + encodeURIComponent(item.path);
+      const fallback = fallbacks[typeKey] || fallbacks.file;
+      row.innerHTML = `
+        <img class="list-art" src="${esc(thumb)}" alt="${esc(item.name)}" loading="lazy" decoding="async" onerror="this.src='${fallback}';this.onerror=null;">
+        <div class="list-title" title="${esc(item.name)}">${esc(item.name)}</div>
+        <div class="list-meta browse-file-size">${(item.size/1024/1024).toFixed(1)} MB</div>
+        <a href="/api/file?path=${encodeURIComponent(item.path)}" class="list-download-icon" download="${esc(item.name)}" onclick="event.stopPropagation()">Download</a>`;
+      row.onclick = () => {
+        if (typeKey !== 'file') openPlayer({ id: item.path, type: typeKey, title: item.name }, true);
+        else window.open('/api/file?path=' + encodeURIComponent(item.path), '_blank');
+      };
+    }
+    container.appendChild(row);
+  }
+
+  async function buildStationView() {
+    const container = document.getElementById('content-area');
+    container.className = 'list-container';
+    document.getElementById('page-subtitle').innerText = 'Join an active broadcast';
+    container.innerHTML = '<div class="empty-state">Loading stations…</div>';
+    try {
+      const res = await fetch('/api/stations');
+      const items = await res.json();
+      container.innerHTML = items.length === 0 ? '<div class="empty-state">0 BROADCASTS FOUND.</div>' : '';
       
-      items.forEach(item => {
+      items.forEach(station => {
         const row = document.createElement('div');
         row.className = 'list-item';
         row.setAttribute('tabindex', '0');
-        if (item.isDirectory) {
-          row.innerHTML = `<div class="list-index">[NODE]</div><div class="list-title">${esc(item.name)}</div>`;
-          row.onclick   = () => { currentBrowsePath = item.path; buildFolderView(); };
-        } else {
-          const ext      = (item.name.split('.').pop() || '').toLowerCase();
-          let typeKey    = 'file';
-          if (['mp4','mkv','webm','avi'].includes(ext))      typeKey = 'video';
-          if (['mp3','wav','m4a','aac','flac'].includes(ext)) typeKey = 'audio';
-          if (['jpg','png','jpeg','webp'].includes(ext))      typeKey = 'image';
-          const thumb    = '/api/thumbnail/' + encodeURIComponent(item.path);
-          const fallback = fallbacks[typeKey] || fallbacks.file;
-          row.innerHTML = `
-            <div class="list-index">[${typeKey.substring(0,3).toUpperCase()}]</div>
-            <img class="list-art" src="${esc(thumb)}" onerror="this.src='${fallback}';this.onerror=null;">
-            <div class="list-title" title="${esc(item.name)}">${esc(item.name)}</div>
-            <div class="list-meta">${(item.size/1024/1024).toFixed(1)} MB</div>
-            <a href="/api/file?path=${encodeURIComponent(item.path)}" class="list-download-icon" download="${esc(item.name)}" onclick="event.stopPropagation()">GET</a>`;
-          row.onclick = () => {
-            if (typeKey !== 'file') openPlayer({ id: item.path, type: typeKey, title: item.name }, true);
-            else window.open('/api/file?path=' + encodeURIComponent(item.path), '_blank');
-          };
-        }
+        const np = station.nowPlaying;
+        const sub = np ? `PLAYING: ${esc(np.item.title)}` : 'IDLE';
+        const thumb = np ? '/api/thumbnail/' + np.item.id : fallbacks.video;
+        
+        row.innerHTML = `
+          <div class="list-index">[LIVE]</div>
+          <img class="list-art" src="${esc(thumb)}" alt="${esc(station.name)}" loading="lazy" decoding="async" onerror="this.src='${fallbacks.video}';this.onerror=null;">
+          <div class="lcd-data" style="flex-grow:1;overflow:hidden;">
+            <div class="lcd-label">${esc(station.name)}</div>
+            <div class="list-title" style="font-size:16px;">${sub}</div>
+          </div>
+          <button class="list-download-icon" style="background:transparent;cursor:crosshair;">JOIN</button>`;
+        
+        row.onclick = async () => {
+          try {
+            const joinRes = await fetch('/api/stations/join/' + station.id);
+            const data = await joinRes.json();
+            if (data && data.item) {
+              openPlayer(data.item, false, data.isPaused);
+              const player = data.item.type === 'audio' ? aud : vid;
+              player.currentTime = data.positionMs / 1000;
+            }
+          } catch(e) { console.error('Join failed', e); }
+        };
         container.appendChild(row);
       });
     } catch(_) {
-      container.innerHTML = '<div class="empty-state">ERR: ACCESS DENIED.</div>';
+      container.innerHTML = '<div class="empty-state">Station is unavailable. Check the server connection.</div>';
     }
   }
 
@@ -980,7 +1591,7 @@ const String kWebInterfaceHtml = r"""
       return ['device', 'Playback was blocked by this browser', 'Press Try Again to allow playback. Check browser autoplay or media permissions if it keeps happening.'];
     }
     if (code === 2 || detail.includes('network') || detail.includes('connection') || !navigator.onLine) {
-      return ['connection', 'Connection interrupted', 'The media host or Wi-Fi stopped responding. STREAMZ will retry and resume near the last position. Check that the host is still running on the same network.'];
+      return ['connection', 'Connection interrupted', 'The media host or Wi-Fi stopped responding. Hestia will retry and resume near the last position. Check that the host is still running on the same network.'];
     }
     if (code === 3 || code === 4 || detail.includes('decode') || detail.includes('codec') || detail.includes('not supported')) {
       return ['codec', 'This media may not be supported', 'The file format or codec may not be supported by this browser or device. Try another file or a device with broader codec support.'];
@@ -1108,9 +1719,13 @@ const String kWebInterfaceHtml = r"""
     if (item.type === 'audio') {
       aud.src = url;
       if (!startPaused) requestBrowserPlay(aud);
-      document.getElementById('lcd-status-label').innerText = 'STATUS // BROADCASTING';
+      document.getElementById('lcd-status-label').innerText = item.isBroadcast ? 'Live' : 'Broadcasting';
       document.getElementById('np-title').innerText     = item.title;
       document.getElementById('np-progress').style.display = 'block';
+      // Restrict progress interaction for broadcasts
+      document.getElementById('np-progress').style.pointerEvents = item.isBroadcast ? 'none' : 'auto';
+      document.getElementById('np-progress-bar').style.background = item.isBroadcast ? 'orange' : 'var(--white)';
+      
       const art = document.getElementById('np-art-img');
       art.style.display = 'block';
       art.src = isPath
@@ -1134,6 +1749,12 @@ const String kWebInterfaceHtml = r"""
       vid.src = url;
       vid.style.display   = 'block';
       ctrls.style.display = 'flex';
+      
+      // Restrict progress interaction for broadcasts
+      document.getElementById('vid-progress').style.pointerEvents = item.isBroadcast ? 'none' : 'auto';
+      document.getElementById('vid-progress-bar').style.background = item.isBroadcast ? 'orange' : 'var(--white)';
+      document.getElementById('vid-time').innerText = item.isBroadcast ? 'LIVE BROADCAST' : '00:00 / 00:00';
+
       if (!startPaused) requestBrowserPlay(vid);
       updatePlayBtn(startPaused);
     } else if (item.type === 'image') {
@@ -1151,21 +1772,25 @@ const String kWebInterfaceHtml = r"""
     playbackIssueKind = '';
     hidePlaybackError();
     if (document.fullscreenElement || document.webkitFullscreenElement) {
-      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
     }
     document.getElementById('fsOverlay').classList.remove('active');
     sendTelemetry(true, null);
     vid.pause(); vid.src = '';
+    vid.style.display = 'none'; // Ensure it's hidden so it doesn't block audio in toggleMedia
     if (aud.src) {
       aud.pause(); aud.src = '';
-      document.getElementById('lcd-status-label').innerText = 'STATUS // IDLE';
-      document.getElementById('np-title').innerText  = 'AWAITING SIGNAL...';
+      document.getElementById('lcd-status-label').innerText = 'Idle';
+      document.getElementById('np-title').innerText  = 'Nothing playing';
       document.getElementById('np-progress').style.display = 'none';
     }
   }
 
   function toggleMedia() {
-    const active = vid.style.display === 'block' ? vid : aud;
+    if (currentMediaType && allMedia.find(m => m.title === currentMediaTitle)?.isBroadcast) return;
+    const isFS = document.getElementById('fsOverlay').classList.contains('active');
+    const active = isFS ? vid : aud;
     if (!active.src) return;
     if (active.paused) { requestBrowserPlay(active); updatePlayBtn(false); }
     else { activePlaybackWantsResume = false; active.pause(); updatePlayBtn(true); }
@@ -1174,10 +1799,26 @@ const String kWebInterfaceHtml = r"""
   function updatePlayBtn(isPaused) {
     document.getElementById('globalPlayPause').innerText = isPaused ? 'PLAY' : 'PAUSE';
     document.getElementById('vidPlayBtn').innerText      = isPaused ? 'PLAY' : 'PAUSE';
+    
+    // Disable local play/pause for broadcasts
+    const isBroadcast = currentMediaTitle && (vid.src || aud.src) && (
+      (vid.src && document.getElementById('vid-progress').style.pointerEvents === 'none') ||
+      (aud.src && document.getElementById('np-progress').style.pointerEvents === 'none')
+    );
+    
+    document.getElementById('globalPlayPause').disabled = isBroadcast;
+    document.getElementById('vidPlayBtn').disabled      = isBroadcast;
+    document.getElementById('globalPlayPause').style.opacity = isBroadcast ? '0.5' : '1';
+    document.getElementById('vidPlayBtn').style.opacity      = isBroadcast ? '0.5' : '1';
   }
 
   function seekGlobal(s) {
-    const active = vid.style.display === 'block' ? vid : aud;
+    const isBroadcast = (vid.src && document.getElementById('vid-progress').style.pointerEvents === 'none') ||
+                        (aud.src && document.getElementById('np-progress').style.pointerEvents === 'none');
+    if (isBroadcast) return;
+
+    const isFS = document.getElementById('fsOverlay').classList.contains('active');
+    const active = isFS ? vid : aud;
     if (active.src) active.currentTime += s;
   }
 

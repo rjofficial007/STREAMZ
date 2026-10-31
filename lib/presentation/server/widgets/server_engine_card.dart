@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
-import 'package:streamz/presentation/server/server_viewmodel.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
+import 'package:streamz/presentation/server/server_viewmodel.dart';
+import 'package:streamz/presentation/shared/app_summary_components.dart';
 
 /// Compact server controls and live connection metrics for the dashboard.
 class ServerEngineCard extends StatefulWidget {
@@ -35,27 +36,26 @@ class _ServerEngineCardState extends State<ServerEngineCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Server',
-                style: AppTextStyles.titleLarge.copyWith(
-                  color: tokens.textPrimary,
-                  fontWeight: AppTextStyles.titleFontWeight,
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ServerBlinkingDot(isOnline: widget.state.isRunning),
-                  const SizedBox(width: 8),
-                  Text(
+          AppSummaryHeader(
+            title: 'Server',
+            titleStyle: AppTextStyles.titleLarge.copyWith(
+              color: tokens.textPrimary,
+              fontWeight: AppTextStyles.titleFontWeight,
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ServerStatusDot(isOnline: widget.state.isRunning),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
                     widget.state.isInitializing
                         ? 'Starting'
                         : widget.state.isRunning
                         ? 'Running'
                         : 'Stopped',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.body.copyWith(
                       color: widget.state.isRunning
                           ? tokens.success
@@ -63,9 +63,9 @@ class _ServerEngineCardState extends State<ServerEngineCard> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
           SizedBox(height: widget.isMobile ? 16 : 24),
           Column(
@@ -81,7 +81,7 @@ class _ServerEngineCardState extends State<ServerEngineCard> {
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  widget.state.serverIp.toUpperCase(),
+                  widget.state.serverIp,
                   style: AppTextStyles.body.copyWith(
                     color: tokens.textPrimary,
                     fontWeight: FontWeight.w500,
@@ -95,8 +95,7 @@ class _ServerEngineCardState extends State<ServerEngineCard> {
             children: [
               Expanded(
                 child: _legend(
-                  context,
-                  'NODES',
+                  'Devices',
                   widget.state.connectedClients.toString(),
                   tokens.accent,
                 ),
@@ -106,9 +105,8 @@ class _ServerEngineCardState extends State<ServerEngineCard> {
                 child: ValueListenableBuilder<double>(
                   valueListenable: widget.state.speedUpdates,
                   builder: (context, speed, _) => _legend(
-                    context,
-                    'SPEED',
-                    '${speed.toStringAsFixed(1)} MB/S',
+                    'Speed',
+                    '${speed.toStringAsFixed(1)} MB/s',
                     tokens.telemetry,
                   ),
                 ),
@@ -181,9 +179,10 @@ class _ServerEngineCardState extends State<ServerEngineCard> {
                                   widget.state.isRunning
                                       ? 'Stop server'
                                       : 'Start server',
-                                  style: AppTextStyles.caption.copyWith(color: _btnFocused
-                                        ? tokens.background
-                                        : tokens.textPrimary, fontWeight: FontWeight.w500, letterSpacing: 0.5),
+                                  style: AppTextStyles.caption.copyWith(
+                                    color: tokens.textPrimary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                         ),
                       ),
@@ -198,83 +197,31 @@ class _ServerEngineCardState extends State<ServerEngineCard> {
     );
   }
 
-  Widget _legend(
-    BuildContext context,
-    String label,
-    String value,
-    Color color,
-  ) {
-    final tokens = context.tokens;
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            label,
-            style: AppTextStyles.caption.copyWith(color: tokens.textMuted),
-          ),
-        ),
-        Text(
-          value,
-          style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w500, color: tokens.textPrimary),
-        ),
-      ],
-    );
-  }
+  Widget _legend(String label, String value, Color color) => AppSummaryLegend(
+    label: label,
+    value: value,
+    markerColor: color,
+  );
 }
 
-/// Blinking status indicator for live signals.
-class ServerBlinkingDot extends StatefulWidget {
-  const ServerBlinkingDot({super.key, required this.isOnline});
+/// Static server status indicator.
+class ServerStatusDot extends StatelessWidget {
+  const ServerStatusDot({super.key, required this.isOnline});
   final bool isOnline;
-
-  @override
-  State<ServerBlinkingDot> createState() => _ServerBlinkingDotState();
-}
-
-class _ServerBlinkingDotState extends State<ServerBlinkingDot>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final tokens = context.tokens;
-    if (!widget.isOnline) {
-      return Container(
-        width: 8,
-        height: 8,
-        color: tokens.textMuted.withValues(alpha: 0.3),
-      );
-    }
-    return FadeTransition(
-      opacity: _ctrl,
-      child: Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: tokens.success,
-          boxShadow: [BoxShadow(color: tokens.success, blurRadius: 4)],
-        ),
+    final color = isOnline ? tokens.success : tokens.textMuted;
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        boxShadow: isOnline
+            ? [BoxShadow(color: color.withValues(alpha: 0.32), blurRadius: 8)]
+            : null,
       ),
     );
   }

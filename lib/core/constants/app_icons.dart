@@ -18,4 +18,5 @@ abstract final class AppIcons {
   static const arrowDown = LucideIcons.arrowBigDown;
   static const wifiOff = LucideIcons.wifiOff;
   static const chevronLeft = LucideIcons.chevronLeft;
+  static const favorite = LucideIcons.star;
 }

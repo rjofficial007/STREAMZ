@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:streamz/core/constants/app_strings.dart';
 import 'package:streamz/core/constants/app_text_styles.dart';
 import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
@@ -58,7 +59,7 @@ class AppSettingsScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Make STREAMZ yours',
+                          'Make ${AppStrings.appTitle} yours',
                           style: AppTextStyles.heading(
                             isTV ? 32 : 26,
                             color: context.tokens.textPrimary,
@@ -66,7 +67,7 @@ class AppSettingsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: DS.s8),
                         Text(
-                          'These appearance choices apply across the app and are saved on this device.',
+                          'Customize type, glow, and corner rounding. Saved on this device.',
                           style: AppTextStyles.body.copyWith(
                             color: context.tokens.textMuted,
                           ),
@@ -74,8 +75,7 @@ class AppSettingsScreen extends StatelessWidget {
                         const SizedBox(height: DS.s32),
                         _SettingsSection(
                           title: 'Font family',
-                          description:
-                              'Choose the type style used throughout STREAMZ.',
+                          description: 'Choose the app typeface.',
                           child: LayoutBuilder(
                             builder: (context, constraints) {
                               final columns = constraints.maxWidth >= 700
@@ -108,8 +108,7 @@ class AppSettingsScreen extends StatelessWidget {
                         const SizedBox(height: DS.s32),
                         _SettingsSection(
                           title: 'Title weight',
-                          description:
-                              'Adjust headings and app bar titles. Body text stays unchanged.',
+                          description: 'Adjust heading weight.',
                           child: _TitleWeightControl(
                             value: settings.titleWeight,
                             onChanged: (value) => settings.previewTitleWeight(
@@ -122,8 +121,7 @@ class AppSettingsScreen extends StatelessWidget {
                         const SizedBox(height: DS.s32),
                         _SettingsSection(
                           title: 'Scaffold glow',
-                          description:
-                              'Choose a rich accent for the shared glow. Blue remains the default.',
+                          description: 'Choose the top scaffold glow color.',
                           child: Center(
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: 640),
@@ -164,8 +162,7 @@ class AppSettingsScreen extends StatelessWidget {
                         const SizedBox(height: DS.s32),
                         _SettingsSection(
                           title: 'Corner radius',
-                          description:
-                              'Adjust the shared corner radius for cards, fields, sheets, and controls.',
+                          description: 'Set the shared corner radius.',
                           child: _CornerRadiusControl(
                             value: settings.cornerRadius,
                             onChanged: settings.previewCornerRadius,
@@ -176,10 +173,10 @@ class AppSettingsScreen extends StatelessWidget {
                         const SizedBox(height: DS.s32),
                         _SettingsSection(
                           title: 'Preview',
-                          description:
-                              'Preview your font family, title weight, and corner radius.',
+                          description: 'Preview your choices together.',
                           child: _AppearancePreview(
                             fontFamily: settings.fontFamily,
+                            glowColor: settings.glowColor,
                           ),
                         ),
                       ],
@@ -323,6 +320,9 @@ class _GlowChoice extends StatelessWidget {
                       ]
                     : const [],
               ),
+              child: selected
+                  ? const Icon(Icons.check_rounded, size: 17, color: Colors.white)
+                  : null,
             ),
             const SizedBox(height: DS.s4),
             Text(
@@ -480,15 +480,27 @@ class _TitleWeightControl extends StatelessWidget {
 }
 
 class _AppearancePreview extends StatelessWidget {
-  const _AppearancePreview({required this.fontFamily});
+  const _AppearancePreview({
+    required this.fontFamily,
+    required this.glowColor,
+  });
+
   final AppFontFamily fontFamily;
+  final AppGlowColor glowColor;
 
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
     padding: const EdgeInsets.all(DS.s20),
     decoration: BoxDecoration(
-      color: context.tokens.surface1,
+      gradient: RadialGradient(
+        center: const Alignment(0, -1.15),
+        radius: 1.2,
+        colors: [
+          glowColor.color.withValues(alpha: 0.38),
+          context.tokens.surface1,
+        ],
+      ),
       borderRadius: BorderRadius.circular(DS.radiusLg),
       border: Border.all(color: context.tokens.border),
     ),
@@ -496,7 +508,7 @@ class _AppearancePreview extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'STREAMZ',
+          AppStrings.appTitle,
           style: AppTextStyles.display(
             30,
             spacing: 1,

@@ -8,7 +8,7 @@ class AppListTileCard extends StatelessWidget {
   const AppListTileCard({
     super.key,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     required this.icon,
     required this.onTap,
     this.isActive = false,
@@ -16,7 +16,7 @@ class AppListTileCard extends StatelessWidget {
   });
 
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final IconData icon;
   final VoidCallback onTap;
   final bool isActive;
@@ -67,15 +67,17 @@ class AppListTileCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: DS.s4),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.supporting.copyWith(
-                        color: tokens.textMuted,
+                    if (subtitle != null && subtitle!.isNotEmpty) ...[
+                      const SizedBox(height: DS.s4),
+                      Text(
+                        subtitle!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.supporting.copyWith(
+                          color: tokens.textMuted,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

@@ -23,8 +23,8 @@ class ThumbnailCache {
       _cacheDir = Directory('${appCache.path}/streamz_thumbs');
       await _cacheDir!.create(recursive: true);
       _initialized = true;
-      // Clean up old entries in background
-      unawaited(_cleanOldEntries());
+      // Let startup finish before the cache directory is scanned.
+      unawaited(Future<void>.delayed(Duration.zero, _cleanOldEntries));
     } catch (e) {
       logger.e('ThumbnailCache init error', error: e);
     }
@@ -63,35 +63,28 @@ class ThumbnailCache {
   }
 
   Future<void> _cleanOldEntries() async {
-    if (_cacheDir == null) return;
+    final cacheDir = _cacheDir;
+    if (cacheDir == null) return;
     try {
-      final files = _cacheDir!.listSync().whereType<File>().toList();
-
-      // Delete files older than max age
-      for (final f in files) {
-        final stat = await f.stat();
-        if (DateTime.now().difference(stat.modified).inDays > _maxAgedays) {
-          await f.delete();
-        }
-      }
-
-      // If still too large, delete oldest first
-      final remaining = _cacheDir!.listSync().whereType<File>().toList();
+      final remaining = <MapEntry<File, FileStat>>[];
       var totalBytes = 0;
-      for (final f in remaining) {
-        totalBytes += await f.length();
+      await for (final entity in cacheDir.list(followLinks: false)) {
+        if (entity is! File) continue;
+        final stat = await entity.stat();
+        if (DateTime.now().difference(stat.modified).inDays > _maxAgedays) {
+          await entity.delete();
+          continue;
+        }
+        remaining.add(MapEntry(entity, stat));
+        totalBytes += stat.size;
       }
 
       if (totalBytes > _maxCacheSizeMB * 1024 * 1024) {
-        remaining.sort((a, b) {
-          final aStat = a.statSync();
-          final bStat = b.statSync();
-          return aStat.modified.compareTo(bStat.modified);
-        });
-        for (final f in remaining) {
+        remaining.sort((a, b) => a.value.modified.compareTo(b.value.modified));
+        for (final entry in remaining) {
           if (totalBytes <= _maxCacheSizeMB * 1024 * 1024 * 0.8) break;
-          totalBytes -= await f.length();
-          await f.delete();
+          totalBytes -= entry.value.size;
+          await entry.key.delete();
         }
       }
     } catch (e) {

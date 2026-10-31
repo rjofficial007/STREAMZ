@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
+import 'package:streamz/core/constants/app_strings.dart';
 import 'package:streamz/core/di/service_locator.dart';
 import 'package:streamz/core/navigation/app_router.dart';
 import 'package:streamz/core/theme/app_theme.dart';
@@ -112,7 +113,7 @@ class _StreamzAppState extends State<StreamzApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final themeService = context.watch<ThemeService>();
     return MaterialApp.router(
-      title: 'STREAMZ',
+      title: AppStrings.appTitle,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.themeFor(
         themeService.currentTheme,

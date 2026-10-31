@@ -135,6 +135,7 @@ class PlayerViewModel extends ChangeNotifier {
   bool get isRecovering => _isRecovering;
   bool get isRetryInFlight => _retryInFlight;
   int get retryAttempt => _retryAttempt;
+  Duration get recoveryPosition => _recoveryPosition;
   String? get intercomMessage => _intercomMessage;
   bool get isStopped => _playerService.isStopped;
   List<Color>? get vibeColors => _playerService.vibeColors;
@@ -184,6 +185,9 @@ class PlayerViewModel extends ChangeNotifier {
     bool autoPlay = true,
   }) async {
     _clearPlaybackRecovery(resetAttempts: true, notify: false);
+    final clientViewModel = sl<ClientViewModel>();
+    final stationId = clientViewModel.takeStationId();
+    final stationRevision = clientViewModel.takeStationRevision();
     try {
       await _playerService.load(
         items: items,
@@ -191,6 +195,8 @@ class PlayerViewModel extends ChangeNotifier {
         isPathBased: isPathBased,
         startOffset: startOffset,
         autoPlay: autoPlay,
+        stationId: stationId,
+        stationRevision: stationRevision,
       );
     } catch (error) {
       _handlePlaybackError(error.toString());
@@ -250,7 +256,7 @@ class PlayerViewModel extends ChangeNotifier {
 
   Future<void> setRate(double rate) async {
     await _playerService.setRate(rate);
-    _showGestureFeedback('${rate}x SPEED');
+    _showGestureFeedback('$rate× speed');
   }
 
   Future<void> play() async {
@@ -309,6 +315,14 @@ class PlayerViewModel extends ChangeNotifier {
   void _handlePlaybackError(String message) {
     if (_isDisposed || current == null || isStopped) return;
     _playbackIssue = PlaybackIssue.fromMessage(message);
+    final savedSeconds = current!.isBroadcast
+        ? 0
+        : _repo.getProgress(current!.id);
+    final savedPosition = Duration(seconds: savedSeconds);
+    final playbackPosition = player.state.position;
+    _recoveryPosition = playbackPosition > savedPosition
+        ? playbackPosition
+        : savedPosition;
     if (_playbackIssue!.canAutoRetry && _playerService.shouldBePlaying) {
       _recoveryCheckTimer?.cancel();
       _isRecovering = true;
@@ -432,23 +446,23 @@ class PlayerViewModel extends ChangeNotifier {
 
   Future<void> setAudioTrack(AudioTrack track) async {
     await _playerService.setAudioTrack(track);
-    _showGestureFeedback('AUDIO: ${track.title ?? track.language ?? track.id}');
+    _showGestureFeedback('Audio: ${track.title ?? track.language ?? track.id}');
   }
 
   Future<void> setSubtitleTrack(SubtitleTrack track) async {
     await _playerService.setSubtitleTrack(track);
     final label = track.id == 'no'
-        ? 'OFF'
+        ? 'Off'
         : (track.title ?? track.language ?? track.id);
-    _showGestureFeedback('SUBTITLES: $label');
+    _showGestureFeedback('Subtitles: $label');
   }
 
   void setVideoFit(BoxFit fit) {
     _videoFit = fit;
     final label = fit == BoxFit.contain
-        ? 'FIT'
-        : (fit == BoxFit.cover ? 'FILL' : 'STRETCH');
-    _showGestureFeedback('ASPECT: $label');
+        ? 'Fit'
+        : (fit == BoxFit.cover ? 'Fill' : 'Stretch');
+    _showGestureFeedback('Aspect: $label');
     notifyListeners();
   }
 
@@ -456,10 +470,10 @@ class PlayerViewModel extends ChangeNotifier {
     _sleepTimer?.cancel();
     if (minutes <= 0) {
       _sleepMinutesRemaining = 0;
-      _showGestureFeedback('SLEEP TIMER OFF');
+      _showGestureFeedback('Sleep timer off');
     } else {
       _sleepMinutesRemaining = minutes;
-      _showGestureFeedback('SLEEP IN $minutes MIN');
+      _showGestureFeedback('Sleep in $minutes min');
       _sleepTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
         if (_isDisposed) {
           timer.cancel();
@@ -469,7 +483,7 @@ class PlayerViewModel extends ChangeNotifier {
         if (_sleepMinutesRemaining <= 0) {
           _playerService.pause();
           timer.cancel();
-          _showGestureFeedback('SLEEP TIMER: PAUSED');
+          _showGestureFeedback('Sleep timer paused');
         }
         notifyListeners();
       });
@@ -481,26 +495,26 @@ class PlayerViewModel extends ChangeNotifier {
     final current = player.state.volume;
     final next = (current + delta).clamp(0.0, 100.0);
     player.setVolume(next);
-    _showGestureFeedback('VOLUME: ${next.toInt()}%');
+    _showGestureFeedback('Volume: ${next.toInt()}%');
   }
 
   void setAudioDelay(double delay) {
     _audioDelay = delay;
     _setProperty('audio-delay', delay.toStringAsFixed(3));
-    _showGestureFeedback('AUDIO DELAY: ${delay.toStringAsFixed(1)}S');
+    _showGestureFeedback('Audio delay: ${delay.toStringAsFixed(1)} sec');
     notifyListeners();
   }
 
   void setSubtitleDelay(double delay) {
     _subDelay = delay;
     _setProperty('sub-delay', delay.toStringAsFixed(3));
-    _showGestureFeedback('SUB DELAY: ${delay.toStringAsFixed(1)}S');
+    _showGestureFeedback('Subtitle delay: ${delay.toStringAsFixed(1)} sec');
     notifyListeners();
   }
 
   void toggleLock() {
     _isLocked = !_isLocked;
-    _showGestureFeedback(_isLocked ? 'UI LOCKED' : 'UI UNLOCKED');
+    _showGestureFeedback(_isLocked ? 'Controls locked' : 'Controls unlocked');
     if (!_isLocked) wakeOSD();
     notifyListeners();
   }

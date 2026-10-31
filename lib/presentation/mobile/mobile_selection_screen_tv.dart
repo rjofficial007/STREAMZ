@@ -1,6 +1,6 @@
 // presentation/mobile/mobile_selection_screen_tv.dart
 // ============================================================================
-// STREAMZ — Mobile Interface Selection Gateway (NOC Dashboard)
+// STREAMZ — Mobile interface selection on TV
 // ============================================================================
 
 import 'dart:async';
@@ -14,6 +14,7 @@ import 'package:streamz/core/theme/app_theme.dart';
 import 'package:streamz/core/theme/design_tokens.dart';
 import 'package:streamz/domain/models/broadcast_station.dart';
 import 'package:streamz/presentation/client/client_viewmodel.dart';
+import 'package:streamz/presentation/shared/app_connection_badge.dart';
 import 'package:streamz/presentation/shared/app_list_tile_card.dart';
 import 'package:streamz/presentation/shared/app_state_view.dart';
 
@@ -51,6 +52,8 @@ class _MobileSelectionScreenTVState extends State<MobileSelectionScreenTV> {
   Widget build(BuildContext context) {
     final vm = context.watch<ClientViewModel>();
     final tokens = context.tokens;
+    final size = MediaQuery.sizeOf(context);
+    final sidePadding = DS.hPad(size.width);
 
     return AppScaffold(
       body: SafeArea(
@@ -60,7 +63,7 @@ class _MobileSelectionScreenTVState extends State<MobileSelectionScreenTV> {
             _buildHeader(context, vm),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: DS.s80),
+                padding: EdgeInsets.symmetric(horizontal: sidePadding),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -69,9 +72,9 @@ class _MobileSelectionScreenTVState extends State<MobileSelectionScreenTV> {
                       children: [
                         Expanded(
                           child: _TVMobileModeCard(
-                            label: 'MODERN UI',
-                            subLabel: 'TOUCH-FRIENDLY DASHBOARD',
-                            code: 'MOB-01',
+                            label: 'Mobile dashboard',
+                            subLabel:
+                                'Browse your library with a touch-friendly layout',
                             icon: LucideIcons.tv,
                             onTap: () => context.push('/client/mobile/ui'),
                             autofocus: true,
@@ -80,22 +83,18 @@ class _MobileSelectionScreenTVState extends State<MobileSelectionScreenTV> {
                         const SizedBox(width: DS.s24),
                         Expanded(
                           child: _TVMobileModeCard(
-                            label: 'FILE SYSTEM',
-                            subLabel: 'RAW ASSET NAVIGATION',
-                            code: 'MOB-02',
+                            label: 'Browse files',
+                            subLabel: 'Open folders and choose media',
                             icon: LucideIcons.folderOpen,
-                            onTap: () =>
-                                context.push('/client/mobile/files'),
+                            onTap: () => context.push('/client/mobile/files'),
                           ),
                         ),
                         const SizedBox(width: DS.s24),
                         Expanded(
                           child: _TVMobileModeCard(
-                            label: 'DISCONNECT',
-                            subLabel: 'TERMINATE SESSION',
-                            code: 'CMD-99',
+                            label: 'Disconnect',
+                            subLabel: 'Leave the connected server',
                             icon: LucideIcons.power,
-                            isWarning: true,
                             onTap: () {
                               vm.disconnect();
                               Navigator.pop(context);
@@ -127,13 +126,18 @@ class _MobileSelectionScreenTVState extends State<MobileSelectionScreenTV> {
                       GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              childAspectRatio: 4,
-                              crossAxisSpacing: DS.s24,
-                              mainAxisSpacing: DS.s16,
-                            ),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: DS.responsiveColumns(
+                            context,
+                            availableWidth: size.width - 2 * sidePadding,
+                            spacing: DS.s24,
+                            minTileWidth: 320,
+                            maxColumns: 4,
+                          ),
+                          childAspectRatio: 4,
+                          crossAxisSpacing: DS.s24,
+                          mainAxisSpacing: DS.s16,
+                        ),
                         itemCount: vm.stations.length,
                         itemBuilder: (context, index) {
                           final station = vm.stations[index];
@@ -152,7 +156,6 @@ class _MobileSelectionScreenTVState extends State<MobileSelectionScreenTV> {
                 ),
               ),
             ),
-            _buildFooter(context),
           ],
         ),
       ),
@@ -160,118 +163,69 @@ class _MobileSelectionScreenTVState extends State<MobileSelectionScreenTV> {
   }
 
   Widget _buildHeader(BuildContext context, ClientViewModel vm) {
-    final tokens = context.tokens;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: DS.s80, vertical: DS.s40),
+    final size = MediaQuery.sizeOf(context);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        DS.hPad(size.width),
+        (size.height * 0.04).clamp(16.0, 40.0),
+        DS.hPad(size.width),
+        0,
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'MOBILE INTERFACE // SESSION ANALYSIS',
-                  style: AppTextStyles.style(
-                    color: tokens.textPrimary,
-                    fontSize: 32,
-                    fontWeight: AppTextStyles.titleFontWeight,
-                    letterSpacing: 0.8,
+                  'Mobile experience',
+                  style: AppTextStyles.heading(
+                    (size.width * 0.025).clamp(24.0, 38.0),
+                    color: context.tokens.textPrimary,
                   ),
                 ),
-                const SizedBox(height: DS.s8),
-                Container(height: 2, width: 200, color: tokens.accent),
+                const SizedBox(height: DS.s4),
+                Text(
+                  'Choose how to browse and play your shared media.',
+                  style: AppTextStyles.body.copyWith(
+                    color: context.tokens.textMuted,
+                  ),
+                ),
               ],
             ),
           ),
-          const _StatusModule(label: 'ACTIVE MODE', value: 'MOBILE MODE'),
-          const SizedBox(width: DS.s48),
-          _StatusModule(label: 'HOST IP', value: vm.targetIp.toUpperCase()),
-          const SizedBox(width: DS.s48),
-          _StatusModule(
-            label: 'ASSETS',
-            value: '${vm.remoteMedia.length} INDEXED',
+          const SizedBox(width: DS.s16),
+          AppConnectionBadge(
+            hostIp: vm.targetIp,
+            itemCount: vm.remoteMedia.length,
+            connectionPhase: vm.connectionPhase,
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFooter(BuildContext context) {
-    final tokens = context.tokens;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: DS.s80, vertical: DS.s40),
-      child: Row(
-        children: [
-          Text(
-            'SIGNAL ANALYSIS: OPTIMAL // LATENCY: LOW // ENCRYPTION: NONE',
-            style: AppTextStyles.caption.copyWith(
-              color: tokens.textMuted,
-              letterSpacing: 0.5,
-            ),
-          ),
-          const Spacer(),
-          const _BlinkingDotTV(),
         ],
       ),
     );
   }
 
   Widget _buildEmptySignals() => const AppStateView(
-    title: 'No live broadcasts',
-    description: 'Active broadcasts from your network will appear here.',
+    title: 'No live broadcasts yet',
+    description: 'Active streams from this server will appear here.',
     icon: LucideIcons.radioTower,
   );
-}
-
-class _StatusModule extends StatelessWidget {
-  const _StatusModule({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTextStyles.caption.copyWith(
-            color: tokens.textMuted,
-            letterSpacing: 0.2,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: AppTextStyles.bodyLarge.copyWith(
-            color: tokens.textPrimary,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _TVMobileModeCard extends StatefulWidget {
   const _TVMobileModeCard({
     required this.label,
     required this.subLabel,
-    required this.code,
     required this.icon,
     required this.onTap,
     this.autofocus = false,
-    this.isWarning = false,
   });
   final String label;
   final String subLabel;
-  final String code;
   final IconData icon;
   final VoidCallback onTap;
   final bool autofocus;
-  final bool isWarning;
 
   @override
   State<_TVMobileModeCard> createState() => _TVMobileModeCardState();
@@ -284,9 +238,8 @@ class _TVMobileModeCardState extends State<_TVMobileModeCard> {
   Widget build(BuildContext context) {
     final tokens = context.tokens;
     final bgColor = _isFocused ? tokens.surface3 : tokens.surface1;
-    final borderColor = _isFocused
-        ? (widget.isWarning ? tokens.error : tokens.accent)
-        : tokens.border;
+    final borderColor = _isFocused ? tokens.focusColor : tokens.border;
+    final size = MediaQuery.sizeOf(context);
 
     return Focus(
       autofocus: widget.autofocus,
@@ -301,18 +254,19 @@ class _TVMobileModeCardState extends State<_TVMobileModeCard> {
           scale: _isFocused ? 1.02 : 1.0,
           duration: const Duration(milliseconds: 150),
           child: Container(
-            height: 240,
+            constraints: BoxConstraints(
+              minHeight: (size.height * 0.3).clamp(180.0, 300.0).toDouble(),
+            ),
+            padding: const EdgeInsets.all(DS.s20),
             decoration: BoxDecoration(
               color: bgColor,
               borderRadius: BorderRadius.circular(DS.radius(24)),
-              border: Border.all(color: borderColor, width: _isFocused ? 4 : 1),
+              border: Border.all(color: borderColor, width: _isFocused ? 3 : 1),
               boxShadow: _isFocused
                   ? [
                       BoxShadow(
-                        color: (widget.isWarning ? tokens.error : tokens.accent)
-                            .withValues(alpha: 0.2),
-                        blurRadius: 20,
-                        spreadRadius: 5,
+                        color: tokens.focusShadow.withValues(alpha: 0.12),
+                        blurRadius: 24,
                       ),
                     ]
                   : [],
@@ -321,107 +275,47 @@ class _TVMobileModeCardState extends State<_TVMobileModeCard> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'SYS_TYPE // ${widget.code}',
-                    style: AppTextStyles.caption.copyWith(
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: tokens.surface2,
+                      borderRadius: BorderRadius.circular(DS.radius(20)),
+                    ),
+                    child: Icon(
+                      widget.icon,
                       color: _isFocused
                           ? tokens.textPrimary
-                          : tokens.textMuted,
-                      letterSpacing: 0.5,
+                          : tokens.textSecondary,
+                      size: 30,
                     ),
                   ),
-                  const SizedBox(height: DS.s24),
-                  Icon(
-                    widget.icon,
-                    color: _isFocused
-                        ? (widget.isWarning
-                              ? tokens.error
-                              : tokens.textPrimary)
-                        : tokens.textSecondary,
-                    size: 48,
-                  ),
-                  const SizedBox(height: DS.s24),
+                  const SizedBox(height: DS.s20),
                   Text(
                     widget.label,
                     style: AppTextStyles.headline.copyWith(
                       color: tokens.textPrimary,
-                      letterSpacing: 0.8,
                       fontWeight: AppTextStyles.titleFontWeight,
                     ),
                     textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: DS.s4),
                   Text(
                     widget.subLabel,
                     style: AppTextStyles.caption.copyWith(
-                      color: _isFocused
-                          ? tokens.textPrimary
-                          : tokens.textMuted,
-                      letterSpacing: 0.2,
+                      color: tokens.textMuted,
                     ),
                     textAlign: TextAlign.center,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _BlinkingDotTV extends StatefulWidget {
-  const _BlinkingDotTV();
-
-  @override
-  State<_BlinkingDotTV> createState() => _BlinkingDotTVState();
-}
-
-class _BlinkingDotTVState extends State<_BlinkingDotTV>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = context.tokens;
-    return FadeTransition(
-      opacity: _ctrl,
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: tokens.success,
-              boxShadow: [BoxShadow(color: tokens.success, blurRadius: 6)],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            'SIGNAL ESTABLISHED',
-            style: AppTextStyles.caption.copyWith(
-              color: tokens.textPrimary,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
       ),
     );
   }

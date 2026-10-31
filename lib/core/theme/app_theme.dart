@@ -35,6 +35,7 @@ abstract final class AppTheme {
       scaffoldBackgroundColor: Colors.transparent,
       primaryTextTheme: baseTheme.primaryTextTheme.apply(
         fontFamily: fontFamily,
+        decoration: TextDecoration.none,
       ),
       primaryColor: tokens.primary,
       canvasColor: tokens.surface1,
@@ -56,7 +57,7 @@ abstract final class AppTheme {
         shadowColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        centerTitle: false,
+        centerTitle: true,
         iconTheme: IconThemeData(color: tokens.textPrimary),
         titleTextStyle: AppTextStyles.style(
           fontSize: 18,
@@ -216,43 +217,52 @@ abstract final class AppTheme {
         onSurface: tokens.textPrimary,
       ),
       textTheme: baseTheme.textTheme
-          .apply(fontFamily: fontFamily)
+          .apply(
+            fontFamily: fontFamily,
+            decoration: TextDecoration.none,
+          )
           .copyWith(
-        displayLarge: AppTextStyles.display(64, color: tokens.textPrimary),
-        displayMedium: AppTextStyles.display(48, color: tokens.textPrimary),
-        displaySmall: AppTextStyles.display(36, color: tokens.textPrimary),
-        headlineLarge: AppTextStyles.heading(32, color: tokens.textPrimary),
-        headlineMedium: AppTextStyles.headline.copyWith(
-          color: tokens.textPrimary,
-        ),
-        headlineSmall: AppTextStyles.sectionTitle.copyWith(
-          color: tokens.textPrimary,
-        ),
-        titleLarge: AppTextStyles.titleLarge.copyWith(
-          color: tokens.textPrimary,
-        ),
-        titleMedium: AppTextStyles.title.copyWith(color: tokens.textPrimary),
-        titleSmall: AppTextStyles.bodyLarge.copyWith(
-          color: tokens.textPrimary,
-          fontWeight: AppTextStyles.titleFontWeight,
-        ),
-        bodyLarge: AppTextStyles.bodyLarge.copyWith(
-          color: tokens.textSecondary,
-        ),
-        bodyMedium: AppTextStyles.body.copyWith(color: tokens.textSecondary),
-        bodySmall: AppTextStyles.supporting.copyWith(color: tokens.textMuted),
-        labelLarge: AppTextStyles.body.copyWith(
-          color: tokens.textPrimary,
-          fontWeight: FontWeight.w600,
-        ),
-        labelMedium: AppTextStyles.supporting.copyWith(
-          color: tokens.textPrimary,
-          fontWeight: FontWeight.w500,
-        ),
-        labelSmall: AppTextStyles.caption.copyWith(
-          color: tokens.textMuted,
-          fontWeight: FontWeight.w500,
-        ),
+            displayLarge: AppTextStyles.display(64, color: tokens.textPrimary),
+            displayMedium: AppTextStyles.display(48, color: tokens.textPrimary),
+            displaySmall: AppTextStyles.display(36, color: tokens.textPrimary),
+            headlineLarge: AppTextStyles.heading(32, color: tokens.textPrimary),
+            headlineMedium: AppTextStyles.headline.copyWith(
+              color: tokens.textPrimary,
+            ),
+            headlineSmall: AppTextStyles.sectionTitle.copyWith(
+              color: tokens.textPrimary,
+            ),
+            titleLarge: AppTextStyles.titleLarge.copyWith(
+              color: tokens.textPrimary,
+            ),
+            titleMedium: AppTextStyles.title.copyWith(
+              color: tokens.textPrimary,
+            ),
+            titleSmall: AppTextStyles.bodyLarge.copyWith(
+              color: tokens.textPrimary,
+              fontWeight: AppTextStyles.titleFontWeight,
+            ),
+            bodyLarge: AppTextStyles.bodyLarge.copyWith(
+              color: tokens.textSecondary,
+            ),
+            bodyMedium: AppTextStyles.body.copyWith(
+              color: tokens.textSecondary,
+            ),
+            bodySmall: AppTextStyles.supporting.copyWith(
+              color: tokens.textMuted,
+            ),
+            labelLarge: AppTextStyles.body.copyWith(
+              color: tokens.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
+            labelMedium: AppTextStyles.supporting.copyWith(
+              color: tokens.textPrimary,
+              fontWeight: FontWeight.w500,
+            ),
+            labelSmall: AppTextStyles.caption.copyWith(
+              color: tokens.textMuted,
+              fontWeight: FontWeight.w500,
+            ),
       ),
     );
   }
@@ -470,7 +480,7 @@ class AppSliverAppBar extends StatelessWidget {
     actions: actions,
     bottom: bottom,
     automaticallyImplyLeading: automaticallyImplyLeading,
-    centerTitle: centerTitle,
+    centerTitle: centerTitle ?? true,
     floating: floating,
     pinned: pinned,
     snap: snap,
@@ -614,11 +624,13 @@ class AppCard extends StatefulWidget {
     this.onTap,
     this.onLongPress,
     this.onFocusChanged,
+    this.focusNode,
   });
   final Widget child;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final ValueChanged<bool>? onFocusChanged;
+  final FocusNode? focusNode;
 
   @override
   State<AppCard> createState() => _AppCardState();
@@ -658,6 +670,7 @@ class _AppCardState extends State<AppCard> {
           borderRadius: BorderRadius.circular(DS.radiusMd),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
+            focusNode: widget.focusNode,
             canRequestFocus: interactive,
             onTap: widget.onTap,
             onLongPress: widget.onLongPress,
@@ -853,37 +866,76 @@ class AppActionCard extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.isActive = false,
+    this.statusLabel,
   });
 
   final String label;
   final IconData icon;
   final VoidCallback onTap;
   final bool isActive;
+  final String? statusLabel;
 
   @override
-  Widget build(BuildContext context) => AppCard(
-    onTap: onTap,
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: DS.s12, vertical: DS.s16),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 24,
-            color: isActive
-                ? context.tokens.success
-                : context.tokens.textPrimary,
-          ),
-          const SizedBox(height: DS.s12),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w500),
-          ),
-        ],
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: statusLabel == null ? null : isActive,
+    child: AppCard(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: DS.s12,
+          vertical: DS.s16,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 24,
+              color: isActive
+                  ? context.tokens.success
+                  : context.tokens.textPrimary,
+            ),
+            SizedBox(height: statusLabel == null ? DS.s12 : DS.s8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w500),
+            ),
+            if (statusLabel != null) ...[
+              const SizedBox(height: DS.s4),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isActive
+                        ? Icons.check_circle_outline_rounded
+                        : Icons.circle_outlined,
+                    size: 13,
+                    color: isActive
+                        ? context.tokens.textPrimary
+                        : context.tokens.textMuted,
+                  ),
+                  const SizedBox(width: DS.s4),
+                  Flexible(
+                    child: Text(
+                      statusLabel!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.caption.copyWith(
+                        color: isActive
+                            ? context.tokens.textPrimary
+                            : context.tokens.textMuted,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
       ),
     ),
   );
@@ -950,22 +1002,42 @@ class NetworkImageFade extends StatelessWidget {
   final IconData fallbackIcon;
 
   @override
-  Widget build(BuildContext context) => CachedNetworkImage(
-    imageUrl: url,
-    fit: fit,
-    fadeInDuration: const Duration(milliseconds: 300),
-    placeholder: (_, _) => Container(
-      color: context.tokens.surface1,
-      child: Center(
-        child: Icon(fallbackIcon, color: context.tokens.textMuted, size: 32),
-      ),
-    ),
-    errorWidget: (_, _, _) => Container(
-      color: context.tokens.surface1,
-      child: Center(
-        child: Icon(fallbackIcon, color: context.tokens.textMuted, size: 32),
-      ),
-    ),
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+      int? decodeDimension(double logicalSize) {
+        if (!logicalSize.isFinite || logicalSize <= 0) return null;
+        return (logicalSize * pixelRatio).ceil().clamp(1, 4096).toInt();
+      }
+      final useWidth = constraints.maxWidth.isFinite &&
+          (!constraints.maxHeight.isFinite ||
+              constraints.maxWidth >= constraints.maxHeight);
+      final decodeSize = decodeDimension(
+        useWidth ? constraints.maxWidth : constraints.maxHeight,
+      );
+
+      return CachedNetworkImage(
+        imageUrl: url,
+        fit: fit,
+        // Set one dimension so the decoded image retains its source aspect
+        // ratio while staying close to the rendered pixel size.
+        memCacheWidth: useWidth ? decodeSize : null,
+        memCacheHeight: useWidth ? null : decodeSize,
+        fadeInDuration: const Duration(milliseconds: 300),
+        placeholder: (_, _) => Container(
+          color: context.tokens.surface1,
+          child: Center(
+            child: Icon(fallbackIcon, color: context.tokens.textMuted, size: 32),
+          ),
+        ),
+        errorWidget: (_, _, _) => Container(
+          color: context.tokens.surface1,
+          child: Center(
+            child: Icon(fallbackIcon, color: context.tokens.textMuted, size: 32),
+          ),
+        ),
+      );
+    },
   );
 }
 

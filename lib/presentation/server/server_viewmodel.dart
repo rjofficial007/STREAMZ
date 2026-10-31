@@ -39,33 +39,13 @@ class ServerViewModel extends ChangeNotifier {
     _loadStations();
     _wireCallbacks();
     _ensurePairingToken();
-    _httpServer.useModernWebUI = _useModernWebUI;
 
     // Subscribe to app lifecycle events from the root observer.
     _lifecycleBus.addManualListener(_onLifecycleChange);
 
     // Wire up ServerLifecycleService callbacks
-    _lifecycleService.onNetworkChange = (newIp) async {
-      if (!isRunning) return;
-      // [FIX C9] Generation token: if a newer change (or stopServer)
-      // supersedes this restart mid-flight, abandon it instead of
-      // interleaving.
-      final gen = ++_restartGeneration;
-      logger.i('[ServerVM] IP changed to $newIp, restarting server');
-      _serverIp = newIp;
-      await _httpServer.stop();
-      _broadcaster.stop();
-      if (gen != _restartGeneration) return; // superseded
-      _httpServer.pairingToken = _pairingToken;
-      await _httpServer.start(
-        ip: _serverIp,
-        sharedFolders: _sharedFolders,
-        getMediaItems: _getMediaItems,
-      );
-      if (gen != _restartGeneration) return; // superseded
-      await _broadcaster.start(_serverIp, _pairingToken);
-      notifyListeners();
-    };
+    _lifecycleService.onNetworkChange = (newIp) =>
+        unawaited(_refreshNetworkAnnouncement(newIp));
   }
   final HttpServerService _httpServer = sl<HttpServerService>();
   final UdpBroadcaster _broadcaster = sl<UdpBroadcaster>();
@@ -78,15 +58,17 @@ class ServerViewModel extends ChangeNotifier {
 
   // ── State ─────────────────────────────────────────────────────────────────
   bool _isInitializing = false;
+  bool _disposed = false;
   // [FIX C2] One-shot retry flag for port-in-use recovery.
   bool _startRetried = false;
   // [FIX C9] Restart generation token — rapid successive network changes
   // must not interleave stop/start pairs (a stale restart could resurrect a
   // server a newer change or a manual stop already tore down).
   int _restartGeneration = 0;
+  int _announcementGeneration = 0;
+  Future<void> _announcementUpdates = Future<void>.value();
   String _serverIp = 'Initializing...';
 
-  bool _useModernWebUI = true;
   bool _shareVideos = true;
   bool _shareImages = true;
   bool _shareMusic = true;
@@ -98,6 +80,7 @@ class ServerViewModel extends ChangeNotifier {
 
   // UI-facing timers — cancelled on widget dispose, NOT on server stop.
   Timer? _sessionPruneTimer;
+  Timer? _uiNotifyTimer;
   Timer? _speedTimer;
 
   int _lastBytesSent = 0;
@@ -107,7 +90,6 @@ class ServerViewModel extends ChangeNotifier {
   bool get isRunning => _httpServer.isRunning;
   bool get isInitializing => _isInitializing;
   String get serverIp => _serverIp;
-  bool get useModernWebUI => _useModernWebUI;
   bool get shareVideos => _shareVideos;
   bool get shareImages => _shareImages;
   bool get shareMusic => _shareMusic;
@@ -133,21 +115,32 @@ class ServerViewModel extends ChangeNotifier {
 
   void _wireCallbacks() {
     _httpServer.onSessionUpdate = (sessionId, session) {
+      if (_disposed) return;
       if (session == null) {
         _activeSessions.remove(sessionId);
       } else {
         _activeSessions[sessionId] = session;
       }
-      notifyListeners();
+      _scheduleUiNotification();
     };
 
     _httpServer.onConnection = (ip) async {
-      if (_zeroTrace) return;
+      if (_disposed || _zeroTrace) return;
       final changed = await _serverRepo.logAccess(ip);
-      if (changed) notifyListeners();
+      if (changed && !_disposed) notifyListeners();
     };
 
-    _httpServer.onSocketsChanged = notifyListeners;
+    _httpServer.onSocketsChanged = () {
+      if (!_disposed) notifyListeners();
+    };
+  }
+
+  void _scheduleUiNotification() {
+    if (_disposed) return;
+    _uiNotifyTimer ??= Timer(const Duration(milliseconds: 100), () {
+      _uiNotifyTimer = null;
+      if (!_disposed) notifyListeners();
+    });
   }
 
   // ── App Lifecycle ─────────────────────────────────────────────────────────
@@ -167,10 +160,11 @@ class ServerViewModel extends ChangeNotifier {
     var retryGeneration = _restartGeneration;
 
     try {
+      if (!await _networkService.ensureLocalNetworkAccess()) {
+        _serverIp = 'Local network access is required';
+        return;
+      }
       _serverIp = await _networkService.detectIp();
-
-      // Acquire keep-alive mechanisms BEFORE the server starts.
-      await _lifecycleService.acquire(serverIp: _serverIp);
 
       // Scan media...
       await _scanner.scanPhotoManager(
@@ -187,7 +181,7 @@ class ServerViewModel extends ChangeNotifier {
           includeVideos: _shareVideos,
           includeAudio: _shareMusic,
           includeImages: _shareImages,
-          onBatch: (_) => notifyListeners(),
+          onBatch: (_) => _scheduleUiNotification(),
         );
       }
 
@@ -196,9 +190,15 @@ class ServerViewModel extends ChangeNotifier {
         ip: _serverIp,
         sharedFolders: _sharedFolders,
         getMediaItems: _getMediaItems,
+        getMediaRevision: _getMediaRevision,
       );
 
-      await _broadcaster.start(_serverIp, _pairingToken);
+      // Hold background resources only for the serving phase, not for the
+      // potentially long media-indexing phase.
+      await _lifecycleService.acquire(serverIp: _serverIp);
+      if (_serverIp != 'No Network') {
+        await _broadcaster.start(_serverIp, _pairingToken);
+      }
       _startUITimers();
       _startRetried = false; // success — re-arm the one-shot retry
     } catch (e) {
@@ -229,6 +229,27 @@ class ServerViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> _refreshNetworkAnnouncement(String? newIp) {
+    final generation = ++_announcementGeneration;
+    final update = _announcementUpdates.then((_) async {
+      if (!isRunning || generation != _announcementGeneration) return;
+      _serverIp = newIp ?? 'No Network';
+      await _broadcaster.stop();
+      if (newIp != null) {
+        await _broadcaster.start(newIp, _pairingToken);
+      }
+      if (generation != _announcementGeneration || !isRunning) {
+        await _broadcaster.stop();
+        return;
+      }
+      if (!_disposed) notifyListeners();
+    });
+    _announcementUpdates = update.catchError((Object error) {
+      logger.w('[ServerVM] Network announcement update failed', error: error);
+    });
+    return _announcementUpdates;
+  }
+
   Future<void> stopServer() async {
     logger.i('[ServerVM] Stopping server...');
     _restartGeneration++; // [FIX C9] invalidate any in-flight restart
@@ -237,7 +258,7 @@ class ServerViewModel extends ChangeNotifier {
 
     try {
       await Future.any([
-        Future.wait([_httpServer.stop(), Future.microtask(_broadcaster.stop)]),
+        Future.wait([_httpServer.stop(), _broadcaster.stop()]),
         Future.delayed(
           const Duration(seconds: 3),
           () => logger.w('[ServerVM] Stop timeout'),
@@ -260,6 +281,9 @@ class ServerViewModel extends ChangeNotifier {
     shareMusic: _shareMusic,
     shareImages: _shareImages,
   );
+
+  String _getMediaRevision() =>
+      '${_mediaRepo.localCatalogRevision}:${_shareVideos ? 1 : 0}:${_shareMusic ? 1 : 0}:${_shareImages ? 1 : 0}';
 
   List<MediaItem> getLocalMediaItems({
     bool? shareVideos,
@@ -360,14 +384,13 @@ class ServerViewModel extends ChangeNotifier {
   // ── Settings ──────────────────────────────────────────────────────────────
 
   /// [E1] Restore server settings so a restart doesn't wipe mounted
-  /// folders, filters, the web-UI toggle, or no-trace mode.
+  /// folders, filters, or no-trace mode.
   void _loadSettings() {
     final s = _serverRepo.loadSettings();
     final folders = s['sharedFolders'];
     if (folders is List) {
       _sharedFolders = folders.whereType<String>().toList();
     }
-    _useModernWebUI = s['useModernWebUI'] as bool? ?? _useModernWebUI;
     _shareVideos = s['shareVideos'] as bool? ?? _shareVideos;
     _shareImages = s['shareImages'] as bool? ?? _shareImages;
     _shareMusic = s['shareMusic'] as bool? ?? _shareMusic;
@@ -378,20 +401,12 @@ class ServerViewModel extends ChangeNotifier {
     unawaited(
       _serverRepo.saveSettings({
         'sharedFolders': _sharedFolders,
-        'useModernWebUI': _useModernWebUI,
         'shareVideos': _shareVideos,
         'shareImages': _shareImages,
         'shareMusic': _shareMusic,
         'zeroTrace': _zeroTrace,
       }),
     );
-  }
-
-  void setUseModernWebUI(bool v) {
-    _useModernWebUI = v;
-    _httpServer.useModernWebUI = v;
-    _saveSettings();
-    notifyListeners();
   }
 
   void setShareVideos(bool v) {
@@ -607,8 +622,10 @@ class ServerViewModel extends ChangeNotifier {
   void dispose() {
     // CRITICAL: Do NOT call stopServer() here.
     // The HTTP server must outlive the ServerDashboard widget.
+    _disposed = true;
     _speedTimer?.cancel();
     _sessionPruneTimer?.cancel();
+    _uiNotifyTimer?.cancel();
     _lifecycleBus.removeManualListener(_onLifecycleChange);
     _speedUpdates.dispose();
     super.dispose();

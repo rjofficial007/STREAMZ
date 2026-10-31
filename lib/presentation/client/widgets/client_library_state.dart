@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:streamz/core/constants/app_icons.dart';
 import 'package:streamz/core/constants/app_strings.dart';
+import 'package:streamz/domain/models/client_connection_phase.dart';
 import 'package:streamz/presentation/shared/app_state_view.dart';
 
-/// Shared loading, disconnected, and empty states for the mobile and TV library.
+/// Shared connection-aware loading, error, and empty states for client libraries.
 class ClientLibraryStateView extends StatelessWidget {
   const ClientLibraryStateView({
     super.key,
     required this.isLoading,
-    required this.isConnected,
+    required this.connectionPhase,
     required this.onReconnect,
     this.error,
+    this.onRefresh,
   });
 
   final bool isLoading;
-  final bool isConnected;
+  final ClientConnectionPhase connectionPhase;
   final String? error;
   final VoidCallback onReconnect;
+  final VoidCallback? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -27,17 +30,41 @@ class ClientLibraryStateView extends StatelessWidget {
       );
     }
 
-    if (!isConnected) {
+    final progressTitle = switch (connectionPhase) {
+      ClientConnectionPhase.discovering => 'Finding server',
+      ClientConnectionPhase.connecting => 'Connecting to server',
+      ClientConnectionPhase.reconnecting => 'Reconnecting to server',
+      _ => null,
+    };
+    if (progressTitle != null) {
+      return AppStateView(
+        kind: AppStateKind.loading,
+        title: progressTitle,
+        description: connectionPhase == ClientConnectionPhase.reconnecting
+            ? 'Your connection will resume automatically.'
+            : null,
+      );
+    }
+
+    if (connectionPhase == ClientConnectionPhase.failed ||
+        connectionPhase == ClientConnectionPhase.degraded ||
+        connectionPhase == ClientConnectionPhase.idle) {
       final message = error?.trim();
       return AppStateView(
         kind: AppStateKind.error,
-        title: 'Server disconnected',
+        title: connectionPhase == ClientConnectionPhase.degraded
+            ? 'Shared media unavailable'
+            : 'Server disconnected',
         description: message == null || message.isEmpty
             ? 'Reconnect to browse shared media.'
             : message,
         icon: AppIcons.wifiOff,
-        actionLabel: 'Reconnect',
-        onAction: onReconnect,
+        actionLabel: connectionPhase == ClientConnectionPhase.degraded
+            ? 'Retry'
+            : 'Reconnect',
+        onAction: connectionPhase == ClientConnectionPhase.degraded
+            ? onRefresh ?? onReconnect
+            : onReconnect,
       );
     }
 

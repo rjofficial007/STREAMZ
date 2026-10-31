@@ -1,9 +1,8 @@
 // core/constants/app_strings.dart
 
 abstract final class AppStrings {
-  static const appTitle = 'STREAMZ';
+  static const appTitle = 'Hestia';
   static const studio = 'Studio';
-  static const streamzStudio = appTitle;
 
   static const back = 'Back';
   static const play = 'Play';
@@ -14,11 +13,15 @@ abstract final class AppStrings {
   static const queue = 'Queue';
   static const vote = 'Vote';
   static const sharedQueue = 'Shared queue';
-  static const voteForNextSignal = 'Choose what plays next';
-  static const queueEmpty = 'Your queue is empty';
+  static const voteForNextSignal = 'Vote on what plays next';
+  static const queueEmpty = 'Nothing queued yet';
 
   static const continueWatching = 'Continue watching';
   static const recentlyPlayed = 'Recently played';
+  static const favorites = 'Favorites';
+  static const addToFavorites = 'Add to favorites';
+  static const removeFromFavorites = 'Remove from favorites';
+  static const upNext = 'Up next';
 
   static const videoArchive = 'Videos';
 
